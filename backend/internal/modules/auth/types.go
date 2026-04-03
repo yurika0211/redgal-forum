@@ -7,9 +7,11 @@ type RegisterRequest struct {
 }
 
 type RegisterResult struct {
-	UserID   string `json:"user_id"`
-	Username string `json:"username"`
-	Status   string `json:"status"`
+	UserID   string   `json:"user_id"`
+	Username string   `json:"username"`
+	Status   string   `json:"status"`
+	Verified bool     `json:"verified"`
+	Roles    []string `json:"roles"`
 }
 
 type LoginRequest struct {

@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"encoding/base64"
 	"net/http"
 	"strings"
 
@@ -18,10 +17,12 @@ func OptionalAuth(cfg config.AuthConfig) gin.HandlerFunc {
 			debugUser := strings.TrimSpace(c.GetHeader("X-Debug-User"))
 			if debugUser != "" {
 				principal = security.Principal{
-					UserID:    debugUser,
-					Username:  debugUser,
-					Roles:     parseRoles(c.GetHeader("X-Debug-Roles")),
-					Anonymous: false,
+					UserID:     debugUser,
+					Username:   debugUser,
+					UserStatus: "active",
+					Verified:   true,
+					Roles:      parseRoles(c.GetHeader("X-Debug-Roles")),
+					Anonymous:  false,
 				}
 			}
 		}
@@ -29,7 +30,7 @@ func OptionalAuth(cfg config.AuthConfig) gin.HandlerFunc {
 		if !principal.Authenticated() {
 			token := bearerToken(c.GetHeader("Authorization"))
 			if token != "" {
-				principal = principalFromToken(token)
+				principal = principalFromToken(cfg, token)
 			}
 		}
 
@@ -70,6 +71,22 @@ func RequireRoles(roles ...security.Role) gin.HandlerFunc {
 	}
 }
 
+func RequireVerifiedUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		principal := security.FromContext(c)
+		if !principal.IsVerifiedUser() {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"ok":         false,
+				"error":      "verified user required",
+				"request_id": RequestIDFromGin(c),
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func bearerToken(header string) string {
 	if len(header) < len("Bearer ")+1 {
 		return ""
@@ -91,7 +108,7 @@ func parseRoles(raw string) []security.Role {
 	roles := make([]security.Role, 0, len(parts))
 	for _, part := range parts {
 		role := security.Role(strings.TrimSpace(part))
-		if role == "" {
+		if role == "" || !isKnownRole(role) {
 			continue
 		}
 
@@ -105,29 +122,25 @@ func parseRoles(raw string) []security.Role {
 	return roles
 }
 
-func principalFromToken(token string) security.Principal {
-	username := "member"
+func isKnownRole(role security.Role) bool {
+	switch role {
+	case security.RoleGuest,
+		security.RoleUnverified,
+		security.RoleMember,
+		security.RoleModerator,
+		security.RoleAdmin,
+		security.RoleSuperAdmin:
+		return true
+	default:
+		return false
+	}
+}
 
-	for _, prefix := range []string{"scaffold-access.", "scaffold-refresh."} {
-		if !strings.HasPrefix(token, prefix) {
-			continue
-		}
-
-		encodedIdentity := strings.TrimPrefix(token, prefix)
-		decodedIdentity, err := base64.RawURLEncoding.DecodeString(encodedIdentity)
-		if err == nil {
-			candidate := strings.TrimSpace(string(decodedIdentity))
-			if candidate != "" {
-				username = candidate
-			}
-		}
-		break
+func principalFromToken(cfg config.AuthConfig, token string) security.Principal {
+	principal, ok := security.ParseScaffoldAccessToken(cfg.JWTSecret, token)
+	if !ok {
+		return security.Guest()
 	}
 
-	return security.Principal{
-		UserID:    username,
-		Username:  username,
-		Roles:     []security.Role{security.RoleMember},
-		Anonymous: false,
-	}
+	return principal
 }

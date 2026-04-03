@@ -24,11 +24,10 @@ func Error(c *gin.Context, status int, message string) {
 }
 
 func NotImplemented(c *gin.Context, capability string) {
-	Accepted(c, gin.H{
-		"status":     "scaffolded",
+	write(c, http.StatusNotImplemented, gin.H{
+		"status":     "not_implemented",
 		"capability": capability,
-		"message":    "business logic is intentionally deferred in this scaffold",
-	})
+	}, "business logic for this capability is not implemented yet")
 }
 
 func write(c *gin.Context, status int, data any, message string) {

@@ -28,8 +28,10 @@ type HTTPConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret         string
-	AllowDebugHeaders bool
+	JWTSecret             string
+	AllowDebugHeaders     bool
+	AllowScaffoldLogin    bool
+	ScaffoldLoginPassword string
 }
 
 type PostgresConfig struct {
@@ -52,18 +54,22 @@ type MeilisearchConfig struct {
 }
 
 func Load() Config {
+	appEnv := getEnv("APP_ENV", "development")
+
 	return Config{
 		App: AppConfig{
 			Name: getEnv("APP_NAME", "rubedo-backend"),
-			Env:  getEnv("APP_ENV", "development"),
+			Env:  appEnv,
 		},
 		HTTP: HTTPConfig{
 			Host: getEnv("HTTP_HOST", "0.0.0.0"),
 			Port: getEnvInt("HTTP_PORT", 8080),
 		},
 		Auth: AuthConfig{
-			JWTSecret:         getEnv("AUTH_JWT_SECRET", "replace-me"),
-			AllowDebugHeaders: getEnvBool("AUTH_ALLOW_DEBUG_HEADERS", true),
+			JWTSecret:             getEnv("AUTH_JWT_SECRET", "replace-me"),
+			AllowDebugHeaders:     getEnvBool("AUTH_ALLOW_DEBUG_HEADERS", false),
+			AllowScaffoldLogin:    getEnvBool("AUTH_ALLOW_SCAFFOLD_LOGIN", appEnv == "development"),
+			ScaffoldLoginPassword: getEnv("AUTH_SCAFFOLD_LOGIN_PASSWORD", "dev-password-change-me"),
 		},
 		Postgres: PostgresConfig{
 			DSN: strings.TrimSpace(os.Getenv("POSTGRES_DSN")),

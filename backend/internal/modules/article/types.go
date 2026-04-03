@@ -33,3 +33,8 @@ type UpdateArticleRequest struct {
 	Visibility Visibility `json:"visibility"`
 	Tags       []string   `json:"tags"`
 }
+
+type DeleteArticleResult struct {
+	ArticleID string `json:"article_id"`
+	Status    string `json:"status"`
+}

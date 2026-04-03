@@ -36,3 +36,14 @@ type CreateReplyRequest struct {
 	Content   string `json:"content" binding:"required"`
 	Anonymous bool   `json:"anonymous"`
 }
+
+type DeleteThreadResult struct {
+	ThreadID string `json:"thread_id"`
+	Status   string `json:"status"`
+}
+
+type DeleteReplyResult struct {
+	ThreadID string `json:"thread_id"`
+	ReplyID  string `json:"reply_id"`
+	Status   string `json:"status"`
+}

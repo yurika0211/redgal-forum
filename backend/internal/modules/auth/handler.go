@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +27,11 @@ func (h *Handler) Register(c *gin.Context) {
 
 	result, err := h.service.Register(c.Request.Context(), input)
 	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "auth.register")
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -41,7 +48,15 @@ func (h *Handler) Login(c *gin.Context) {
 
 	session, err := h.service.Login(c.Request.Context(), input)
 	if err != nil {
-		response.Error(c, http.StatusUnauthorized, err.Error())
+		switch {
+		case errors.Is(err, ErrInvalidCredentials):
+			response.Error(c, http.StatusUnauthorized, err.Error())
+		case errors.Is(err, ErrScaffoldLoginDisabled):
+			response.NotImplemented(c, "auth.login")
+		default:
+			response.Error(c, http.StatusInternalServerError, err.Error())
+		}
+
 		return
 	}
 

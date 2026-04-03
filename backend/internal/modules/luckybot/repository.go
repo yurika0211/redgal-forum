@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"example.com/rubedo/backend/internal/platform"
+	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 )
 
@@ -21,20 +22,9 @@ func NewRepository(platform *platform.Platform) Repository {
 }
 
 func (r *repository) Chat(ctx context.Context, principal security.Principal, input ChatRequest) (ChatResult, error) {
-	sessionID := input.SessionID
-	if sessionID == "" {
-		sessionID = "luckybot-session-001"
-	}
-
-	return ChatResult{
-		SessionID: sessionID,
-		Reply:     "Luckybot scaffold received your message. Worker integration is reserved for the next step.",
-		Model:     "nanobot-placeholder",
-	}, nil
+	return ChatResult{}, scaffold.ErrNotImplemented
 }
 
 func (r *repository) ReloadPersona(ctx context.Context, principal security.Principal) (ReloadResult, error) {
-	return ReloadResult{
-		Status: "reload_queued",
-	}, nil
+	return ReloadResult{}, scaffold.ErrNotImplemented
 }

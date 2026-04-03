@@ -19,7 +19,7 @@ func (s *Service) Register(ctx context.Context, input RegisterRequest) (Register
 }
 
 func (s *Service) Login(ctx context.Context, input LoginRequest) (Session, error) {
-	return s.repo.CreateSession(ctx, input.Account)
+	return s.repo.CreateSession(ctx, input.Account, input.Password)
 }
 
 func (s *Service) Logout(ctx context.Context, principal security.Principal) error {

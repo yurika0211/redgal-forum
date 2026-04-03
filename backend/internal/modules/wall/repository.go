@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"example.com/rubedo/backend/internal/platform"
+	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 )
 
@@ -35,19 +36,9 @@ func (r *repository) ListEntries(ctx context.Context) ([]WallEntry, error) {
 }
 
 func (r *repository) CreateSubmission(ctx context.Context, principal security.Principal, input CreateSubmissionRequest) (WallEntry, error) {
-	return WallEntry{
-		ID:          "wall-submission-001",
-		Title:       input.Title,
-		Content:     input.Content,
-		Images:      input.Images,
-		Approved:    false,
-		Contributor: principal.Username,
-	}, nil
+	return WallEntry{}, scaffold.ErrNotImplemented
 }
 
 func (r *repository) ReviewSubmission(ctx context.Context, principal security.Principal, submissionID string, input ReviewSubmissionRequest) (ReviewResult, error) {
-	return ReviewResult{
-		SubmissionID: submissionID,
-		Status:       input.Decision,
-	}, nil
+	return ReviewResult{}, scaffold.ErrNotImplemented
 }

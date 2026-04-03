@@ -29,3 +29,7 @@ func (s *Service) Create(ctx context.Context, principal security.Principal, inpu
 func (s *Service) Update(ctx context.Context, principal security.Principal, articleID string, input UpdateArticleRequest) (Article, error) {
 	return s.repo.UpdateArticle(ctx, principal, articleID, input)
 }
+
+func (s *Service) Delete(ctx context.Context, principal security.Principal, articleID string) (DeleteArticleResult, error) {
+	return s.repo.DeleteArticle(ctx, principal, articleID)
+}

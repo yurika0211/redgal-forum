@@ -5,11 +5,13 @@ import (
 
 	"example.com/rubedo/backend/internal/config"
 	"example.com/rubedo/backend/internal/middleware"
+	"example.com/rubedo/backend/internal/modules/activity"
 	"example.com/rubedo/backend/internal/modules/article"
 	"example.com/rubedo/backend/internal/modules/auth"
 	"example.com/rubedo/backend/internal/modules/forum"
 	"example.com/rubedo/backend/internal/modules/health"
 	"example.com/rubedo/backend/internal/modules/luckybot"
+	"example.com/rubedo/backend/internal/modules/sitecontent"
 	"example.com/rubedo/backend/internal/modules/user"
 	"example.com/rubedo/backend/internal/modules/wall"
 	"example.com/rubedo/backend/internal/security"
@@ -17,15 +19,17 @@ import (
 )
 
 type Dependencies struct {
-	Config         config.Config
-	Logger         *slog.Logger
-	HealthHandler  *health.Handler
-	AuthHandler    *auth.Handler
-	UserHandler    *user.Handler
-	ArticleHandler *article.Handler
-	ForumHandler   *forum.Handler
-	WallHandler    *wall.Handler
-	Luckybot       *luckybot.Handler
+	Config          config.Config
+	Logger          *slog.Logger
+	HealthHandler   *health.Handler
+	AuthHandler     *auth.Handler
+	UserHandler     *user.Handler
+	ActivityHandler *activity.Handler
+	ArticleHandler  *article.Handler
+	ForumHandler    *forum.Handler
+	SiteHandler     *sitecontent.Handler
+	WallHandler     *wall.Handler
+	Luckybot        *luckybot.Handler
 }
 
 func New(deps Dependencies) *gin.Engine {
@@ -44,8 +48,11 @@ func New(deps Dependencies) *gin.Engine {
 
 	registerAuthRoutes(api, deps)
 	registerUserRoutes(api, deps)
+	registerAdminUserRoutes(api, deps)
+	registerActivityRoutes(api, deps)
 	registerArticleRoutes(api, deps)
 	registerForumRoutes(api, deps)
+	registerSiteRoutes(api, deps)
 	registerWallRoutes(api, deps)
 	registerLuckybotRoutes(api, deps)
 
@@ -64,10 +71,23 @@ func registerUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group.GET("/:username", deps.UserHandler.GetProfile)
 
 	member := group.Group("")
-	member.Use(middleware.RequireAuthenticated())
+	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser())
 	member.GET("/me", deps.UserHandler.GetMe)
 	member.PATCH("/me", deps.UserHandler.UpdateMe)
 	member.POST("/me/bangumi/import", deps.UserHandler.ImportBangumi)
+}
+
+func registerAdminUserRoutes(api *gin.RouterGroup, deps Dependencies) {
+	admin := api.Group("/admin")
+	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
+	admin.GET("/dashboard", deps.UserHandler.GetAdminDashboard)
+	admin.GET("/users", deps.UserHandler.ListAdminUsers)
+	admin.PATCH("/users/:userID/status", deps.UserHandler.UpdateUserStatus)
+	admin.POST("/users/:userID/verification/reviews", deps.UserHandler.ReviewVerification)
+
+	superAdmin := api.Group("/super-admin")
+	superAdmin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleSuperAdmin))
+	superAdmin.GET("/dashboard", deps.UserHandler.GetSuperAdminDashboard)
 }
 
 func registerArticleRoutes(api *gin.RouterGroup, deps Dependencies) {
@@ -76,9 +96,36 @@ func registerArticleRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group.GET("/:articleID", deps.ArticleHandler.Get)
 
 	member := group.Group("")
-	member.Use(middleware.RequireAuthenticated(), middleware.RateLimit("member-write"))
+	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("member-write"))
 	member.POST("", deps.ArticleHandler.Create)
 	member.PATCH("/:articleID", deps.ArticleHandler.Update)
+
+	admin := api.Group("/admin/articles")
+	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
+	admin.DELETE("/:articleID", deps.ArticleHandler.Delete)
+}
+
+func registerActivityRoutes(api *gin.RouterGroup, deps Dependencies) {
+	group := api.Group("/activities")
+	group.GET("/relays", deps.ActivityHandler.ListRelays)
+	group.GET("/relays/:relayID", deps.ActivityHandler.GetRelay)
+	group.GET("/contests", deps.ActivityHandler.ListWritingContests)
+	group.GET("/contests/:contestID", deps.ActivityHandler.GetWritingContest)
+
+	relayParticipant := group.Group("")
+	relayParticipant.Use(middleware.RequireAuthenticated(), middleware.RateLimit("relay-write"))
+	relayParticipant.POST("/relays/:relayID/entries", deps.ActivityHandler.CreateRelayEntry)
+
+	contestParticipant := group.Group("")
+	contestParticipant.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("contest-write"))
+	contestParticipant.POST("/contests/:contestID/submissions", deps.ActivityHandler.CreateWritingSubmission)
+
+	admin := api.Group("/admin/activities")
+	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
+	admin.POST("/relays", deps.ActivityHandler.CreateRelay)
+	admin.PATCH("/relays/:relayID/status", deps.ActivityHandler.UpdateRelayStatus)
+	admin.POST("/contests", deps.ActivityHandler.CreateWritingContest)
+	admin.PATCH("/contests/:contestID/status", deps.ActivityHandler.UpdateWritingContestStatus)
 }
 
 func registerForumRoutes(api *gin.RouterGroup, deps Dependencies) {
@@ -87,9 +134,28 @@ func registerForumRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group.GET("/threads/:threadID", deps.ForumHandler.GetThread)
 
 	member := group.Group("")
-	member.Use(middleware.RequireAuthenticated(), middleware.RateLimit("forum-write"))
+	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("forum-write"))
 	member.POST("/threads", deps.ForumHandler.CreateThread)
 	member.POST("/threads/:threadID/replies", deps.ForumHandler.CreateReply)
+
+	admin := api.Group("/admin/forum")
+	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
+	admin.DELETE("/threads/:threadID", deps.ForumHandler.DeleteThread)
+	admin.DELETE("/threads/:threadID/replies/:replyID", deps.ForumHandler.DeleteReply)
+}
+
+func registerSiteRoutes(api *gin.RouterGroup, deps Dependencies) {
+	group := api.Group("/site")
+	group.GET("/content", deps.SiteHandler.GetContent)
+
+	admin := api.Group("/admin/site")
+	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
+	admin.POST("/content-blocks", deps.SiteHandler.CreateContentBlock)
+	admin.PATCH("/content-blocks/:blockID", deps.SiteHandler.UpdateContentBlock)
+	admin.DELETE("/content-blocks/:blockID", deps.SiteHandler.DeleteContentBlock)
+	admin.POST("/gallery-entries", deps.SiteHandler.CreateGalleryEntry)
+	admin.PATCH("/gallery-entries/:entryID", deps.SiteHandler.UpdateGalleryEntry)
+	admin.DELETE("/gallery-entries/:entryID", deps.SiteHandler.DeleteGalleryEntry)
 }
 
 func registerWallRoutes(api *gin.RouterGroup, deps Dependencies) {
@@ -97,13 +163,13 @@ func registerWallRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group.GET("", deps.WallHandler.List)
 
 	member := group.Group("")
-	member.Use(middleware.RequireAuthenticated(), middleware.RateLimit("wall-submit"))
+	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("wall-submit"))
 	member.POST("/submissions", deps.WallHandler.CreateSubmission)
 
 	moderation := group.Group("")
 	moderation.Use(
 		middleware.RequireAuthenticated(),
-		middleware.RequireRoles(security.RoleModerator, security.RoleAdmin, security.RoleSuperAdmin),
+		middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin),
 	)
 	moderation.POST("/submissions/:submissionID/review", deps.WallHandler.ReviewSubmission)
 }

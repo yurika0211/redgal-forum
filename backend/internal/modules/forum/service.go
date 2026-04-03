@@ -29,3 +29,11 @@ func (s *Service) CreateThread(ctx context.Context, principal security.Principal
 func (s *Service) CreateReply(ctx context.Context, principal security.Principal, threadID string, input CreateReplyRequest) (Reply, error) {
 	return s.repo.CreateReply(ctx, principal, threadID, input)
 }
+
+func (s *Service) DeleteThread(ctx context.Context, principal security.Principal, threadID string) (DeleteThreadResult, error) {
+	return s.repo.DeleteThread(ctx, principal, threadID)
+}
+
+func (s *Service) DeleteReply(ctx context.Context, principal security.Principal, threadID, replyID string) (DeleteReplyResult, error) {
+	return s.repo.DeleteReply(ctx, principal, threadID, replyID)
+}

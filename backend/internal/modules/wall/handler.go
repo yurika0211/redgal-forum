@@ -1,9 +1,11 @@
 package wall
 
 import (
+	"errors"
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
 )
@@ -35,6 +37,11 @@ func (h *Handler) CreateSubmission(c *gin.Context) {
 
 	entry, err := h.service.CreateSubmission(c.Request.Context(), security.FromContext(c), input)
 	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "wall.submission.create")
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -51,6 +58,11 @@ func (h *Handler) ReviewSubmission(c *gin.Context) {
 
 	result, err := h.service.ReviewSubmission(c.Request.Context(), security.FromContext(c), c.Param("submissionID"), input)
 	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "wall.submission.review")
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}

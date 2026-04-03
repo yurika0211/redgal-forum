@@ -1,9 +1,11 @@
 package article
 
 import (
+	"errors"
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +47,11 @@ func (h *Handler) Create(c *gin.Context) {
 
 	article, err := h.service.Create(c.Request.Context(), security.FromContext(c), input)
 	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "article.create")
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -61,9 +68,24 @@ func (h *Handler) Update(c *gin.Context) {
 
 	article, err := h.service.Update(c.Request.Context(), security.FromContext(c), c.Param("articleID"), input)
 	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "article.update")
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	response.OK(c, article)
+}
+
+func (h *Handler) Delete(c *gin.Context) {
+	result, err := h.service.Delete(c.Request.Context(), security.FromContext(c), c.Param("articleID"))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, result)
 }

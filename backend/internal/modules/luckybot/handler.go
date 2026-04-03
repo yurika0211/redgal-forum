@@ -1,9 +1,11 @@
 package luckybot
 
 import (
+	"errors"
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +27,11 @@ func (h *Handler) Chat(c *gin.Context) {
 
 	result, err := h.service.Chat(c.Request.Context(), security.FromContext(c), input)
 	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "luckybot.chat")
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -35,6 +42,11 @@ func (h *Handler) Chat(c *gin.Context) {
 func (h *Handler) ReloadPersona(c *gin.Context) {
 	result, err := h.service.ReloadPersona(c.Request.Context(), security.FromContext(c))
 	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "luckybot.reload")
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
