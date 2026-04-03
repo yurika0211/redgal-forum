@@ -150,6 +150,7 @@ func registerSiteRoutes(api *gin.RouterGroup, deps Dependencies) {
 
 	admin := api.Group("/admin/site")
 	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
+	admin.GET("/gallery-entries", deps.SiteHandler.ListGalleryEntries)
 	admin.POST("/content-blocks", deps.SiteHandler.CreateContentBlock)
 	admin.PATCH("/content-blocks/:blockID", deps.SiteHandler.UpdateContentBlock)
 	admin.DELETE("/content-blocks/:blockID", deps.SiteHandler.DeleteContentBlock)

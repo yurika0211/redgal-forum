@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +18,7 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) ListRelays(c *gin.Context) {
-	events, err := h.service.ListRelays(c.Request.Context())
+	events, err := h.service.ListRelays(c.Request.Context(), pagination.FromGin(c))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -85,7 +86,7 @@ func (h *Handler) CreateRelayEntry(c *gin.Context) {
 }
 
 func (h *Handler) ListWritingContests(c *gin.Context) {
-	contests, err := h.service.ListWritingContests(c.Request.Context())
+	contests, err := h.service.ListWritingContests(c.Request.Context(), pagination.FromGin(c))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/platform"
 	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
@@ -21,7 +22,7 @@ type Repository interface {
 	QueueBangumiImport(ctx context.Context, principal security.Principal, input BangumiImportRequest) (BangumiImportJob, error)
 	GetAdminDashboard(ctx context.Context, principal security.Principal) (AdminDashboard, error)
 	GetSuperAdminDashboard(ctx context.Context, principal security.Principal) (SuperAdminDashboard, error)
-	ListAdminUsers(ctx context.Context, principal security.Principal) ([]AdminUser, error)
+	ListAdminUsers(ctx context.Context, principal security.Principal, params pagination.Params) (pagination.Result[AdminUser], error)
 	UpdateUserStatus(ctx context.Context, principal security.Principal, userID string, input UpdateUserStatusRequest) (AdminUser, error)
 	ReviewVerification(ctx context.Context, principal security.Principal, userID string, input VerificationDecisionRequest) (VerificationDecisionResult, error)
 }
@@ -46,11 +47,7 @@ func NewRepository(platform *platform.Platform) Repository {
 
 func (r *repository) GetProfile(ctx context.Context, username string) (Profile, error) {
 	if !r.hasPostgres() {
-		profile := baseProfile(username)
-		profile.Status = "active"
-		profile.Verified = true
-		profile.Roles = []string{string(security.RoleMember)}
-		return profile, nil
+		return Profile{}, fmt.Errorf("postgres unavailable for user profile")
 	}
 
 	record, err := r.loadUserByUsername(ctx, username)
@@ -63,12 +60,7 @@ func (r *repository) GetProfile(ctx context.Context, username string) (Profile, 
 
 func (r *repository) GetMe(ctx context.Context, principal security.Principal) (Profile, error) {
 	if !r.hasPostgres() {
-		profile := baseProfile(principal.Username)
-		profile.UserID = principal.UserID
-		profile.Status = principal.UserStatus
-		profile.Verified = principal.Verified
-		profile.Roles = roleStrings(principal.Roles)
-		return profile, nil
+		return Profile{}, fmt.Errorf("postgres unavailable for current user profile")
 	}
 
 	userID, err := strconv.ParseInt(strings.TrimSpace(principal.UserID), 10, 64)
@@ -216,9 +208,9 @@ func (r *repository) GetSuperAdminDashboard(ctx context.Context, principal secur
 	return dashboard, nil
 }
 
-func (r *repository) ListAdminUsers(ctx context.Context, principal security.Principal) ([]AdminUser, error) {
+func (r *repository) ListAdminUsers(ctx context.Context, principal security.Principal, params pagination.Params) (pagination.Result[AdminUser], error) {
 	if !r.hasPostgres() {
-		return []AdminUser{
+		return pagination.Slice([]AdminUser{
 			{
 				UserID:                "1",
 				Username:              "scaffold_member",
@@ -237,7 +229,17 @@ func (r *repository) ListAdminUsers(ctx context.Context, principal security.Prin
 				Roles:                 []string{string(security.RoleUnverified)},
 				PendingVerificationID: "vr-2",
 			},
-		}, nil
+		}, params), nil
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from users u
+		 where u.deleted_at is null`,
+	).Scan(&total); err != nil {
+		return pagination.Result[AdminUser]{}, err
 	}
 
 	rows, err := r.platform.Postgres.QueryContext(
@@ -256,10 +258,13 @@ func (r *repository) ListAdminUsers(ctx context.Context, principal security.Prin
 			), '')
 		from users u
 		where u.deleted_at is null
-		order by u.created_at desc`,
+		order by u.created_at desc
+		limit $1 offset $2`,
+		params.PageSize,
+		params.Offset(),
 	)
 	if err != nil {
-		return nil, err
+		return pagination.Result[AdminUser]{}, err
 	}
 	defer rows.Close()
 
@@ -268,13 +273,13 @@ func (r *repository) ListAdminUsers(ctx context.Context, principal security.Prin
 		var user AdminUser
 		var rawID int64
 		if err := rows.Scan(&rawID, &user.Username, &user.Nickname, &user.Status, &user.PendingVerificationID); err != nil {
-			return nil, err
+			return pagination.Result[AdminUser]{}, err
 		}
 
 		user.UserID = strconv.FormatInt(rawID, 10)
 		roles, err := r.loadRoleStrings(ctx, rawID)
 		if err != nil {
-			return nil, err
+			return pagination.Result[AdminUser]{}, err
 		}
 
 		user.Roles = normalizeRoleStrings(user.Status, roles)
@@ -282,7 +287,11 @@ func (r *repository) ListAdminUsers(ctx context.Context, principal security.Prin
 		users = append(users, user)
 	}
 
-	return users, rows.Err()
+	if err := rows.Err(); err != nil {
+		return pagination.Result[AdminUser]{}, err
+	}
+
+	return pagination.NewResult(users, total, params), nil
 }
 
 func (r *repository) UpdateUserStatus(ctx context.Context, principal security.Principal, userID string, input UpdateUserStatusRequest) (AdminUser, error) {
@@ -681,7 +690,17 @@ func normalizeRoleStrings(status string, roles []string) []string {
 		return []string{string(security.RoleUnverified)}
 	}
 
-	return roles
+	normalized := make([]string, 0, len(roles))
+	for _, role := range roles {
+		switch strings.TrimSpace(role) {
+		case "user":
+			normalized = append(normalized, string(security.RoleMember))
+		default:
+			normalized = append(normalized, role)
+		}
+	}
+
+	return normalized
 }
 
 func verifiedFromRoleStrings(roles []string) bool {
@@ -754,10 +773,10 @@ func baseProfile(username string) Profile {
 		Bio:       "This profile endpoint is scaffolded for the school-only forum flow.",
 		AvatarURL: "https://example.com/avatar.png",
 		Collections: map[string]int{
-			"wish":    12,
-			"played":  24,
-			"hold":    2,
-			"dropped": 1,
+			"文章": 12,
+			"主题": 24,
+			"回复": 2,
+			"收藏": 1,
 		},
 	}
 }

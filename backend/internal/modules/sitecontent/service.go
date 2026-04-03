@@ -1,6 +1,10 @@
 package sitecontent
 
-import "context"
+import (
+	"context"
+
+	"example.com/rubedo/backend/internal/pagination"
+)
 
 type Service struct {
 	repo Repository
@@ -12,6 +16,10 @@ func NewService(repo Repository) *Service {
 
 func (s *Service) GetContent(ctx context.Context) (SiteContent, error) {
 	return s.repo.GetContent(ctx)
+}
+
+func (s *Service) ListGalleryEntries(ctx context.Context, params pagination.Params) (pagination.Result[GalleryEntry], error) {
+	return s.repo.ListGalleryEntries(ctx, params)
 }
 
 func (s *Service) CreateContentBlock(ctx context.Context, input CreateContentBlockRequest) (ContentBlock, error) {

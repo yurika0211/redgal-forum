@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var slugSanitizer = regexp.MustCompile(`[^a-z0-9]+`)
+var slugSanitizer = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
 func EnsureUser(ctx context.Context, client *Client, username string) (int64, error) {
 	if client == nil || !client.Available() {

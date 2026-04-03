@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/platform"
 	platformdb "example.com/rubedo/backend/internal/platform/database"
 	"example.com/rubedo/backend/internal/scaffold"
@@ -14,7 +15,7 @@ import (
 )
 
 type Repository interface {
-	ListThreads(ctx context.Context) ([]Thread, error)
+	ListThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error)
 	GetThread(ctx context.Context, threadID string) (ThreadDetail, error)
 	CreateThread(ctx context.Context, principal security.Principal, input CreateThreadRequest) (Thread, error)
 	CreateReply(ctx context.Context, principal security.Principal, threadID string, input CreateReplyRequest) (Reply, error)
@@ -30,9 +31,20 @@ func NewRepository(platform *platform.Platform) Repository {
 	return &repository{platform: platform}
 }
 
-func (r *repository) ListThreads(ctx context.Context) ([]Thread, error) {
+func (r *repository) ListThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error) {
 	if !r.hasDatabase() {
-		return scaffoldThreads(), nil
+		return pagination.Result[Thread]{}, fmt.Errorf("postgres unavailable for forum thread listing")
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from forum_threads ft
+		 where ft.deleted_at is null
+		   and ft.status = 'active'`,
+	).Scan(&total); err != nil {
+		return pagination.Result[Thread]{}, err
 	}
 
 	rows, err := r.platform.Postgres.QueryContext(
@@ -58,10 +70,13 @@ func (r *repository) ListThreads(ctx context.Context) ([]Thread, error) {
 		where ft.deleted_at is null
 		  and ft.status = 'active'
 		group by ft.id, fb.name, fai.alias_name, u.nickname, u.username
-		order by ft.last_post_at desc, ft.id desc`,
+		order by ft.last_post_at desc, ft.id desc
+		limit $1 offset $2`,
+		params.PageSize,
+		params.Offset(),
 	)
 	if err != nil {
-		return nil, err
+		return pagination.Result[Thread]{}, err
 	}
 	defer rows.Close()
 
@@ -69,22 +84,22 @@ func (r *repository) ListThreads(ctx context.Context) ([]Thread, error) {
 	for rows.Next() {
 		thread, err := scanThreadRow(rows)
 		if err != nil {
-			return nil, err
+			return pagination.Result[Thread]{}, err
 		}
 
 		threads = append(threads, thread)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return pagination.Result[Thread]{}, err
 	}
 
-	return threads, nil
+	return pagination.NewResult(threads, total, params), nil
 }
 
 func (r *repository) GetThread(ctx context.Context, threadID string) (ThreadDetail, error) {
 	if !r.hasDatabase() {
-		return scaffoldThreadDetail(threadID), nil
+		return ThreadDetail{}, fmt.Errorf("postgres unavailable for forum thread detail")
 	}
 
 	dbThreadID, err := parseThreadIdentifier(threadID)
@@ -496,6 +511,25 @@ func ensureBoard(ctx context.Context, tx *sql.Tx, rawBoard string, createdBy int
 
 	slug := platformdb.Slugify(boardName)
 
+	var existingBoardID int64
+	var existingBoardName string
+	err := tx.QueryRowContext(
+		ctx,
+		`select id, name
+		 from forum_boards
+		 where lower(name) = lower($1)
+		    or lower(slug) = lower($2)
+		 limit 1`,
+		boardName,
+		slug,
+	).Scan(&existingBoardID, &existingBoardName)
+	if err == nil {
+		return existingBoardID, existingBoardName, nil
+	}
+	if err != nil && err != sql.ErrNoRows {
+		return 0, "", err
+	}
+
 	if _, err := tx.ExecContext(
 		ctx,
 		`insert into forum_boards (
@@ -523,8 +557,10 @@ func ensureBoard(ctx context.Context, tx *sql.Tx, rawBoard string, createdBy int
 		ctx,
 		`select id, name
 		 from forum_boards
-		 where lower(slug) = lower($1)
+		 where lower(name) = lower($1)
+		    or lower(slug) = lower($2)
 		 limit 1`,
+		boardName,
 		slug,
 	).Scan(&boardID, &boardName); err != nil {
 		return 0, "", err

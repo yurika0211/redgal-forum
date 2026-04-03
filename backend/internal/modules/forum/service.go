@@ -3,6 +3,7 @@ package forum
 import (
 	"context"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/security"
 )
 
@@ -14,8 +15,8 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) ListThreads(ctx context.Context) ([]Thread, error) {
-	return s.repo.ListThreads(ctx)
+func (s *Service) ListThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error) {
+	return s.repo.ListThreads(ctx, params)
 }
 
 func (s *Service) GetThread(ctx context.Context, threadID string) (ThreadDetail, error) {

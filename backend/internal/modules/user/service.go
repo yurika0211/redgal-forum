@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/security"
 )
 
@@ -38,8 +39,8 @@ func (s *Service) GetSuperAdminDashboard(ctx context.Context, principal security
 	return s.repo.GetSuperAdminDashboard(ctx, principal)
 }
 
-func (s *Service) ListAdminUsers(ctx context.Context, principal security.Principal) ([]AdminUser, error) {
-	return s.repo.ListAdminUsers(ctx, principal)
+func (s *Service) ListAdminUsers(ctx context.Context, principal security.Principal, params pagination.Params) (pagination.Result[AdminUser], error) {
+	return s.repo.ListAdminUsers(ctx, principal, params)
 }
 
 func (s *Service) UpdateUserStatus(ctx context.Context, principal security.Principal, userID string, input UpdateUserStatusRequest) (AdminUser, error) {

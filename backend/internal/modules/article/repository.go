@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/platform"
 	platformdb "example.com/rubedo/backend/internal/platform/database"
 	"example.com/rubedo/backend/internal/scaffold"
@@ -15,7 +16,7 @@ import (
 )
 
 type Repository interface {
-	ListArticles(ctx context.Context, viewer security.Principal) ([]Article, error)
+	ListArticles(ctx context.Context, viewer security.Principal, params pagination.Params) (pagination.Result[Article], error)
 	GetArticle(ctx context.Context, viewer security.Principal, articleID string) (Article, error)
 	CreateArticle(ctx context.Context, principal security.Principal, input CreateArticleRequest) (Article, error)
 	UpdateArticle(ctx context.Context, principal security.Principal, articleID string, input UpdateArticleRequest) (Article, error)
@@ -30,9 +31,28 @@ func NewRepository(platform *platform.Platform) Repository {
 	return &repository{platform: platform}
 }
 
-func (r *repository) ListArticles(ctx context.Context, viewer security.Principal) ([]Article, error) {
+func (r *repository) ListArticles(ctx context.Context, viewer security.Principal, params pagination.Params) (pagination.Result[Article], error) {
 	if !r.hasDatabase() {
-		return scaffoldArticles(viewer), nil
+		return pagination.Result[Article]{}, fmt.Errorf("postgres unavailable for article listing")
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from articles a
+		 join users u on u.id = a.author_id
+		 where a.deleted_at is null
+		   and a.status = 'published'
+		   and (
+		     a.visibility = 'public'
+		     or ($1 and a.visibility = 'members')
+		     or ($2 <> '' and lower(u.username) = lower($2))
+		   )`,
+		viewer.Authenticated(),
+		viewer.Username,
+	).Scan(&total); err != nil {
+		return pagination.Result[Article]{}, err
 	}
 
 	rows, err := r.platform.Postgres.QueryContext(
@@ -57,12 +77,15 @@ func (r *repository) ListArticles(ctx context.Context, viewer security.Principal
 		    or ($2 <> '' and lower(u.username) = lower($2))
 		  )
 		group by a.id, u.nickname, u.username
-		order by coalesce(a.published_at, a.created_at) desc, a.id desc`,
+		order by coalesce(a.published_at, a.created_at) desc, a.id desc
+		limit $3 offset $4`,
 		viewer.Authenticated(),
 		viewer.Username,
+		params.PageSize,
+		params.Offset(),
 	)
 	if err != nil {
-		return nil, err
+		return pagination.Result[Article]{}, err
 	}
 	defer rows.Close()
 
@@ -70,22 +93,22 @@ func (r *repository) ListArticles(ctx context.Context, viewer security.Principal
 	for rows.Next() {
 		article, err := scanArticleRow(rows)
 		if err != nil {
-			return nil, err
+			return pagination.Result[Article]{}, err
 		}
 
 		articles = append(articles, article)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return pagination.Result[Article]{}, err
 	}
 
-	return articles, nil
+	return pagination.NewResult(articles, total, params), nil
 }
 
 func (r *repository) GetArticle(ctx context.Context, viewer security.Principal, articleID string) (Article, error) {
 	if !r.hasDatabase() {
-		return scaffoldArticleDetail(articleID), nil
+		return Article{}, fmt.Errorf("postgres unavailable for article detail")
 	}
 
 	row := r.platform.Postgres.QueryRowContext(

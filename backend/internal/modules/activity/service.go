@@ -3,6 +3,7 @@ package activity
 import (
 	"context"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/security"
 )
 
@@ -14,8 +15,8 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) ListRelays(ctx context.Context) ([]RelayEvent, error) {
-	return s.repo.ListRelays(ctx)
+func (s *Service) ListRelays(ctx context.Context, params pagination.Params) (pagination.Result[RelayEvent], error) {
+	return s.repo.ListRelays(ctx, params)
 }
 
 func (s *Service) GetRelay(ctx context.Context, relayID string) (RelayDetail, error) {
@@ -34,8 +35,8 @@ func (s *Service) CreateRelayEntry(ctx context.Context, principal security.Princ
 	return s.repo.CreateRelayEntry(ctx, principal, relayID, input)
 }
 
-func (s *Service) ListWritingContests(ctx context.Context) ([]WritingContest, error) {
-	return s.repo.ListWritingContests(ctx)
+func (s *Service) ListWritingContests(ctx context.Context, params pagination.Params) (pagination.Result[WritingContest], error) {
+	return s.repo.ListWritingContests(ctx, params)
 }
 
 func (s *Service) GetWritingContest(ctx context.Context, contestID string) (WritingContestDetail, error) {

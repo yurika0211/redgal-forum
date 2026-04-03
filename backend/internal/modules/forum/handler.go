@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,7 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) ListThreads(c *gin.Context) {
-	threads, err := h.service.ListThreads(c.Request.Context())
+	threads, err := h.service.ListThreads(c.Request.Context(), pagination.FromGin(c))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

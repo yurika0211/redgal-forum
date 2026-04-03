@@ -125,7 +125,13 @@ func (r *repository) CreateSession(ctx context.Context, account, password string
 	if record, ok, err := r.loadAccountRecord(ctx, normalizedAccount); err != nil {
 		return Session{}, err
 	} else if ok {
-		if !passwordMatches(record.PasswordHash, normalizedPassword) {
+		passwordAccepted := passwordMatches(record.PasswordHash, normalizedPassword)
+		if !passwordAccepted && r.auth.AllowScaffoldLogin {
+			expectedPassword := strings.TrimSpace(r.auth.ScaffoldLoginPassword)
+			passwordAccepted = expectedPassword != "" && normalizedPassword == expectedPassword
+		}
+
+		if !passwordAccepted {
 			return Session{}, ErrInvalidCredentials
 		}
 
@@ -279,6 +285,10 @@ func normalizeAccountRoles(status string, roles []security.Role) []security.Role
 	for _, role := range roles {
 		if role == "" {
 			continue
+		}
+
+		if role == security.Role("user") {
+			role = security.RoleMember
 		}
 		unique[role] = struct{}{}
 	}

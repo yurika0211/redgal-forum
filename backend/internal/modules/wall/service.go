@@ -3,6 +3,7 @@ package wall
 import (
 	"context"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/security"
 )
 
@@ -14,8 +15,8 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) List(ctx context.Context) ([]WallEntry, error) {
-	return s.repo.ListEntries(ctx)
+func (s *Service) List(ctx context.Context, params pagination.Params) (pagination.Result[WallEntry], error) {
+	return s.repo.ListEntries(ctx, params)
 }
 
 func (s *Service) CreateSubmission(ctx context.Context, principal security.Principal, input CreateSubmissionRequest) (WallEntry, error) {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,7 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	articles, err := h.service.List(c.Request.Context(), security.FromContext(c))
+	articles, err := h.service.List(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

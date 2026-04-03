@@ -7,12 +7,14 @@ import (
 	"strconv"
 	"strings"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/platform"
 	platformdb "example.com/rubedo/backend/internal/platform/database"
 )
 
 type Repository interface {
 	GetContent(ctx context.Context) (SiteContent, error)
+	ListGalleryEntries(ctx context.Context, params pagination.Params) (pagination.Result[GalleryEntry], error)
 	CreateContentBlock(ctx context.Context, input CreateContentBlockRequest) (ContentBlock, error)
 	UpdateContentBlock(ctx context.Context, blockID string, input UpdateContentBlockRequest) (ContentBlock, error)
 	DeleteContentBlock(ctx context.Context, blockID string) error
@@ -99,6 +101,50 @@ func (r *repository) GetContent(ctx context.Context) (SiteContent, error) {
 	}
 
 	return content, nil
+}
+
+func (r *repository) ListGalleryEntries(ctx context.Context, params pagination.Params) (pagination.Result[GalleryEntry], error) {
+	if !r.hasDatabase() {
+		return pagination.Result[GalleryEntry]{}, sql.ErrConnDone
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int from gallery_entries`,
+	).Scan(&total); err != nil {
+		return pagination.Result[GalleryEntry]{}, err
+	}
+
+	rows, err := r.platform.Postgres.QueryContext(
+		ctx,
+		`select id, entry_type::text, slug, title, coalesce(subtitle, ''), coalesce(body, ''), coalesce(extra_text, ''), sort_order, is_active
+		 from gallery_entries
+		 order by entry_type asc, sort_order asc, id asc
+		 limit $1 offset $2`,
+		params.PageSize,
+		params.Offset(),
+	)
+	if err != nil {
+		return pagination.Result[GalleryEntry]{}, err
+	}
+	defer rows.Close()
+
+	entries := make([]GalleryEntry, 0)
+	for rows.Next() {
+		entry, scanErr := scanGalleryEntry(rows)
+		if scanErr != nil {
+			return pagination.Result[GalleryEntry]{}, scanErr
+		}
+
+		entries = append(entries, entry)
+	}
+
+	if err := rows.Err(); err != nil {
+		return pagination.Result[GalleryEntry]{}, err
+	}
+
+	return pagination.NewResult(entries, total, params), nil
 }
 
 func (r *repository) CreateContentBlock(ctx context.Context, input CreateContentBlockRequest) (ContentBlock, error) {

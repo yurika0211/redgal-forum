@@ -8,18 +8,19 @@ import (
 	"strings"
 	"time"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/platform"
 	platformdb "example.com/rubedo/backend/internal/platform/database"
 	"example.com/rubedo/backend/internal/security"
 )
 
 type Repository interface {
-	ListRelays(ctx context.Context) ([]RelayEvent, error)
+	ListRelays(ctx context.Context, params pagination.Params) (pagination.Result[RelayEvent], error)
 	GetRelay(ctx context.Context, relayID string) (RelayDetail, error)
 	CreateRelay(ctx context.Context, principal security.Principal, input CreateRelayRequest) (RelayEvent, error)
 	UpdateRelayStatus(ctx context.Context, principal security.Principal, relayID string, input UpdateRelayStatusRequest) (RelayEvent, error)
 	CreateRelayEntry(ctx context.Context, principal security.Principal, relayID string, input CreateRelayEntryRequest) (RelayEntry, error)
-	ListWritingContests(ctx context.Context) ([]WritingContest, error)
+	ListWritingContests(ctx context.Context, params pagination.Params) (pagination.Result[WritingContest], error)
 	GetWritingContest(ctx context.Context, contestID string) (WritingContestDetail, error)
 	CreateWritingContest(ctx context.Context, principal security.Principal, input CreateWritingContestRequest) (WritingContest, error)
 	UpdateWritingContestStatus(ctx context.Context, principal security.Principal, contestID string, input UpdateWritingContestStatusRequest) (WritingContest, error)
@@ -34,9 +35,20 @@ func NewRepository(platform *platform.Platform) Repository {
 	return &repository{platform: platform}
 }
 
-func (r *repository) ListRelays(ctx context.Context) ([]RelayEvent, error) {
+func (r *repository) ListRelays(ctx context.Context, params pagination.Params) (pagination.Result[RelayEvent], error) {
 	if !r.hasDatabase() {
-		return scaffoldRelays(), nil
+		return pagination.Slice(scaffoldRelays(), params), nil
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from relay_events re
+		 where re.deleted_at is null
+		   and re.status <> 'deleted'`,
+	).Scan(&total); err != nil {
+		return pagination.Result[RelayEvent]{}, err
 	}
 
 	rows, err := r.platform.Postgres.QueryContext(
@@ -58,10 +70,13 @@ func (r *repository) ListRelays(ctx context.Context) ([]RelayEvent, error) {
 		where re.deleted_at is null
 		  and re.status <> 'deleted'
 		group by re.id, u.nickname, u.username
-		order by re.created_at desc`,
+		order by re.created_at desc
+		limit $1 offset $2`,
+		params.PageSize,
+		params.Offset(),
 	)
 	if err != nil {
-		return nil, err
+		return pagination.Result[RelayEvent]{}, err
 	}
 	defer rows.Close()
 
@@ -69,12 +84,16 @@ func (r *repository) ListRelays(ctx context.Context) ([]RelayEvent, error) {
 	for rows.Next() {
 		event, err := scanRelayEvent(rows)
 		if err != nil {
-			return nil, err
+			return pagination.Result[RelayEvent]{}, err
 		}
 		relays = append(relays, event)
 	}
 
-	return relays, rows.Err()
+	if err := rows.Err(); err != nil {
+		return pagination.Result[RelayEvent]{}, err
+	}
+
+	return pagination.NewResult(relays, total, params), nil
 }
 
 func (r *repository) GetRelay(ctx context.Context, relayID string) (RelayDetail, error) {
@@ -350,9 +369,20 @@ func (r *repository) CreateRelayEntry(ctx context.Context, principal security.Pr
 	}, nil
 }
 
-func (r *repository) ListWritingContests(ctx context.Context) ([]WritingContest, error) {
+func (r *repository) ListWritingContests(ctx context.Context, params pagination.Params) (pagination.Result[WritingContest], error) {
 	if !r.hasDatabase() {
-		return scaffoldContests(), nil
+		return pagination.Slice(scaffoldContests(), params), nil
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from writing_contests wc
+		 where wc.deleted_at is null
+		   and wc.status <> 'deleted'`,
+	).Scan(&total); err != nil {
+		return pagination.Result[WritingContest]{}, err
 	}
 
 	rows, err := r.platform.Postgres.QueryContext(
@@ -374,10 +404,13 @@ func (r *repository) ListWritingContests(ctx context.Context) ([]WritingContest,
 		where wc.deleted_at is null
 		  and wc.status <> 'deleted'
 		group by wc.id, u.nickname, u.username
-		order by wc.created_at desc`,
+		order by wc.created_at desc
+		limit $1 offset $2`,
+		params.PageSize,
+		params.Offset(),
 	)
 	if err != nil {
-		return nil, err
+		return pagination.Result[WritingContest]{}, err
 	}
 	defer rows.Close()
 
@@ -385,12 +418,16 @@ func (r *repository) ListWritingContests(ctx context.Context) ([]WritingContest,
 	for rows.Next() {
 		contest, err := scanWritingContest(rows)
 		if err != nil {
-			return nil, err
+			return pagination.Result[WritingContest]{}, err
 		}
 		contests = append(contests, contest)
 	}
 
-	return contests, rows.Err()
+	if err := rows.Err(); err != nil {
+		return pagination.Result[WritingContest]{}, err
+	}
+
+	return pagination.NewResult(contests, total, params), nil
 }
 
 func (r *repository) GetWritingContest(ctx context.Context, contestID string) (WritingContestDetail, error) {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/pagination"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,6 +24,16 @@ func (h *Handler) GetContent(c *gin.Context) {
 	}
 
 	response.OK(c, content)
+}
+
+func (h *Handler) ListGalleryEntries(c *gin.Context) {
+	entries, err := h.service.ListGalleryEntries(c.Request.Context(), pagination.FromGin(c))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, entries)
 }
 
 func (h *Handler) CreateContentBlock(c *gin.Context) {

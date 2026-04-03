@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/scaffold"
 	"example.com/rubedo/backend/internal/security"
 	"github.com/gin-gonic/gin"
@@ -101,7 +102,7 @@ func (h *Handler) GetSuperAdminDashboard(c *gin.Context) {
 }
 
 func (h *Handler) ListAdminUsers(c *gin.Context) {
-	users, err := h.service.ListAdminUsers(c.Request.Context(), security.FromContext(c))
+	users, err := h.service.ListAdminUsers(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

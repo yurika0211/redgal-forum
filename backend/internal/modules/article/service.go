@@ -3,6 +3,7 @@ package article
 import (
 	"context"
 
+	"example.com/rubedo/backend/internal/pagination"
 	"example.com/rubedo/backend/internal/security"
 )
 
@@ -14,8 +15,8 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) List(ctx context.Context, viewer security.Principal) ([]Article, error) {
-	return s.repo.ListArticles(ctx, viewer)
+func (s *Service) List(ctx context.Context, viewer security.Principal, params pagination.Params) (pagination.Result[Article], error) {
+	return s.repo.ListArticles(ctx, viewer, params)
 }
 
 func (s *Service) Get(ctx context.Context, viewer security.Principal, articleID string) (Article, error) {
