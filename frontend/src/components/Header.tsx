@@ -6,6 +6,8 @@ interface NavigationItem {
 }
 
 interface HeaderProps {
+  authHref: string;
+  authLabel: string;
   currentPath: string;
   hidden: boolean;
   navigation: readonly NavigationItem[];
@@ -16,6 +18,8 @@ interface HeaderProps {
 }
 
 function Header({
+  authHref,
+  authLabel,
   currentPath,
   hidden,
   navigation,
@@ -92,13 +96,22 @@ function Header({
 
           <div className="site-header__actions">
             <span className="site-header__summary">{summary}</span>
-            <button
-              className="site-header__refresh"
-              type="button"
-              onClick={(event) => handleNavigate(event, utilityHref)}
-            >
-              {utilityLabel}
-            </button>
+            <div className="site-header__action-buttons">
+              <button
+                className="site-header__action site-header__action--auth"
+                type="button"
+                onClick={(event) => handleNavigate(event, authHref)}
+              >
+                {authLabel}
+              </button>
+              <button
+                className="site-header__action site-header__refresh"
+                type="button"
+                onClick={(event) => handleNavigate(event, utilityHref)}
+              >
+                {utilityLabel}
+              </button>
+            </div>
           </div>
         </div>
       </div>

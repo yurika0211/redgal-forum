@@ -3,6 +3,8 @@ export const NAV_ITEMS = [
   { href: "/portal", label: "站内入口" },
   { href: "/stories", label: "文章札记" },
   { href: "/forum", label: "论坛聊天室" },
+  { href: "/anonymous", label: "匿名板" },
+  { href: "/admin", label: "管理界面" },
   { href: "/space", label: "个人空间" },
   { href: "/gallery", label: "展示墙" },
 ] as const;
