@@ -264,6 +264,7 @@ function SectionHero({ children, description, kicker, metrics, title }: SectionH
 }
 
 function App() {
+  const [isHeaderHidden, setIsHeaderHidden] = useState(false);
   const [routePath, setRoutePath] = useState<RoutePath>(() => readCurrentPath());
   const [session, setSession] = useState<Session | null>(() => readStoredSession());
   const [authForm, setAuthForm] = useState<AuthFormState>({
@@ -385,6 +386,56 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    let frameId = 0;
+    let lastScrollY = window.scrollY;
+
+    function updateHeaderVisibility(): void {
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY;
+
+      setIsHeaderHidden((current) => {
+        if (currentScrollY <= 32) {
+          return false;
+        }
+
+        if (delta > 8) {
+          return true;
+        }
+
+        if (delta < -8) {
+          return false;
+        }
+
+        return current;
+      });
+
+      lastScrollY = currentScrollY;
+      frameId = 0;
+    }
+
+    function handleScroll(): void {
+      if (frameId !== 0) {
+        return;
+      }
+
+      frameId = window.requestAnimationFrame(updateHeaderVisibility);
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof document === "undefined") {
       return;
     }
@@ -461,6 +512,8 @@ function App() {
     if (typeof window !== "undefined" && normalizePath(window.location.pathname) !== nextPath) {
       window.history.pushState({}, "", nextPath);
     }
+
+    setIsHeaderHidden(false);
 
     startTransition(() => {
       setRoutePath(nextPath);
@@ -1329,6 +1382,7 @@ function App() {
         <Header
           backendReachable={backendReachable}
           currentPath={routePath}
+          hidden={isHeaderHidden}
           isAuthenticated={isAuthenticated}
           isRefreshing={pageState.refreshing}
           lastUpdatedLabel={lastUpdatedLabel}

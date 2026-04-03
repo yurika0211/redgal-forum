@@ -8,6 +8,7 @@ interface NavigationItem {
 interface HeaderProps {
   backendReachable: boolean;
   currentPath: string;
+  hidden: boolean;
   isAuthenticated: boolean;
   isRefreshing: boolean;
   lastUpdatedLabel: string;
@@ -19,6 +20,7 @@ interface HeaderProps {
 function Header({
   backendReachable,
   currentPath,
+  hidden,
   isAuthenticated,
   isRefreshing,
   lastUpdatedLabel,
@@ -32,7 +34,7 @@ function Header({
   }
 
   return (
-    <header className="site-header">
+    <header className={`site-header ${hidden ? "site-header--hidden" : ""}`}>
       <div className="site-header__line" aria-hidden="true" />
       <a
         className="site-header__brand"
