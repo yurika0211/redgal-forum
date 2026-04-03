@@ -1,29 +1,16 @@
 import {
   startTransition,
   useEffect,
-  useEffectEvent,
   useState,
-  type ChangeEvent,
   type FormEvent,
   type ReactNode,
 } from "react";
 import "./App.css";
-import {
-  fetchArticles,
-  fetchHealth,
-  fetchMyProfile,
-  fetchThreads,
-  login,
-  type Article,
-  type ForumThread,
-  type HealthData,
-  type Profile,
-  type Session,
-} from "./api";
 import Header from "./components/Header";
 import {
   ALBUM_ENTRIES,
   CHATROOM_SEED,
+  type DiscussionThreadEntry,
   GRAMOPHONE_TRACKS,
   HERO_OBJECTS,
   NAV_ITEMS,
@@ -31,25 +18,16 @@ import {
   POLAROID_ENTRIES,
   PORTAL_PAGES,
   REFLECTION_ENTRIES,
+  SPACE_PROFILE_PREVIEW,
   SPACE_MEMORIES,
+  type SpaceProfilePreview,
+  STORY_ENTRIES,
+  THREAD_ENTRIES,
   TIMELINE_ENTRIES,
 } from "./content";
 
-const SESSION_STORAGE_KEY = "rubedo.frontend.session";
-
 type RoutePath = (typeof NAV_ITEMS)[number]["href"];
 type StatusTone = "neutral" | "success" | "warn" | "accent";
-type DashboardErrorKey = "health" | "articles" | "threads" | "profile";
-
-interface AuthFormState {
-  account: string;
-  password: string;
-}
-
-interface LoginState {
-  pending: boolean;
-  error: string;
-}
 
 interface ChatMessage {
   id: string;
@@ -57,22 +35,6 @@ interface ChatMessage {
   mood: string;
   stamp: string;
   body: string;
-}
-
-type DashboardErrors = Partial<Record<DashboardErrorKey, string>>;
-
-interface DashboardState {
-  health: HealthData | null;
-  profile: Profile | null;
-  articles: Article[];
-  threads: ForumThread[];
-  errors: DashboardErrors;
-  updatedAt: string;
-}
-
-interface PageState {
-  loading: boolean;
-  refreshing: boolean;
 }
 
 interface StatusChipProps {
@@ -96,11 +58,11 @@ interface SectionHeroProps {
 }
 
 const TITLE_BY_ROUTE: Record<RoutePath, string> = {
-  "/": "Rubedo Forum",
+  "/": "入口总览 | Rubedo Forum",
   "/forum": "论坛聊天室 | Rubedo Forum",
   "/gallery": "展示墙 | Rubedo Forum",
   "/space": "个人空间 | Rubedo Forum",
-  "/stories": "文章感悟 | Rubedo Forum",
+  "/stories": "文章札记 | Rubedo Forum",
 };
 
 function normalizePath(pathname: string): RoutePath {
@@ -128,86 +90,6 @@ function readCurrentPath(): RoutePath {
   return normalizePath(window.location.pathname);
 }
 
-function isSession(value: unknown): value is Session {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const candidate = value as Partial<Session>;
-  return (
-    typeof candidate.accessToken === "string" &&
-    typeof candidate.refreshToken === "string" &&
-    typeof candidate.expiresIn === "number"
-  );
-}
-
-function createInitialDashboardState(): DashboardState {
-  return {
-    health: null,
-    profile: null,
-    articles: [],
-    threads: [],
-    errors: {},
-    updatedAt: "",
-  };
-}
-
-function readStoredSession(): Session | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (isSession(parsed)) {
-      return parsed;
-    }
-  } catch {
-    // Ignore malformed session payloads and clear them below.
-  }
-
-  window.localStorage.removeItem(SESSION_STORAGE_KEY);
-  return null;
-}
-
-function persistSession(session: Session | null): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!session) {
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return "Unknown request failure";
-}
-
-function formatUpdatedAt(value: string): string {
-  if (!value) {
-    return "Waiting for first sync";
-  }
-
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date(value));
-}
-
 function formatMinuteStamp(date: Date): string {
   return new Intl.DateTimeFormat("zh-CN", {
     hour: "2-digit",
@@ -229,7 +111,7 @@ function excerpt(value: string, maxLength = 160): string {
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 }
 
-function getAvatarFallback(profile: Profile | null): string {
+function getAvatarFallback(profile: SpaceProfilePreview | null): string {
   if (!profile) {
     return "R";
   }
@@ -266,109 +148,25 @@ function SectionHero({ children, description, kicker, metrics, title }: SectionH
 function App() {
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
   const [routePath, setRoutePath] = useState<RoutePath>(() => readCurrentPath());
-  const [session, setSession] = useState<Session | null>(() => readStoredSession());
-  const [authForm, setAuthForm] = useState<AuthFormState>({
-    account: "",
-    password: "",
-  });
   const [chatDraft, setChatDraft] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
     CHATROOM_SEED.map((message) => ({ ...message })),
   );
-  const [loginState, setLoginState] = useState<LoginState>({
-    pending: false,
-    error: "",
-  });
-  const [dashboard, setDashboard] = useState<DashboardState>(createInitialDashboardState);
-  const [pageState, setPageState] = useState<PageState>({
-    loading: true,
-    refreshing: false,
-  });
-
-  const token = session?.accessToken ?? "";
-  const isAuthenticated = session !== null;
-  const backendReachable = Boolean(dashboard.health) && !dashboard.errors.health;
-  const lastUpdatedLabel = formatUpdatedAt(dashboard.updatedAt);
-  const publicArticles = dashboard.articles.filter((article) => article.visibility === "public");
-  const storyFeed = publicArticles.length ? publicArticles : dashboard.articles;
+  const storyFeed = STORY_ENTRIES;
   const featuredArticle = storyFeed[0] ?? null;
-  const featuredThread = dashboard.threads[0] ?? null;
-  const profile = dashboard.profile;
-  const boardCount = new Set(dashboard.threads.map((thread) => thread.board)).size;
-  const collectionTotal = profile
-    ? Object.values(profile.collections).reduce((count, item) => count + item, 0)
-    : 0;
+  const featuredThread = THREAD_ENTRIES[0] ?? null;
+  const profile = SPACE_PROFILE_PREVIEW;
+  const boardCount = new Set(THREAD_ENTRIES.map((thread) => thread.board)).size;
+  const collectionTotal = Object.values(profile.collections).reduce(
+    (count, item) => count + item,
+    0,
+  );
   const showcaseCount =
     ALBUM_ENTRIES.length +
     POLAROID_ENTRIES.length +
     PAPER_ENTRIES.length +
     TIMELINE_ENTRIES.length +
     GRAMOPHONE_TRACKS.length;
-
-  const loadDashboard = useEffectEvent(async (currentToken: string) => {
-    const [healthResult, articleResult, threadResult, profileResult] =
-      await Promise.allSettled([
-        fetchHealth(currentToken),
-        fetchArticles(currentToken),
-        fetchThreads(currentToken),
-        currentToken ? fetchMyProfile(currentToken) : Promise.resolve<Profile | null>(null),
-      ]);
-
-    const nextState = createInitialDashboardState();
-    nextState.updatedAt = new Date().toISOString();
-
-    if (healthResult.status === "fulfilled") {
-      nextState.health = healthResult.value;
-    } else {
-      nextState.errors.health = toErrorMessage(healthResult.reason);
-    }
-
-    if (articleResult.status === "fulfilled") {
-      nextState.articles = articleResult.value;
-    } else {
-      nextState.errors.articles = toErrorMessage(articleResult.reason);
-    }
-
-    if (threadResult.status === "fulfilled") {
-      nextState.threads = threadResult.value;
-    } else {
-      nextState.errors.threads = toErrorMessage(threadResult.reason);
-    }
-
-    if (profileResult.status === "fulfilled") {
-      nextState.profile = profileResult.value;
-    } else {
-      nextState.errors.profile = toErrorMessage(profileResult.reason);
-    }
-
-    startTransition(() => {
-      setDashboard(nextState);
-    });
-  });
-
-  useEffect(() => {
-    let active = true;
-
-    setPageState({
-      loading: true,
-      refreshing: true,
-    });
-
-    void loadDashboard(token).finally(() => {
-      if (!active) {
-        return;
-      }
-
-      setPageState({
-        loading: false,
-        refreshing: false,
-      });
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [token]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -443,65 +241,6 @@ function App() {
     document.title = TITLE_BY_ROUTE[routePath];
   }, [routePath]);
 
-  async function handleRefresh(): Promise<void> {
-    setPageState((current) => ({
-      ...current,
-      refreshing: true,
-    }));
-
-    await loadDashboard(token);
-
-    setPageState((current) => ({
-      ...current,
-      refreshing: false,
-    }));
-  }
-
-  async function handleLogin(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-
-    setLoginState({
-      pending: true,
-      error: "",
-    });
-
-    try {
-      const nextSession = await login(authForm);
-      persistSession(nextSession);
-      setSession(nextSession);
-      setAuthForm((current) => ({
-        ...current,
-        password: "",
-      }));
-    } catch (error) {
-      setLoginState({
-        pending: false,
-        error: toErrorMessage(error),
-      });
-      return;
-    }
-
-    setLoginState({
-      pending: false,
-      error: "",
-    });
-  }
-
-  function handleLogout(): void {
-    persistSession(null);
-    setSession(null);
-  }
-
-  function handleFieldChange(event: ChangeEvent<HTMLInputElement>): void {
-    const fieldName = event.target.name as keyof AuthFormState;
-    const { value } = event.target;
-
-    setAuthForm((current) => ({
-      ...current,
-      [fieldName]: value,
-    }));
-  }
-
   function handleChatDraftChange(event: ChangeEvent<HTMLTextAreaElement>): void {
     setChatDraft(event.target.value);
   }
@@ -542,56 +281,6 @@ function App() {
 
     setChatMessages((current) => [nextMessage, ...current].slice(0, 8));
     setChatDraft("");
-  }
-
-  function renderAuthBridge(guestHint: string, signedInHint: string): ReactNode {
-    if (session) {
-      return (
-        <div className="session-box">
-          <p>{signedInHint}</p>
-          <code className="token-preview">{session.accessToken}</code>
-          <button className="primary-button" type="button" onClick={handleLogout}>
-            Clear session
-          </button>
-        </div>
-      );
-    }
-
-    return (
-      <>
-        <p className="panel-empty">{guestHint}</p>
-        <form className="auth-form" onSubmit={(event) => void handleLogin(event)}>
-          <label>
-            <span>账号</span>
-            <input
-              name="account"
-              type="text"
-              value={authForm.account}
-              onChange={handleFieldChange}
-              placeholder="student-id or username"
-              autoComplete="username"
-              required
-            />
-          </label>
-          <label>
-            <span>密码</span>
-            <input
-              name="password"
-              type="password"
-              value={authForm.password}
-              onChange={handleFieldChange}
-              placeholder="any non-empty value for scaffold"
-              autoComplete="current-password"
-              required
-            />
-          </label>
-          <button className="primary-button" type="submit" disabled={loginState.pending}>
-            {loginState.pending ? "Signing in..." : "POST /auth/login"}
-          </button>
-          {loginState.error ? <p className="panel-error">{loginState.error}</p> : null}
-        </form>
-      </>
-    );
   }
 
   function renderHomePage(): ReactNode {

@@ -5,28 +5,26 @@ interface NavigationItem {
   label: string;
 }
 
+const SECTION_SUMMARY: Record<string, string> = {
+  "/": "入口总览",
+  "/stories": "文章与随想",
+  "/forum": "讨论与留言",
+  "/space": "收藏与空间",
+  "/gallery": "展示与归档",
+};
+
 interface HeaderProps {
-  backendReachable: boolean;
   currentPath: string;
   hidden: boolean;
-  isAuthenticated: boolean;
-  isRefreshing: boolean;
-  lastUpdatedLabel: string;
   navigation: readonly NavigationItem[];
   onNavigate: (href: string) => void;
-  onRefresh: () => void;
 }
 
 function Header({
-  backendReachable,
   currentPath,
   hidden,
-  isAuthenticated,
-  isRefreshing,
-  lastUpdatedLabel,
   navigation,
   onNavigate,
-  onRefresh,
 }: HeaderProps) {
   function handleNavigate(event: MouseEvent<HTMLAnchorElement>, href: string): void {
     event.preventDefault();
@@ -45,9 +43,9 @@ function Header({
           <span className="site-header__brand-core" />
         </span>
         <div className="site-header__brand-copy">
-          <p className="site-header__eyebrow">Welcome</p>
+          <p className="site-header__eyebrow">绯月回廊</p>
           <p className="site-header__title">Rubedo Forum</p>
-          <p className="site-header__subtitle">story portal</p>
+          <p className="site-header__subtitle">视觉小说交流站</p>
         </div>
       </a>
 
@@ -68,18 +66,7 @@ function Header({
       </nav>
 
       <div className="site-header__actions">
-        <span className="site-header__summary">
-          {backendReachable ? "online" : "offline"} / {isAuthenticated ? "member" : "guest"} /{" "}
-          {lastUpdatedLabel}
-        </span>
-        <button
-          className="site-header__refresh"
-          type="button"
-          onClick={onRefresh}
-          disabled={isRefreshing}
-        >
-          {isRefreshing ? "Syncing..." : "Refresh"}
-        </button>
+        <span className="site-header__summary">{SECTION_SUMMARY[currentPath] || "站点导览"}</span>
       </div>
     </header>
   );
