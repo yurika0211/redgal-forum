@@ -259,7 +259,7 @@ func (r *repository) UpdateRelayStatus(ctx context.Context, principal security.P
 	if _, err := r.platform.Postgres.ExecContext(
 		ctx,
 		`update relay_events
-		 set status = $2,
+		 set status = $2::relay_status,
 		     updated_at = now(),
 		     deleted_at = case when $2 = 'deleted' then now() else deleted_at end
 		 where id = $1`,
@@ -596,7 +596,7 @@ func (r *repository) UpdateWritingContestStatus(ctx context.Context, principal s
 	if _, err := r.platform.Postgres.ExecContext(
 		ctx,
 		`update writing_contests
-		 set status = $2,
+		 set status = $2::contest_status,
 		     updated_at = now(),
 		     deleted_at = case when $2 = 'deleted' then now() else deleted_at end
 		 where id = $1`,

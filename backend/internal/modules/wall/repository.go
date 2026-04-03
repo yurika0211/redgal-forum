@@ -214,7 +214,7 @@ func (r *repository) ReviewSubmission(ctx context.Context, principal security.Pr
 	if _, err := tx.ExecContext(
 		ctx,
 		`update wall_entries
-		 set status = $2,
+		 set status = $2::wall_entry_status,
 		     approved_by = case when $2 = 'approved' then $3 else approved_by end,
 		     approved_at = case when $2 = 'approved' then now() else approved_at end,
 		     published_at = case when $2 = 'approved' then now() else published_at end,

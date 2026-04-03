@@ -132,11 +132,20 @@ func registerForumRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group := api.Group("/forum")
 	group.GET("/threads", deps.ForumHandler.ListThreads)
 	group.GET("/threads/:threadID", deps.ForumHandler.GetThread)
+	group.GET("/anonymous/threads", deps.ForumHandler.ListAnonymousThreads)
+	group.GET("/anonymous/threads/:threadID", deps.ForumHandler.GetAnonymousThread)
 
 	member := group.Group("")
 	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("forum-write"))
+	member.GET("/me/progression", deps.ForumHandler.GetProgress)
+	member.POST("/sign-in", deps.ForumHandler.SignIn)
 	member.POST("/threads", deps.ForumHandler.CreateThread)
 	member.POST("/threads/:threadID/replies", deps.ForumHandler.CreateReply)
+
+	anonymous := group.Group("/anonymous")
+	anonymous.Use(middleware.RequireAuthenticated(), middleware.RateLimit("anonymous-forum-write"))
+	anonymous.POST("/threads", deps.ForumHandler.CreateAnonymousThread)
+	anonymous.POST("/threads/:threadID/replies", deps.ForumHandler.CreateAnonymousReply)
 
 	admin := api.Group("/admin/forum")
 	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
@@ -150,6 +159,7 @@ func registerSiteRoutes(api *gin.RouterGroup, deps Dependencies) {
 
 	admin := api.Group("/admin/site")
 	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
+	admin.GET("/content-blocks", deps.SiteHandler.ListContentBlocks)
 	admin.GET("/gallery-entries", deps.SiteHandler.ListGalleryEntries)
 	admin.POST("/content-blocks", deps.SiteHandler.CreateContentBlock)
 	admin.PATCH("/content-blocks/:blockID", deps.SiteHandler.UpdateContentBlock)

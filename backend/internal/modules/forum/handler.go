@@ -29,6 +29,16 @@ func (h *Handler) ListThreads(c *gin.Context) {
 	response.OK(c, threads)
 }
 
+func (h *Handler) ListAnonymousThreads(c *gin.Context) {
+	threads, err := h.service.ListAnonymousThreads(c.Request.Context(), pagination.FromGin(c))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, threads)
+}
+
 func (h *Handler) GetThread(c *gin.Context) {
 	thread, err := h.service.GetThread(c.Request.Context(), c.Param("threadID"))
 	if err != nil {
@@ -37,6 +47,36 @@ func (h *Handler) GetThread(c *gin.Context) {
 	}
 
 	response.OK(c, thread)
+}
+
+func (h *Handler) GetAnonymousThread(c *gin.Context) {
+	thread, err := h.service.GetAnonymousThread(c.Request.Context(), c.Param("threadID"))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, thread)
+}
+
+func (h *Handler) GetProgress(c *gin.Context) {
+	progress, err := h.service.GetProgress(c.Request.Context(), security.FromContext(c))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, progress)
+}
+
+func (h *Handler) SignIn(c *gin.Context) {
+	result, err := h.service.SignIn(c.Request.Context(), security.FromContext(c))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, result)
 }
 
 func (h *Handler) CreateThread(c *gin.Context) {
@@ -60,6 +100,27 @@ func (h *Handler) CreateThread(c *gin.Context) {
 	response.Created(c, thread)
 }
 
+func (h *Handler) CreateAnonymousThread(c *gin.Context) {
+	var input CreateThreadRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	thread, err := h.service.CreateAnonymousThread(c.Request.Context(), security.FromContext(c), input)
+	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "forum.anonymous_thread.create")
+			return
+		}
+
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Created(c, thread)
+}
+
 func (h *Handler) CreateReply(c *gin.Context) {
 	var input CreateReplyRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -71,6 +132,27 @@ func (h *Handler) CreateReply(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, scaffold.ErrNotImplemented) {
 			response.NotImplemented(c, "forum.reply.create")
+			return
+		}
+
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.Created(c, reply)
+}
+
+func (h *Handler) CreateAnonymousReply(c *gin.Context) {
+	var input CreateReplyRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	reply, err := h.service.CreateAnonymousReply(c.Request.Context(), security.FromContext(c), c.Param("threadID"), input)
+	if err != nil {
+		if errors.Is(err, scaffold.ErrNotImplemented) {
+			response.NotImplemented(c, "forum.anonymous_reply.create")
 			return
 		}
 

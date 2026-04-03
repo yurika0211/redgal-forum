@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -74,5 +75,58 @@ func TestOptionalAuthIgnoresDebugHeadersWhenDisabled(t *testing.T) {
 	principal := security.FromContext(context)
 	if principal.Authenticated() {
 		t.Fatalf("expected debug headers to be ignored, got principal %+v", principal)
+	}
+}
+
+func TestRequireVerifiedUserRejectsUnverifiedPrincipal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	security.SetPrincipal(context, security.Principal{
+		UserID:     "u-1",
+		Username:   "pending_user",
+		UserStatus: "pending_verification",
+		Verified:   false,
+		Roles:      []security.Role{security.RoleUnverified},
+	})
+
+	RequireVerifiedUser()(context)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected 403 for unverified user, got %d", recorder.Code)
+	}
+}
+
+func TestRequireVerifiedUserAcceptsMemberPrincipal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	security.SetPrincipal(context, security.Principal{
+		UserID:     "u-2",
+		Username:   "member_user",
+		UserStatus: "active",
+		Verified:   true,
+		Roles:      []security.Role{security.RoleMember},
+	})
+
+	called := false
+	handler := func(c *gin.Context) {
+		called = true
+	}
+
+	RequireVerifiedUser()(context)
+	if !context.IsAborted() {
+		handler(context)
+	}
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected default 200 status for verified user, got %d", recorder.Code)
+	}
+	if !called {
+		t.Fatal("expected verified user to pass middleware")
 	}
 }

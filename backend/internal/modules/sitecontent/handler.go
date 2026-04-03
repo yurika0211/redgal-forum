@@ -26,6 +26,16 @@ func (h *Handler) GetContent(c *gin.Context) {
 	response.OK(c, content)
 }
 
+func (h *Handler) ListContentBlocks(c *gin.Context) {
+	blocks, err := h.service.ListContentBlocks(c.Request.Context(), pagination.FromGin(c))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, blocks)
+}
+
 func (h *Handler) ListGalleryEntries(c *gin.Context) {
 	entries, err := h.service.ListGalleryEntries(c.Request.Context(), pagination.FromGin(c))
 	if err != nil {

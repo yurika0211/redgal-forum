@@ -14,6 +14,7 @@ import (
 
 type Repository interface {
 	GetContent(ctx context.Context) (SiteContent, error)
+	ListContentBlocks(ctx context.Context, params pagination.Params) (pagination.Result[ContentBlock], error)
 	ListGalleryEntries(ctx context.Context, params pagination.Params) (pagination.Result[GalleryEntry], error)
 	CreateContentBlock(ctx context.Context, input CreateContentBlockRequest) (ContentBlock, error)
 	UpdateContentBlock(ctx context.Context, blockID string, input UpdateContentBlockRequest) (ContentBlock, error)
@@ -101,6 +102,50 @@ func (r *repository) GetContent(ctx context.Context) (SiteContent, error) {
 	}
 
 	return content, nil
+}
+
+func (r *repository) ListContentBlocks(ctx context.Context, params pagination.Params) (pagination.Result[ContentBlock], error) {
+	if !r.hasDatabase() {
+		return pagination.Result[ContentBlock]{}, sql.ErrConnDone
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int from site_content_blocks`,
+	).Scan(&total); err != nil {
+		return pagination.Result[ContentBlock]{}, err
+	}
+
+	rows, err := r.platform.Postgres.QueryContext(
+		ctx,
+		`select id, block_type::text, slug, coalesce(path, ''), coalesce(kicker, ''), coalesce(label, ''), title,
+		        coalesce(description, ''), coalesce(body, ''), sort_order, is_active
+		 from site_content_blocks
+		 order by block_type asc, sort_order asc, id asc
+		 limit $1 offset $2`,
+		params.PageSize,
+		params.Offset(),
+	)
+	if err != nil {
+		return pagination.Result[ContentBlock]{}, err
+	}
+	defer rows.Close()
+
+	items := make([]ContentBlock, 0)
+	for rows.Next() {
+		block, scanErr := scanContentBlock(rows)
+		if scanErr != nil {
+			return pagination.Result[ContentBlock]{}, scanErr
+		}
+		items = append(items, block)
+	}
+
+	if err := rows.Err(); err != nil {
+		return pagination.Result[ContentBlock]{}, err
+	}
+
+	return pagination.NewResult(items, total, params), nil
 }
 
 func (r *repository) ListGalleryEntries(ctx context.Context, params pagination.Params) (pagination.Result[GalleryEntry], error) {

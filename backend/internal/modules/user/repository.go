@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -113,7 +114,54 @@ func (r *repository) UpdateMe(ctx context.Context, principal security.Principal,
 }
 
 func (r *repository) QueueBangumiImport(ctx context.Context, principal security.Principal, input BangumiImportRequest) (BangumiImportJob, error) {
-	return BangumiImportJob{}, scaffold.ErrNotImplemented
+	if !r.hasPostgres() {
+		return BangumiImportJob{
+			JobID:   "bgm-sync-scaffold",
+			Status:  "queued",
+			Channel: "bangumi_sync_jobs",
+		}, nil
+	}
+
+	userID, err := strconv.ParseInt(strings.TrimSpace(principal.UserID), 10, 64)
+	if err != nil {
+		record, loadErr := r.loadUserByUsername(ctx, principal.Username)
+		if loadErr != nil {
+			return BangumiImportJob{}, loadErr
+		}
+		userID = record.ID
+	}
+
+	requestPayload, err := json.Marshal(map[string]any{
+		"subject_ids": input.SubjectIDs,
+		"status":      input.Status,
+		"visibility":  strings.TrimSpace(input.Visibility),
+	})
+	if err != nil {
+		return BangumiImportJob{}, err
+	}
+
+	var jobID int64
+	var status string
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`insert into bangumi_sync_jobs (
+			user_id,
+			job_type,
+			status,
+			request_payload
+		) values ($1, 'collection_sync', 'queued', $2::jsonb)
+		returning id, status::text`,
+		userID,
+		string(requestPayload),
+	).Scan(&jobID, &status); err != nil {
+		return BangumiImportJob{}, err
+	}
+
+	return BangumiImportJob{
+		JobID:   strconv.FormatInt(jobID, 10),
+		Status:  status,
+		Channel: "bangumi_sync_jobs",
+	}, nil
 }
 
 func (r *repository) GetAdminDashboard(ctx context.Context, principal security.Principal) (AdminDashboard, error) {
