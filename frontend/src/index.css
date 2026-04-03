@@ -1,0 +1,12 @@
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+}
+
+#root {
+  min-height: 100vh;
+}

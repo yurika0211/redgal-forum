@@ -1,0 +1,27 @@
+package wall
+
+import (
+	"context"
+
+	"example.com/rubedo/backend/internal/security"
+)
+
+type Service struct {
+	repo Repository
+}
+
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
+}
+
+func (s *Service) List(ctx context.Context) ([]WallEntry, error) {
+	return s.repo.ListEntries(ctx)
+}
+
+func (s *Service) CreateSubmission(ctx context.Context, principal security.Principal, input CreateSubmissionRequest) (WallEntry, error) {
+	return s.repo.CreateSubmission(ctx, principal, input)
+}
+
+func (s *Service) ReviewSubmission(ctx context.Context, principal security.Principal, submissionID string, input ReviewSubmissionRequest) (ReviewResult, error) {
+	return s.repo.ReviewSubmission(ctx, principal, submissionID, input)
+}
