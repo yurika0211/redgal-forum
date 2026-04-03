@@ -15,6 +15,14 @@ export interface HealthData {
   app: string;
   env: string;
   services: Record<string, boolean>;
+  service_details?: Record<
+    string,
+    {
+      configured: boolean;
+      reachable: boolean;
+      error?: string;
+    }
+  >;
   modules: string[];
 }
 
@@ -25,6 +33,9 @@ export interface Profile {
   signature: string;
   bio: string;
   avatar_url: string;
+  status?: string;
+  verified?: boolean;
+  roles?: string[];
   collections: Record<string, number>;
 }
 
@@ -47,6 +58,48 @@ export interface ForumThread {
   author: string;
   tags: string[];
   reply_count: number;
+}
+
+export interface SiteContentBlock {
+  id: string;
+  block_type:
+    | "hero_object"
+    | "portal_page"
+    | "portal_highlight"
+    | "portal_pillar"
+    | "portal_activity"
+    | "portal_join_step";
+  slug: string;
+  path?: string;
+  kicker?: string;
+  label?: string;
+  title: string;
+  description?: string;
+  body?: string;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface SiteGalleryEntry {
+  id: string;
+  entry_type: "album" | "polaroid" | "paper" | "timeline" | "track";
+  slug: string;
+  title: string;
+  subtitle?: string;
+  body?: string;
+  extra_text?: string;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface SiteContent {
+  hero_objects: SiteContentBlock[];
+  portal_pages: SiteContentBlock[];
+  portal_highlights: SiteContentBlock[];
+  portal_pillars: SiteContentBlock[];
+  portal_activities: SiteContentBlock[];
+  portal_join_steps: SiteContentBlock[];
+  gallery_entries: SiteGalleryEntry[];
 }
 
 interface SessionResponse {
@@ -123,10 +176,18 @@ export function fetchMyProfile(token: string): Promise<Profile> {
   return request<Profile>("/users/me", { token });
 }
 
+export function fetchPublicProfile(username: string): Promise<Profile> {
+  return request<Profile>(`/users/${encodeURIComponent(username)}`);
+}
+
 export function fetchArticles(token?: string): Promise<Article[]> {
   return request<Article[]>("/articles", { token });
 }
 
 export function fetchThreads(token?: string): Promise<ForumThread[]> {
   return request<ForumThread[]>("/forum/threads", { token });
+}
+
+export function fetchSiteContent(): Promise<SiteContent> {
+  return request<SiteContent>("/site/content");
 }

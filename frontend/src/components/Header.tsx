@@ -1,23 +1,18 @@
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 
 interface NavigationItem {
   href: string;
   label: string;
 }
 
-const SECTION_SUMMARY: Record<string, string> = {
-  "/": "入口总览",
-  "/stories": "文章与随想",
-  "/forum": "讨论与留言",
-  "/space": "收藏与空间",
-  "/gallery": "展示与归档",
-};
-
 interface HeaderProps {
   currentPath: string;
   hidden: boolean;
   navigation: readonly NavigationItem[];
   onNavigate: (href: string) => void;
+  summary: string;
+  utilityHref: string;
+  utilityLabel: string;
 }
 
 function Header({
@@ -25,9 +20,19 @@ function Header({
   hidden,
   navigation,
   onNavigate,
+  summary,
+  utilityHref,
+  utilityLabel,
 }: HeaderProps) {
-  function handleNavigate(event: MouseEvent<HTMLAnchorElement>, href: string): void {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [currentPath, hidden]);
+
+  function handleNavigate(event: MouseEvent<HTMLAnchorElement | HTMLButtonElement>, href: string) {
     event.preventDefault();
+    setMenuOpen(false);
     onNavigate(href);
   }
 
@@ -45,28 +50,57 @@ function Header({
         <div className="site-header__brand-copy">
           <p className="site-header__eyebrow">绯月回廊</p>
           <p className="site-header__title">Rubedo Forum</p>
-          <p className="site-header__subtitle">视觉小说交流站</p>
+          <p className="site-header__subtitle">视觉小说社团与内容归档</p>
         </div>
       </a>
 
-      <nav className="site-header__nav" aria-label="Primary">
-        {navigation.map((link) => (
-          <a
-            className={`site-header__link ${
-              currentPath === link.href ? "site-header__link--active" : ""
-            }`}
-            href={link.href}
-            key={link.href}
-            onClick={(event) => handleNavigate(event, link.href)}
-          >
-            <span className="site-header__link-dot" aria-hidden="true" />
-            {link.label}
-          </a>
-        ))}
-      </nav>
+      <button
+        aria-controls="site-header-panel"
+        aria-expanded={menuOpen}
+        aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
+        className={`site-header__menu ${menuOpen ? "site-header__menu--open" : ""}`}
+        type="button"
+        onClick={() => {
+          setMenuOpen((current) => !current);
+        }}
+      >
+        <span className="site-header__menu-line" />
+        <span className="site-header__menu-line" />
+        <span className="site-header__menu-line" />
+      </button>
 
-      <div className="site-header__actions">
-        <span className="site-header__summary">{SECTION_SUMMARY[currentPath] || "站点导览"}</span>
+      <div
+        className={`site-header__panel ${menuOpen ? "site-header__panel--open" : ""}`}
+        id="site-header-panel"
+      >
+        <div className="site-header__panel-inner">
+          <nav className="site-header__nav" aria-label="Primary">
+            {navigation.map((link) => (
+              <a
+                className={`site-header__link ${
+                  currentPath === link.href ? "site-header__link--active" : ""
+                }`}
+                href={link.href}
+                key={link.href}
+                onClick={(event) => handleNavigate(event, link.href)}
+              >
+                <span className="site-header__link-dot" aria-hidden="true" />
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="site-header__actions">
+            <span className="site-header__summary">{summary}</span>
+            <button
+              className="site-header__refresh"
+              type="button"
+              onClick={(event) => handleNavigate(event, utilityHref)}
+            >
+              {utilityLabel}
+            </button>
+          </div>
+        </div>
       </div>
     </header>
   );

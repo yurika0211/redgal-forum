@@ -2,15 +2,30 @@ import {
   startTransition,
   useEffect,
   useState,
+  type ChangeEvent,
   type FormEvent,
   type ReactNode,
 } from "react";
 import "./App.css";
+import {
+  fetchArticles,
+  fetchHealth,
+  fetchMyProfile,
+  fetchPublicProfile,
+  fetchSiteContent,
+  fetchThreads,
+  type Article as ApiArticle,
+  type ForumThread as ApiForumThread,
+  type HealthData,
+  type Profile as ApiProfile,
+  login,
+  type Session,
+  type SiteContent,
+} from "./api";
 import Header from "./components/Header";
 import {
   ALBUM_ENTRIES,
   CHATROOM_SEED,
-  type DiscussionThreadEntry,
   GRAMOPHONE_TRACKS,
   HERO_OBJECTS,
   NAV_ITEMS,
@@ -18,11 +33,13 @@ import {
   POLAROID_ENTRIES,
   PORTAL_PAGES,
   REFLECTION_ENTRIES,
+  SOCIETY_ACTIVITIES,
+  SOCIETY_HIGHLIGHTS,
+  SOCIETY_JOIN_STEPS,
+  SOCIETY_PILLARS,
   SPACE_PROFILE_PREVIEW,
   SPACE_MEMORIES,
   type SpaceProfilePreview,
-  STORY_ENTRIES,
-  THREAD_ENTRIES,
   TIMELINE_ENTRIES,
 } from "./content";
 
@@ -57,18 +74,119 @@ interface SectionHeroProps {
   title: string;
 }
 
+interface AuthFormState {
+  account: string;
+  password: string;
+}
+
+interface LoginState {
+  pending: boolean;
+  error: string;
+}
+
+interface DisplayHeroObject {
+  id: string;
+  label: string;
+  title: string;
+  note: string;
+}
+
+interface DisplayPortalPage {
+  href: string;
+  kicker: string;
+  title: string;
+  description: string;
+}
+
+interface DisplayHighlight {
+  id: string;
+  kicker: string;
+  title: string;
+  body: string;
+}
+
+interface DisplayPillar {
+  id: string;
+  title: string;
+  description: string;
+}
+
+interface DisplayActivity {
+  id: string;
+  label: string;
+  title: string;
+  description: string;
+}
+
+interface DisplayJoinStep {
+  id: string;
+  step: string;
+  title: string;
+  description: string;
+}
+
+interface DisplayAlbum {
+  id: string;
+  title: string;
+  accent: string;
+  caption: string;
+}
+
+interface DisplayPolaroid {
+  id: string;
+  title: string;
+  stamp: string;
+  note: string;
+}
+
+interface DisplayPaper {
+  id: string;
+  title: string;
+  signature: string;
+  body: string;
+}
+
+interface DisplayTimeline {
+  id: string;
+  year: string;
+  title: string;
+  summary: string;
+}
+
+interface DisplayTrack {
+  id: string;
+  title: string;
+  mood: string;
+  length: string;
+  detail: string;
+}
+
 const TITLE_BY_ROUTE: Record<RoutePath, string> = {
-  "/": "入口总览 | Rubedo Forum",
-  "/forum": "论坛聊天室 | Rubedo Forum",
-  "/gallery": "展示墙 | Rubedo Forum",
-  "/space": "个人空间 | Rubedo Forum",
+  "/": "首页总览 | Rubedo Forum",
+  "/portal": "社团介绍 | Rubedo Forum",
   "/stories": "文章札记 | Rubedo Forum",
+  "/forum": "论坛聊天室 | Rubedo Forum",
+  "/space": "个人空间 | Rubedo Forum",
+  "/gallery": "展示墙 | Rubedo Forum",
 };
+
+const HEADER_SUMMARY_BY_ROUTE: Record<RoutePath, string> = {
+  "/": "首页导览",
+  "/portal": "社团介绍",
+  "/stories": "文章与随想",
+  "/forum": "讨论与留言",
+  "/space": "收藏与空间",
+  "/gallery": "展示与归档",
+};
+
+const SESSION_STORAGE_KEY = "rubedo.frontend.session";
 
 function normalizePath(pathname: string): RoutePath {
   const normalized = pathname.replace(/\/+$/, "") || "/";
 
   switch (normalized) {
+    case "/portal":
+      return "/portal";
     case "/stories":
       return "/stories";
     case "/forum":
@@ -101,7 +219,7 @@ function excerpt(value: string, maxLength = 160): string {
   const normalized = value.trim();
 
   if (!normalized) {
-    return "内容暂时为空，等待后端返回更多字段。";
+    return "内容暂时为空。";
   }
 
   if (normalized.length <= maxLength) {
@@ -111,12 +229,115 @@ function excerpt(value: string, maxLength = 160): string {
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 }
 
-function getAvatarFallback(profile: SpaceProfilePreview | null): string {
+function getAvatarFallback(profile: Pick<SpaceProfilePreview, "nickname" | "username"> | null): string {
   if (!profile) {
     return "R";
   }
 
   return (profile.nickname || profile.username || "R").trim().charAt(0).toUpperCase() || "R";
+}
+
+function createFallbackProfile(): ApiProfile {
+  return {
+    user_id: "rubedo-room",
+    username: SPACE_PROFILE_PREVIEW.username,
+    nickname: SPACE_PROFILE_PREVIEW.nickname,
+    signature: SPACE_PROFILE_PREVIEW.signature,
+    bio: SPACE_PROFILE_PREVIEW.bio,
+    avatar_url: "",
+    status: "guest_preview",
+    verified: false,
+    roles: [],
+    collections: SPACE_PROFILE_PREVIEW.collections,
+  };
+}
+
+function normalizeVisibilityLabel(value: string): string {
+  switch (value) {
+    case "public":
+      return "公开";
+    case "member":
+    case "members":
+      return "成员";
+    case "private":
+      return "私有";
+    default:
+      return value;
+  }
+}
+
+function formatUpdatedAt(value: string): string {
+  if (!value) {
+    return "尚未同步";
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(value));
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "请求失败";
+}
+
+function isSession(value: unknown): value is Session {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<Session>;
+  return (
+    typeof candidate.accessToken === "string" &&
+    typeof candidate.refreshToken === "string" &&
+    typeof candidate.expiresIn === "number"
+  );
+}
+
+function readStoredSession(): Session | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (isSession(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // Ignore malformed stored session and clear it below.
+  }
+
+  window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  return null;
+}
+
+function persistSession(session: Session | null): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!session) {
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+}
+
+function isAuthFailure(error: unknown): boolean {
+  const message = toErrorMessage(error).toLowerCase();
+  return message.includes("authentication") || message.includes("unauthorized") || message.includes("401");
 }
 
 function StatusChip({ tone = "neutral", children }: StatusChipProps) {
@@ -152,21 +373,147 @@ function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
     CHATROOM_SEED.map((message) => ({ ...message })),
   );
-  const storyFeed = STORY_ENTRIES;
+  const [storyFeed, setStoryFeed] = useState<ApiArticle[]>([]);
+  const [threadFeed, setThreadFeed] = useState<ApiForumThread[]>([]);
+  const [profile, setProfile] = useState<ApiProfile | null>(null);
+  const [health, setHealth] = useState<HealthData | null>(null);
+  const [siteContent, setSiteContent] = useState<SiteContent | null>(null);
+  const [session, setSession] = useState<Session | null>(() => readStoredSession());
+  const [authForm, setAuthForm] = useState<AuthFormState>({
+    account: SPACE_PROFILE_PREVIEW.username,
+    password: "",
+  });
+  const [loginState, setLoginState] = useState<LoginState>({
+    pending: false,
+    error: "",
+  });
+  const [healthError, setHealthError] = useState("");
+  const [articlesError, setArticlesError] = useState("");
+  const [threadsError, setThreadsError] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState("");
+  const [refreshNonce, setRefreshNonce] = useState(0);
+
+  const heroObjects: DisplayHeroObject[] = siteContent?.hero_objects.length
+    ? siteContent.hero_objects.map((item) => ({
+        id: item.slug,
+        label: item.label || "",
+        title: item.title,
+        note: item.body || item.description || "",
+      }))
+    : HERO_OBJECTS.map((item) => ({ ...item }));
+  const portalPages: DisplayPortalPage[] = siteContent?.portal_pages.length
+    ? siteContent.portal_pages.map((item) => ({
+        href: item.path || "/",
+        kicker: item.kicker || "",
+        title: item.title,
+        description: item.description || "",
+      }))
+    : PORTAL_PAGES.map((item) => ({ ...item }));
+  const societyHighlights: DisplayHighlight[] = siteContent?.portal_highlights.length
+    ? siteContent.portal_highlights.map((item) => ({
+        id: item.slug,
+        kicker: item.kicker || "",
+        title: item.title,
+        body: item.body || item.description || "",
+      }))
+    : SOCIETY_HIGHLIGHTS.map((item) => ({ ...item }));
+  const societyPillars: DisplayPillar[] = siteContent?.portal_pillars.length
+    ? siteContent.portal_pillars.map((item) => ({
+        id: item.slug,
+        title: item.title,
+        description: item.description || "",
+      }))
+    : SOCIETY_PILLARS.map((item) => ({ ...item }));
+  const societyActivities: DisplayActivity[] = siteContent?.portal_activities.length
+    ? siteContent.portal_activities.map((item) => ({
+        id: item.slug,
+        label: item.label || "",
+        title: item.title,
+        description: item.description || "",
+      }))
+    : SOCIETY_ACTIVITIES.map((item) => ({ ...item }));
+  const societyJoinSteps: DisplayJoinStep[] = siteContent?.portal_join_steps.length
+    ? siteContent.portal_join_steps.map((item) => ({
+        id: item.slug,
+        step: item.label || "",
+        title: item.title,
+        description: item.description || "",
+      }))
+    : SOCIETY_JOIN_STEPS.map((item) => ({ ...item }));
+
+  const galleryAlbums: DisplayAlbum[] = siteContent?.gallery_entries.length
+    ? siteContent.gallery_entries
+        .filter((entry) => entry.entry_type === "album")
+        .map((entry) => ({
+          id: entry.slug,
+          title: entry.title,
+          accent: entry.subtitle || "",
+          caption: entry.body || "",
+        }))
+    : ALBUM_ENTRIES.map((item) => ({ ...item }));
+  const galleryPolaroids: DisplayPolaroid[] = siteContent?.gallery_entries.length
+    ? siteContent.gallery_entries
+        .filter((entry) => entry.entry_type === "polaroid")
+        .map((entry) => ({
+          id: entry.slug,
+          title: entry.title,
+          stamp: entry.subtitle || "",
+          note: entry.body || "",
+        }))
+    : POLAROID_ENTRIES.map((item) => ({ ...item }));
+  const galleryPapers: DisplayPaper[] = siteContent?.gallery_entries.length
+    ? siteContent.gallery_entries
+        .filter((entry) => entry.entry_type === "paper")
+        .map((entry) => ({
+          id: entry.slug,
+          title: entry.title,
+          signature: entry.subtitle || "",
+          body: entry.body || "",
+        }))
+    : PAPER_ENTRIES.map((item) => ({ ...item }));
+  const galleryTimeline: DisplayTimeline[] = siteContent?.gallery_entries.length
+    ? siteContent.gallery_entries
+        .filter((entry) => entry.entry_type === "timeline")
+        .map((entry) => ({
+          id: entry.slug,
+          year: entry.subtitle || "",
+          title: entry.title,
+          summary: entry.body || "",
+        }))
+    : TIMELINE_ENTRIES.map((item) => ({ ...item }));
+  const galleryTracks: DisplayTrack[] = siteContent?.gallery_entries.length
+    ? siteContent.gallery_entries
+        .filter((entry) => entry.entry_type === "track")
+        .map((entry) => ({
+          id: entry.slug,
+          title: entry.title,
+          mood: entry.subtitle || "",
+          length: entry.extra_text || "",
+          detail: entry.body || "",
+        }))
+    : GRAMOPHONE_TRACKS.map((item) => ({ ...item }));
+
   const featuredArticle = storyFeed[0] ?? null;
-  const featuredThread = THREAD_ENTRIES[0] ?? null;
-  const profile = SPACE_PROFILE_PREVIEW;
-  const boardCount = new Set(THREAD_ENTRIES.map((thread) => thread.board)).size;
-  const collectionTotal = Object.values(profile.collections).reduce(
+  const featuredThread = threadFeed[0] ?? null;
+  const boardCount = new Set(threadFeed.map((thread) => thread.board)).size;
+  const isAuthenticated = session !== null;
+  const displayProfile = profile ?? (!isAuthenticated ? createFallbackProfile() : null);
+  const collectionTotal = Object.values(displayProfile?.collections ?? {}).reduce(
     (count, item) => count + item,
     0,
   );
   const showcaseCount =
-    ALBUM_ENTRIES.length +
-    POLAROID_ENTRIES.length +
-    PAPER_ENTRIES.length +
-    TIMELINE_ENTRIES.length +
-    GRAMOPHONE_TRACKS.length;
+    galleryAlbums.length +
+    galleryPolaroids.length +
+    galleryPapers.length +
+    galleryTimeline.length +
+    galleryTracks.length;
+  const backendReachable = health !== null && !healthError;
+  const lastUpdatedLabel = formatUpdatedAt(lastUpdatedAt);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -241,8 +588,105 @@ function App() {
     document.title = TITLE_BY_ROUTE[routePath];
   }, [routePath]);
 
-  function handleChatDraftChange(event: ChangeEvent<HTMLTextAreaElement>): void {
-    setChatDraft(event.target.value);
+  useEffect(() => {
+    let active = true;
+    const refreshing = hasLoadedOnce;
+
+    if (refreshing) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoadingData(true);
+    }
+
+    async function loadPageContent(): Promise<void> {
+      const token = session?.accessToken;
+      const profileRequest = token
+        ? fetchMyProfile(token)
+        : fetchPublicProfile(SPACE_PROFILE_PREVIEW.username);
+
+      const [healthResult, siteResult, articleResult, threadResult, profileResult] =
+        await Promise.allSettled([
+          fetchHealth(token || undefined),
+          fetchSiteContent(),
+          fetchArticles(token || undefined),
+          fetchThreads(token || undefined),
+          profileRequest,
+        ]);
+
+      if (!active) {
+        return;
+      }
+
+      const nextHealthError = healthResult.status === "rejected" ? toErrorMessage(healthResult.reason) : "";
+      const nextArticlesError =
+        articleResult.status === "rejected" ? toErrorMessage(articleResult.reason) : "";
+      const nextThreadsError =
+        threadResult.status === "rejected" ? toErrorMessage(threadResult.reason) : "";
+      const nextProfileError =
+        profileResult.status === "rejected" ? toErrorMessage(profileResult.reason) : "";
+      const shouldDropSession = token && profileResult.status === "rejected" && isAuthFailure(profileResult.reason);
+
+      if (shouldDropSession) {
+        persistSession(null);
+      }
+
+      startTransition(() => {
+        if (healthResult.status === "fulfilled") {
+          setHealth(healthResult.value);
+        } else {
+          setHealth(null);
+        }
+
+        if (siteResult.status === "fulfilled") {
+          setSiteContent(siteResult.value);
+        }
+
+        if (articleResult.status === "fulfilled") {
+          setStoryFeed(articleResult.value);
+        } else {
+          setStoryFeed([]);
+        }
+
+        if (threadResult.status === "fulfilled") {
+          setThreadFeed(threadResult.value);
+        } else {
+          setThreadFeed([]);
+        }
+
+        if (profileResult.status === "fulfilled") {
+          setProfile(profileResult.value);
+        } else if (token) {
+          setProfile(null);
+        } else {
+          setProfile(createFallbackProfile());
+        }
+
+        if (shouldDropSession) {
+          setSession(null);
+        }
+
+        setHealthError(nextHealthError);
+        setArticlesError(nextArticlesError);
+        setThreadsError(nextThreadsError);
+        setProfileError(
+          shouldDropSession ? "当前会话已失效，已切回游客预览。" : nextProfileError,
+        );
+        setLastUpdatedAt(new Date().toISOString());
+        setHasLoadedOnce(true);
+        setIsLoadingData(false);
+        setIsRefreshing(false);
+      });
+    }
+
+    void loadPageContent();
+
+    return () => {
+      active = false;
+    };
+  }, [refreshNonce, session]);
+
+  function handleRefresh(): void {
+    setRefreshNonce((current) => current + 1);
   }
 
   function handleNavigate(nextHref: string): void {
@@ -261,6 +705,56 @@ function App() {
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
+  }
+
+  function handleChatDraftChange(event: ChangeEvent<HTMLTextAreaElement>): void {
+    setChatDraft(event.target.value);
+  }
+
+  function handleAuthFieldChange(event: ChangeEvent<HTMLInputElement>): void {
+    const { name, value } = event.target;
+
+    setAuthForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  async function handleLoginSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    setLoginState({
+      pending: true,
+      error: "",
+    });
+
+    try {
+      const nextSession = await login(authForm);
+      persistSession(nextSession);
+      setSession(nextSession);
+      setAuthForm((current) => ({
+        ...current,
+        password: "",
+      }));
+      setLoginState({
+        pending: false,
+        error: "",
+      });
+    } catch (error) {
+      setLoginState({
+        pending: false,
+        error: toErrorMessage(error),
+      });
+    }
+  }
+
+  function handleLogout(): void {
+    persistSession(null);
+    setSession(null);
+    setLoginState({
+      pending: false,
+      error: "",
+    });
   }
 
   function handleChatSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -283,35 +777,142 @@ function App() {
     setChatDraft("");
   }
 
+  function renderHealthPanel(): ReactNode {
+    const serviceEntries: Array<
+      [string, { configured: boolean; reachable: boolean; error?: string }]
+    > = health?.service_details
+      ? Object.entries(health.service_details)
+      : Object.entries(health?.services || {}).map(
+          ([name, reachable]): [string, { configured: boolean; reachable: boolean; error?: string }] => [
+            name,
+            {
+              configured: reachable,
+              reachable,
+            },
+          ],
+        );
+
+    return (
+      <article className="panel">
+        <div className="panel-heading">
+          <div>
+            <p className="panel-kicker">服务状态</p>
+            <h2>后端连通性</h2>
+          </div>
+          <StatusChip tone={backendReachable ? "success" : "warn"}>
+            {backendReachable ? "在线" : "待确认"}
+          </StatusChip>
+        </div>
+        {health ? (
+          <>
+            <div className="service-grid">
+              {serviceEntries.map(([serviceName, detail]) => (
+                <div className="service-card content-card" key={serviceName}>
+                  <span>{serviceName}</span>
+                  <StatusChip tone={detail.reachable ? "success" : detail.configured ? "warn" : "neutral"}>
+                    {detail.reachable ? "reachable" : detail.configured ? "configured only" : "not configured"}
+                  </StatusChip>
+                  {detail.error ? <p className="panel-empty">{detail.error}</p> : null}
+                </div>
+              ))}
+            </div>
+            <div className="module-list">
+              {health.modules.map((moduleName) => (
+                <span className="module-tag" key={moduleName}>
+                  {moduleName}
+                </span>
+              ))}
+            </div>
+            <p className="panel-empty">最近同步：{lastUpdatedLabel}</p>
+          </>
+        ) : (
+          <p className="panel-error">{healthError || "健康检查尚未返回。"}</p>
+        )}
+        <button className="ghost-button" type="button" onClick={handleRefresh} disabled={isRefreshing}>
+          {isRefreshing ? "同步中..." : "刷新状态"}
+        </button>
+      </article>
+    );
+  }
+
+  function renderAuthPanel(): ReactNode {
+    if (isAuthenticated && session) {
+      return (
+        <div className="session-box">
+          <p className="panel-empty">当前已连上后端会话，个人空间将直接读取 `/users/me`。</p>
+          <span className="token-preview">{session.accessToken}</span>
+          {profileError ? <p className="panel-error">{profileError}</p> : null}
+          <button className="ghost-button" type="button" onClick={handleLogout}>
+            退出当前会话
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <form className="auth-form" onSubmit={(event) => void handleLoginSubmit(event)}>
+        <p className="panel-empty">
+          登录会直接走后端 `/auth/login`。当前脚手架登录只在开发环境且
+          `AUTH_ALLOW_SCAFFOLD_LOGIN=true` 时可用。
+        </p>
+        <label>
+          <span>账号</span>
+          <input
+            autoComplete="username"
+            name="account"
+            onChange={handleAuthFieldChange}
+            placeholder="例如：rubedo-room"
+            value={authForm.account}
+          />
+        </label>
+        <label>
+          <span>密码</span>
+          <input
+            autoComplete="current-password"
+            name="password"
+            onChange={handleAuthFieldChange}
+            placeholder="输入脚手架登录密码"
+            type="password"
+            value={authForm.password}
+          />
+        </label>
+        {loginState.error ? <p className="panel-error">{loginState.error}</p> : null}
+        <button className="primary-button" type="submit" disabled={loginState.pending}>
+          {loginState.pending ? "登录中..." : "登录并同步空间"}
+        </button>
+      </form>
+    );
+  }
+
   function renderHomePage(): ReactNode {
     return (
       <>
         <section className="hero-panel landing-hero">
           <div className="landing-hero__copy">
-            <p className="eyebrow">Rubedo portal</p>
-            <h1>把内容流、讨论区、个人空间和展示墙放进一张更有氛围的首页。</h1>
+            <p className="eyebrow">首页导览</p>
+            <h1>把文章、讨论、个人空间和展示墙收进同一张更有氛围的首页。</h1>
             <p className="hero-description">
-              首屏现在不只负责入口分发，也负责把作品站该有的光晕、立绘、浮动物件和象征性陈列先立起来。
+              首页负责先把站点的整体气质铺开，让初次进入的人能快速看见这里的内容方向，也能感受到社团式的叙事氛围。
             </p>
             <div className="hero-action-row">
               <button
                 className="primary-button"
                 type="button"
-                onClick={() => handleNavigate("/stories")}
+                onClick={() => handleNavigate("/portal")}
               >
-                进入文章感悟
+                查看社团介绍
               </button>
               <button
                 className="ghost-button hero-action-button"
                 type="button"
-                onClick={() => handleNavigate("/gallery")}
+                onClick={() => handleNavigate("/stories")}
               >
-                查看展示墙
+                进入文章札记
               </button>
             </div>
 
             <div className="symbol-grid">
-              {HERO_OBJECTS.map((item) => (
+              {heroObjects.map((item) => (
                 <div className={`symbol-card symbol-card--${item.id}`} key={item.id}>
                   <span className="symbol-card__icon" aria-hidden="true" />
                   <div className="symbol-card__copy">
@@ -330,64 +931,56 @@ function App() {
             <div className="landing-hero__glow landing-hero__glow--three" aria-hidden="true" />
 
             <span className="floating-badge floating-badge--record" aria-hidden="true">
-              Record
+              留声
             </span>
             <span className="floating-badge floating-badge--letter" aria-hidden="true">
-              Letter
+              信笺
             </span>
             <span className="floating-badge floating-badge--frame" aria-hidden="true">
-              Frame
+              相框
             </span>
 
             <div className="art-stage">
               <div className="art-stage__standee">
                 <div className="art-stage__standee-frame" aria-hidden="true" />
                 <img
-                  alt="Decorative Rubedo key visual"
+                  alt="Rubedo 视觉主图"
                   className="art-stage__standee-image"
                   src="/bg1.png"
                 />
               </div>
 
               <div className="art-stage__postcard">
-                <img
-                  alt="Decorative supporting visual"
-                  className="art-stage__postcard-image"
-                  src="/bg2.png"
-                />
+                <img alt="辅助视觉图" className="art-stage__postcard-image" src="/bg2.png" />
                 <div className="art-stage__postcard-copy">
-                  <span>Night postcard</span>
-                  <strong>Album / Memory cut</strong>
+                  <span>夜色切片</span>
+                  <strong>相册 / 记忆片段</strong>
                 </div>
               </div>
             </div>
 
             <div className="hero-metrics landing-hero__metrics">
               <div className="metric-card">
-                <span>Stories</span>
+                <span>文章札记</span>
                 <strong>{storyFeed.length}</strong>
-                <StatusChip tone={storyFeed.length ? "success" : "warn"}>
-                  {storyFeed.length ? "Public feed ready" : "Waiting for articles"}
-                </StatusChip>
+                <StatusChip tone="success">公开文章与短札并行展开</StatusChip>
               </div>
               <div className="metric-card">
-                <span>Forum</span>
-                <strong>{dashboard.threads.length}</strong>
-                <StatusChip tone={dashboard.threads.length ? "accent" : "warn"}>
-                  {dashboard.threads.length ? "Live boards ready" : "Waiting for threads"}
-                </StatusChip>
+                <span>论坛讨论</span>
+                <strong>{threadFeed.length}</strong>
+                <StatusChip tone="accent">主题串与匿名留言同时存在</StatusChip>
               </div>
               <div className="metric-card">
-                <span>Gallery wall</span>
-                <strong>5 zones</strong>
-                <StatusChip tone="neutral">{showcaseCount} static exhibits</StatusChip>
+                <span>展示墙</span>
+                <strong>5 区</strong>
+                <StatusChip tone="neutral">{showcaseCount} 个陈列单元</StatusChip>
               </div>
             </div>
           </div>
         </section>
 
         <section className="portal-grid">
-          {PORTAL_PAGES.map((page) => (
+          {portalPages.map((page) => (
             <button
               className="portal-card"
               key={page.href}
@@ -397,132 +990,53 @@ function App() {
               <span className="portal-card__kicker">{page.kicker}</span>
               <strong>{page.title}</strong>
               <p>{page.description}</p>
-              <span className="portal-card__cta">Open page</span>
+              <span className="portal-card__cta">进入页面</span>
             </button>
           ))}
         </section>
 
-        <section className="panel-grid">
-          <article className="panel auth-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">Auth bridge</p>
-                <h2>登录联调</h2>
-              </div>
-              <StatusChip tone={isAuthenticated ? "success" : "neutral"}>
-                {isAuthenticated ? "Token stored" : "No session"}
-              </StatusChip>
-            </div>
-            {renderAuthBridge(
-              "这里继续保留登录桥，方便联调后端受保护接口。",
-              "当前已使用脚手架 token 登录。个人空间页会直接复用这组身份信息。",
-            )}
-          </article>
-
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">Health</p>
-                <h2>服务连通性</h2>
-              </div>
-              <StatusChip tone={backendReachable ? "success" : "warn"}>
-                {backendReachable ? "Reachable" : "Pending"}
-              </StatusChip>
-            </div>
-            {dashboard.health ? (
-              <>
-                <div className="service-grid">
-                  {Object.entries(dashboard.health.services).map(([service, ready]) => (
-                    <div className="service-card" key={service}>
-                      <span>{service}</span>
-                      <StatusChip tone={ready ? "success" : "warn"}>
-                        {ready ? "configured" : "not wired"}
-                      </StatusChip>
-                    </div>
-                  ))}
-                </div>
-                <div className="module-list">
-                  {dashboard.health.modules.map((moduleName) => (
-                    <span className="module-tag" key={moduleName}>
-                      {moduleName}
-                    </span>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <p className="panel-empty">
-                {dashboard.errors.health || "Backend health response has not arrived yet."}
-              </p>
-            )}
-          </article>
-
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">Profile preview</p>
-                <h2>空间速览</h2>
-              </div>
-            </div>
-            {profile ? (
-              <div className="profile-card">
-                <div>
-                  <p className="profile-name">{profile.nickname}</p>
-                  <p className="profile-meta">
-                    @{profile.username} · {profile.signature}
-                  </p>
-                </div>
-                <p className="profile-bio">{profile.bio}</p>
-                <div className="collection-grid">
-                  {Object.entries(profile.collections).map(([label, count]) => (
-                    <div className="collection-item" key={label}>
-                      <span>{label}</span>
-                      <strong>{count}</strong>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="panel-empty">
-                {isAuthenticated
-                  ? dashboard.errors.profile || "Profile request is pending."
-                  : "登录后，个人空间页会展示头像、签名和收藏统计。"}
-              </p>
-            )}
-          </article>
-        </section>
-
         <section className="panel-grid preview-grid">
+          {renderHealthPanel()}
+
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Featured story</p>
-                <h2>文章流预览</h2>
+                <p className="panel-kicker">社团速览</p>
+                <h2>{societyHighlights[0]?.title || "社团速览"}</h2>
+              </div>
+            </div>
+            <p className="panel-empty">{societyHighlights[0]?.body || "这里展示社团的第一印象与定位。"}</p>
+          </article>
+
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">文章预览</p>
+                <h2>今日札记</h2>
               </div>
             </div>
             {featuredArticle ? (
               <div className="content-card">
                 <div className="content-card__header">
                   <h3>{featuredArticle.title}</h3>
-                  <StatusChip tone="success">{featuredArticle.visibility}</StatusChip>
+                  <StatusChip tone="success">{normalizeVisibilityLabel(featuredArticle.visibility)}</StatusChip>
                 </div>
                 <p>{excerpt(featuredArticle.summary || featuredArticle.content, 180)}</p>
                 <div className="meta-row">
                   <span>{featuredArticle.author}</span>
-                  <span>{featuredArticle.tags.join(" · ") || "暂无标签"}</span>
+                  <span>{featuredArticle.tags.join(" · ")}</span>
                 </div>
               </div>
             ) : (
-              <p className="panel-empty">
-                {dashboard.errors.articles || "文章感悟页会从这里挑一条公开文章做预览。"}
-              </p>
+              <p className="panel-empty">{articlesError || (isLoadingData ? "文章数据加载中。" : "暂时没有可展示的文章。")}</p>
             )}
           </article>
 
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Forum preview</p>
-                <h2>讨论串预览</h2>
+                <p className="panel-kicker">论坛预览</p>
+                <h2>最近讨论</h2>
               </div>
             </div>
             {featuredThread ? (
@@ -534,40 +1048,116 @@ function App() {
                 <p>{excerpt(featuredThread.content, 180)}</p>
                 <div className="meta-row">
                   <span>{featuredThread.author}</span>
-                  <span>{featuredThread.reply_count} replies</span>
+                  <span>{featuredThread.reply_count} 条回复</span>
                 </div>
               </div>
             ) : (
-              <p className="panel-empty">
-                {dashboard.errors.threads || "论坛聊天室页会把最新讨论和匿名聊天拆开展示。"}
-              </p>
+              <p className="panel-empty">{threadsError || (isLoadingData ? "讨论数据加载中。" : "最近还没有新的讨论主题。")}</p>
             )}
+          </article>
+        </section>
+      </>
+    );
+  }
+
+  function renderPortalPage(): ReactNode {
+    return (
+      <>
+        <SectionHero
+          kicker="社团介绍"
+          title="围绕 Galgame、叙事与视觉表达展开的同好社团"
+          description="这一页把社团定位、活动方式和加入路径集中整理出来，让第一次进入站点的人先知道这里在做什么。"
+          metrics={[
+            {
+              label: "社团亮点",
+              value: String(societyHighlights.length),
+              detail: "从气质、日常到成员构成",
+              tone: "success",
+            },
+            {
+              label: "内容支柱",
+              value: String(societyPillars.length),
+              detail: "讨论、共创与展示同时展开",
+              tone: "accent",
+            },
+            {
+              label: "加入步骤",
+              value: String(societyJoinSteps.length),
+              detail: "从浏览到参与逐步靠近",
+              tone: "neutral",
+            },
+          ]}
+        />
+
+        <section className="panel-grid preview-grid">
+          {societyHighlights.map((highlight) => (
+            <article className="panel" key={highlight.id}>
+              <div className="panel-heading">
+                <div>
+                  <p className="panel-kicker">{highlight.kicker}</p>
+                  <h2>{highlight.title}</h2>
+                </div>
+              </div>
+              <p className="panel-empty">{highlight.body}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="page-split-grid">
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">社团支柱</p>
+                <h2>日常内容方向</h2>
+              </div>
+            </div>
+            <div className="stack-list">
+              {societyPillars.map((pillar) => (
+                <div className="content-card" key={pillar.id}>
+                  <div className="content-card__header">
+                    <h3>{pillar.title}</h3>
+                  </div>
+                  <p>{pillar.description}</p>
+                </div>
+              ))}
+            </div>
           </article>
 
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Exhibit preview</p>
-                <h2>展示墙预览</h2>
+                <p className="panel-kicker">活动安排</p>
+                <h2>常见活动形态</h2>
               </div>
             </div>
             <div className="stack-list">
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>{ALBUM_ENTRIES[0].title}</h3>
-                  <StatusChip tone="accent">{ALBUM_ENTRIES[0].accent}</StatusChip>
+              {societyActivities.map((activity) => (
+                <div className="content-card" key={activity.id}>
+                  <div className="content-card__header">
+                    <h3>{activity.title}</h3>
+                    <StatusChip tone="neutral">{activity.label}</StatusChip>
+                  </div>
+                  <p>{activity.description}</p>
                 </div>
-                <p>{ALBUM_ENTRIES[0].caption}</p>
-              </div>
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>{GRAMOPHONE_TRACKS[0].title}</h3>
-                  <StatusChip tone="neutral">{GRAMOPHONE_TRACKS[0].length}</StatusChip>
-                </div>
-                <p>{GRAMOPHONE_TRACKS[0].detail}</p>
-              </div>
+              ))}
             </div>
           </article>
+        </section>
+
+        <section className="panel-grid preview-grid">
+          {societyJoinSteps.map((step) => (
+            <article className="panel memory-card" key={step.id}>
+              <div className="panel-heading">
+                <div>
+                  <p className="panel-kicker">加入路径</p>
+                  <h2>
+                    {step.step} · {step.title}
+                  </h2>
+                </div>
+              </div>
+              <p className="panel-empty">{step.description}</p>
+            </article>
+          ))}
         </section>
       </>
     );
@@ -577,27 +1167,27 @@ function App() {
     return (
       <>
         <SectionHero
-          kicker="Public stories"
+          kicker="文章札记"
           title="公开文章与感悟区"
           description="把可公开浏览的文章和编辑部式的短感悟拆成同页双栏，一边是内容流，一边是更轻的情绪记录。"
           metrics={[
             {
-              detail: publicArticles.length ? "Public only" : "Using all article items",
-              label: "Visible articles",
-              tone: publicArticles.length ? "success" : "warn",
+              label: "可见文章",
               value: String(storyFeed.length),
+              detail: articlesError || "公开浏览与主题标签并列呈现",
+              tone: articlesError ? "warn" : "success",
             },
             {
-              detail: "Curated thoughts",
-              label: "Reflection notes",
-              tone: "accent",
+              label: "感悟札记",
               value: String(REFLECTION_ENTRIES.length),
+              detail: "编辑部式的短感悟卡片",
+              tone: "accent",
             },
             {
-              detail: dashboard.errors.articles || "Article feed synced",
-              label: "Feed status",
-              tone: dashboard.errors.articles ? "warn" : "success",
+              label: "同步时间",
               value: lastUpdatedLabel,
+              detail: backendReachable ? "后端数据已接入" : "后端当前不可达",
+              tone: backendReachable ? "neutral" : "warn",
             },
           ]}
         />
@@ -606,19 +1196,19 @@ function App() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Article stream</p>
+                <p className="panel-kicker">文章流</p>
                 <h2>公开文章</h2>
               </div>
-              <StatusChip tone="accent">{storyFeed.length} items</StatusChip>
+              <StatusChip tone="accent">{storyFeed.length} 篇</StatusChip>
             </div>
-            {dashboard.errors.articles ? <p className="panel-error">{dashboard.errors.articles}</p> : null}
+            {articlesError ? <p className="panel-error">{articlesError}</p> : null}
             <div className="stack-list">
               {storyFeed.map((article) => (
                 <div className="content-card content-card--story" key={article.id}>
                   <div className="content-card__header">
                     <h3>{article.title}</h3>
                     <StatusChip tone={article.visibility === "public" ? "success" : "accent"}>
-                      {article.visibility}
+                      {normalizeVisibilityLabel(article.visibility)}
                     </StatusChip>
                   </div>
                   <p>{excerpt(article.summary || article.content, 220)}</p>
@@ -635,8 +1225,10 @@ function App() {
                   </div>
                 </div>
               ))}
-              {!storyFeed.length && !pageState.loading ? (
-                <p className="panel-empty">No article data returned.</p>
+              {!storyFeed.length ? (
+                <p className="panel-empty">
+                  {isLoadingData ? "文章数据加载中。" : "当前没有可展示的文章数据。"}
+                </p>
               ) : null}
             </div>
           </article>
@@ -644,10 +1236,10 @@ function App() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Reflection board</p>
-                <h2>感悟区</h2>
+                <p className="panel-kicker">感悟区</p>
+                <h2>编辑台短札</h2>
               </div>
-              <StatusChip tone="accent">Editor&apos;s desk</StatusChip>
+              <StatusChip tone="accent">编辑台</StatusChip>
             </div>
             <div className="reflection-grid">
               {REFLECTION_ENTRIES.map((entry) => (
@@ -678,27 +1270,27 @@ function App() {
     return (
       <>
         <SectionHero
-          kicker="Live talk"
+          kicker="论坛交流"
           title="论坛讨论与匿名聊天室"
           description="讨论串负责沉淀，匿名聊天室负责即时吐槽。两个入口分工不同，但共享同一层社区氛围。"
           metrics={[
             {
-              detail: boardCount ? `${boardCount} boards` : "No boards yet",
-              label: "Discussion threads",
-              tone: dashboard.threads.length ? "accent" : "warn",
-              value: String(dashboard.threads.length),
+              label: "讨论主题",
+              value: String(threadFeed.length),
+              detail: threadsError || (boardCount ? `${boardCount} 个分区在持续活跃` : "讨论区正在整理中"),
+              tone: threadsError ? "warn" : threadFeed.length ? "accent" : "warn",
             },
             {
-              detail: "Front-end only demo",
-              label: "Anon room",
+              label: "匿名留言",
+              value: `${chatMessages.length} 条`,
+              detail: "适合承接更轻的即时交流",
               tone: "neutral",
-              value: `${chatMessages.length} msgs`,
             },
             {
-              detail: dashboard.errors.threads || "Forum feed synced",
-              label: "Sync status",
-              tone: dashboard.errors.threads ? "warn" : "success",
+              label: "同步时间",
               value: lastUpdatedLabel,
+              detail: backendReachable ? "讨论区已接入后端" : "后端当前不可达",
+              tone: backendReachable ? "success" : "warn",
             },
           ]}
         />
@@ -707,14 +1299,14 @@ function App() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Forum stream</p>
+                <p className="panel-kicker">讨论区</p>
                 <h2>讨论串</h2>
               </div>
-              <StatusChip tone="accent">{dashboard.threads.length} threads</StatusChip>
+              <StatusChip tone="accent">{threadFeed.length} 条主题</StatusChip>
             </div>
-            {dashboard.errors.threads ? <p className="panel-error">{dashboard.errors.threads}</p> : null}
+            {threadsError ? <p className="panel-error">{threadsError}</p> : null}
             <div className="stack-list">
-              {dashboard.threads.map((thread) => (
+              {threadFeed.map((thread) => (
                 <div className="content-card" key={thread.id}>
                   <div className="content-card__header">
                     <h3>{thread.title}</h3>
@@ -725,7 +1317,7 @@ function App() {
                   <p>{excerpt(thread.content, 180)}</p>
                   <div className="meta-row">
                     <span>{thread.author}</span>
-                    <span>{thread.reply_count} replies</span>
+                    <span>{thread.reply_count} 条回复</span>
                   </div>
                   <div className="tag-row">
                     {thread.tags.map((tag) => (
@@ -736,8 +1328,10 @@ function App() {
                   </div>
                 </div>
               ))}
-              {!dashboard.threads.length && !pageState.loading ? (
-                <p className="panel-empty">No thread data returned.</p>
+              {!threadFeed.length ? (
+                <p className="panel-empty">
+                  {isLoadingData ? "讨论数据加载中。" : "当前没有可展示的讨论主题。"}
+                </p>
               ) : null}
             </div>
           </article>
@@ -745,13 +1339,13 @@ function App() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Anonymous room</p>
-                <h2>匿名聊天室</h2>
+                <p className="panel-kicker">匿名聊天室</p>
+                <h2>即时留言</h2>
               </div>
-              <StatusChip tone="neutral">Local-only</StatusChip>
+              <StatusChip tone="neutral">轻量交流</StatusChip>
             </div>
             <p className="panel-empty">
-              这里先做前端展示态。你发出的消息只保留在当前浏览器会话里，用于验证页面结构和氛围。
+              这里适合收纳更轻、更短的即时感想，让论坛不只剩下完整讨论串，也能保留深夜里那种一闪而过的聊天气氛。
             </p>
             <div className="chat-feed">
               {chatMessages.map((message) => (
@@ -768,7 +1362,7 @@ function App() {
             </div>
             <form className="chat-form" onSubmit={handleChatSubmit}>
               <label>
-                <span>投下一句匿名感想</span>
+                <span>写下一句匿名感想</span>
                 <textarea
                   name="message"
                   rows={4}
@@ -791,27 +1385,27 @@ function App() {
     return (
       <>
         <SectionHero
-          kicker="Private room"
+          kicker="个人空间"
           title="用户个人空间"
           description="个人空间不只是一张资料卡，它还应该能承接收藏、短感想、最近在意的内容和时间痕迹。"
           metrics={[
             {
-              detail: isAuthenticated ? "Signed in" : "Guest mode",
-              label: "Access",
+              label: "空间身份",
+              value: isAuthenticated ? "成员" : "访客",
+              detail: isAuthenticated ? "当前读取 `/users/me`" : "展示公共预览档案",
               tone: isAuthenticated ? "success" : "neutral",
-              value: isAuthenticated ? "Private" : "Guest",
             },
             {
-              detail: profile ? "Collected items" : "Profile pending",
-              label: "Collection",
-              tone: profile ? "accent" : "warn",
+              label: "收藏总数",
               value: String(collectionTotal),
+              detail: displayProfile ? "收藏内容会在这里逐步累积" : "等待空间资料返回",
+              tone: "accent",
             },
             {
-              detail: profile ? profile.signature : "Login to unlock profile card",
-              label: "Current status",
-              tone: profile ? "success" : "neutral",
-              value: profile ? profile.nickname : "Awaiting login",
+              label: "当前气质",
+              value: displayProfile?.nickname || "空间加载中",
+              detail: displayProfile?.signature || "等待空间资料同步",
+              tone: "neutral",
             },
           ]}
         />
@@ -820,37 +1414,37 @@ function App() {
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Profile stage</p>
+                <p className="panel-kicker">空间主卡</p>
                 <h2>空间主卡</h2>
               </div>
-              <StatusChip tone={profile ? "success" : "neutral"}>
-                {profile ? "Profile loaded" : "Guest preview"}
+              <StatusChip tone={isAuthenticated ? "success" : "neutral"}>
+                {isAuthenticated ? "已同步" : "游客预览"}
               </StatusChip>
             </div>
-            {profile ? (
+            {displayProfile ? (
               <div className="profile-stage">
                 <div className="profile-stage__header">
-                  {profile.avatar_url ? (
+                  {displayProfile.avatar_url ? (
                     <img
-                      alt={profile.nickname}
+                      alt={displayProfile.nickname}
                       className="profile-stage__avatar"
-                      src={profile.avatar_url}
+                      src={displayProfile.avatar_url}
                     />
                   ) : (
                     <div className="profile-stage__avatar profile-stage__avatar--fallback">
-                      {getAvatarFallback(profile)}
+                      {getAvatarFallback(displayProfile)}
                     </div>
                   )}
                   <div className="profile-stage__copy">
-                    <p className="profile-name">{profile.nickname}</p>
+                    <p className="profile-name">{displayProfile.nickname}</p>
                     <p className="profile-meta">
-                      @{profile.username} · {profile.signature}
+                      @{displayProfile.username} · {displayProfile.signature}
                     </p>
-                    <p className="profile-bio">{profile.bio}</p>
+                    <p className="profile-bio">{displayProfile.bio}</p>
                   </div>
                 </div>
                 <div className="collection-grid">
-                  {Object.entries(profile.collections).map(([label, count]) => (
+                  {Object.entries(displayProfile.collections).map(([label, count]) => (
                     <div className="collection-item" key={label}>
                       <span>{label}</span>
                       <strong>{count}</strong>
@@ -859,35 +1453,21 @@ function App() {
                 </div>
               </div>
             ) : (
-              <div className="profile-stage profile-stage--empty">
-                <div className="profile-stage__avatar profile-stage__avatar--fallback">
-                  {getAvatarFallback(null)}
-                </div>
-                <div className="profile-stage__copy">
-                  <p className="profile-name">Guest room</p>
-                  <p className="profile-meta">登录后可拉取 `/users/me` 并填满这块空间。</p>
-                  <p className="profile-bio">
-                    这里预留给头像、签名、个性简介和收藏统计，页面结构已经独立出来。
-                  </p>
-                </div>
-              </div>
+              <p className="panel-empty">{profileError || "空间资料加载中。"}</p>
             )}
           </article>
 
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Identity</p>
+                <p className="panel-kicker">身份联调</p>
                 <h2>登录与空间同步</h2>
               </div>
               <StatusChip tone={isAuthenticated ? "success" : "neutral"}>
-                {isAuthenticated ? "Linked" : "Sign in needed"}
+                {isAuthenticated ? "已连接" : "等待登录"}
               </StatusChip>
             </div>
-            {renderAuthBridge(
-              "登录后，这个页面会自动展示昵称、签名、简介和收藏统计。",
-              "当前会话已经连上个人空间，退出后会回到游客预览态。",
-            )}
+            {renderAuthPanel()}
           </article>
         </section>
 
@@ -896,7 +1476,7 @@ function App() {
             <article className="panel memory-card" key={memory.id}>
               <div className="panel-heading">
                 <div>
-                  <p className="panel-kicker">Space note</p>
+                  <p className="panel-kicker">空间便笺</p>
                   <h2>{memory.title}</h2>
                 </div>
               </div>
@@ -912,27 +1492,27 @@ function App() {
     return (
       <>
         <SectionHero
-          kicker="Showcase wall"
+          kicker="展示陈列"
           title="相册、拍立得、旧纸、时间轴与留声机的展示墙"
-          description="这一页不强调接口联调，而是强调展示方式本身。每个区域像一个展柜，负责承接不同质感的内容。"
+          description="这一页更强调展示方式本身。每个区域像一个展柜，负责承接不同质感的内容。"
           metrics={[
             {
-              detail: "Album + polaroids",
-              label: "Images",
+              label: "图像内容",
+              value: String(galleryAlbums.length + galleryPolaroids.length),
+              detail: "相册与拍立得共同组成图像区",
               tone: "accent",
-              value: String(ALBUM_ENTRIES.length + POLAROID_ENTRIES.length),
             },
             {
-              detail: "Archive notes",
-              label: "Paper pieces",
+              label: "纸面片段",
+              value: String(galleryPapers.length),
+              detail: "旧纸与手记负责承接文字气味",
               tone: "warn",
-              value: String(PAPER_ENTRIES.length),
             },
             {
-              detail: "Timeline + gramophone",
-              label: "Ambient zones",
+              label: "氛围区域",
+              value: String(galleryTimeline.length + galleryTracks.length),
+              detail: "时间轴与留声机撑起整体氛围",
               tone: "neutral",
-              value: String(TIMELINE_ENTRIES.length + GRAMOPHONE_TRACKS.length),
             },
           ]}
         />
@@ -941,12 +1521,12 @@ function App() {
           <article className="panel showcase-panel showcase-panel--wide">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Album wall</p>
+                <p className="panel-kicker">相册墙</p>
                 <h2>相册</h2>
               </div>
             </div>
             <div className="album-grid">
-              {ALBUM_ENTRIES.map((entry) => (
+              {galleryAlbums.map((entry) => (
                 <div className="album-card" key={entry.id}>
                   <span>{entry.accent}</span>
                   <strong>{entry.title}</strong>
@@ -959,12 +1539,12 @@ function App() {
           <article className="panel showcase-panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Polaroid board</p>
+                <p className="panel-kicker">拍立得板</p>
                 <h2>拍立得</h2>
               </div>
             </div>
             <div className="polaroid-grid">
-              {POLAROID_ENTRIES.map((entry) => (
+              {galleryPolaroids.map((entry) => (
                 <div className="polaroid-card" key={entry.id}>
                   <strong>{entry.title}</strong>
                   <p>{entry.note}</p>
@@ -977,12 +1557,12 @@ function App() {
           <article className="panel showcase-panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Old paper</p>
+                <p className="panel-kicker">旧纸页</p>
                 <h2>旧纸</h2>
               </div>
             </div>
             <div className="paper-stack">
-              {PAPER_ENTRIES.map((entry) => (
+              {galleryPapers.map((entry) => (
                 <div className="paper-note" key={entry.id}>
                   <strong>{entry.title}</strong>
                   <p>{entry.body}</p>
@@ -995,12 +1575,12 @@ function App() {
           <article className="panel showcase-panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Timeline</p>
+                <p className="panel-kicker">时间线</p>
                 <h2>时间轴</h2>
               </div>
             </div>
             <div className="timeline-list">
-              {TIMELINE_ENTRIES.map((entry) => (
+              {galleryTimeline.map((entry) => (
                 <div className="timeline-item" key={entry.id}>
                   <span className="timeline-item__year">{entry.year}</span>
                   <div>
@@ -1015,13 +1595,13 @@ function App() {
           <article className="panel showcase-panel showcase-panel--wide">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Gramophone</p>
+                <p className="panel-kicker">留声机</p>
                 <h2>留声机</h2>
               </div>
-              <StatusChip tone="neutral">Now spinning</StatusChip>
+              <StatusChip tone="neutral">正在旋转</StatusChip>
             </div>
             <div className="track-list">
-              {GRAMOPHONE_TRACKS.map((track) => (
+              {galleryTracks.map((track) => (
                 <div className="track-card" key={track.id}>
                   <div className="track-card__meta">
                     <span>{track.mood}</span>
@@ -1040,6 +1620,8 @@ function App() {
 
   function renderCurrentPage(): ReactNode {
     switch (routePath) {
+      case "/portal":
+        return renderPortalPage();
       case "/stories":
         return renderStoriesPage();
       case "/forum":
@@ -1069,17 +1651,13 @@ function App() {
 
       <main className="app-shell">
         <Header
-          backendReachable={backendReachable}
           currentPath={routePath}
           hidden={isHeaderHidden}
-          isAuthenticated={isAuthenticated}
-          isRefreshing={pageState.refreshing}
-          lastUpdatedLabel={lastUpdatedLabel}
           navigation={NAV_ITEMS}
           onNavigate={handleNavigate}
-          onRefresh={() => {
-            void handleRefresh();
-          }}
+          summary={`${HEADER_SUMMARY_BY_ROUTE[routePath]} · ${backendReachable ? "backend online" : "backend offline"} · ${isAuthenticated ? "member" : "guest"}`}
+          utilityHref={routePath === "/portal" ? "/" : "/portal"}
+          utilityLabel={routePath === "/portal" ? "返回首页" : "社团介绍"}
         />
         {renderCurrentPage()}
       </main>

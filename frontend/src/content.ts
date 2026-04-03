@@ -94,6 +94,56 @@ export const SOCIETY_JOIN_STEPS = [
   },
 ] as const;
 
+export const USER_ROLE_ENTRIES = [
+  {
+    id: "guest",
+    tone: "neutral",
+    name: "未认证用户",
+    shortLabel: "游客级",
+    summary: "几乎没有额外操作权限，和一般游客接近。",
+    permissions: ["浏览公开内容", "参与基础接龙"],
+    note: "不能视作正式认证成员，也不拥有完整互动权限。",
+  },
+  {
+    id: "member",
+    tone: "success",
+    name: "认证普通用户",
+    shortLabel: "成员级",
+    summary: "拥有大部分普通用户权限，是网站内容生态的主要参与者。",
+    permissions: ["拥有个人空间", "参与讨论", "发表文章", "投稿"],
+    note: "这是社团成员最常见的认证状态。",
+  },
+  {
+    id: "admin",
+    tone: "accent",
+    name: "管理员",
+    shortLabel: "管理级",
+    summary: "拥有大部分网站管理权限，负责维护秩序和组织活动。",
+    permissions: [
+      "修改用户状态",
+      "发起接龙",
+      "发起征文",
+      "删帖与删文章",
+      "参与认证审批",
+    ],
+    note: "普通用户认证需至少三位管理员共同通过，除非超级管理员直接认证。",
+  },
+  {
+    id: "super-admin",
+    tone: "warn",
+    name: "超级管理员",
+    shortLabel: "最高权限",
+    summary: "掌握网站全部权限，拥有独立 dashboard 和最终决策权。",
+    permissions: ["拥有所有站点权限", "独立 dashboard", "可直接通过认证", "控制全站关键操作"],
+    note: "这是整个网站的最高权限角色。",
+  },
+] as const;
+
+export const USER_ROLE_APPROVAL_RULE = {
+  title: "认证通过规则",
+  body: "一个用户要通过认证，需要至少三位管理员共同认证，或者由超级管理员直接认证，否则不能通过。",
+} as const;
+
 export interface StoryEntry {
   id: string;
   title: string;
