@@ -10,7 +10,7 @@ export type RoutePath =
 
 export const TITLE_BY_ROUTE: Record<RoutePath, string> = {
   "/": "首页总览 | Rubedo Forum",
-  "/portal": "社团介绍 | Rubedo Forum",
+  "/portal": "首页总览 | Rubedo Forum",
   "/stories": "文章札记 | Rubedo Forum",
   "/forum": "论坛聊天室 | Rubedo Forum",
   "/anonymous": "匿名板 | Rubedo Forum",
@@ -21,7 +21,7 @@ export const TITLE_BY_ROUTE: Record<RoutePath, string> = {
 
 export const HEADER_SUMMARY_BY_ROUTE: Record<RoutePath, string> = {
   "/": "首页导览",
-  "/portal": "社团介绍",
+  "/portal": "首页导览",
   "/stories": "文章与随想",
   "/forum": "讨论与留言",
   "/anonymous": "匿名版",
@@ -41,13 +41,21 @@ export function normalizePath(pathname: string): RoutePath {
     return "/forum";
   }
 
+  if (readForumEditorMode(normalized)) {
+    return "/forum";
+  }
+
   if (normalized.startsWith("/anonymous/threads/")) {
     return "/anonymous";
   }
 
+  if (normalized.startsWith("/users/")) {
+    return "/space";
+  }
+
   switch (normalized) {
     case "/portal":
-      return "/portal";
+      return "/";
     case "/stories":
       return "/stories";
     case "/forum":
@@ -69,8 +77,19 @@ export function readSelectedArticleID(pathname?: string): string | null {
   const currentPathname =
     pathname ??
     (typeof window !== "undefined" ? window.location.pathname : "");
+  if (readStoriesEditorMode(currentPathname)) {
+    return null;
+  }
   const match = currentPathname.match(/^\/stories\/([^/]+)$/);
   return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+export function readStoriesEditorMode(pathname?: string): boolean {
+  const currentPathname =
+    pathname ??
+    (typeof window !== "undefined" ? window.location.pathname : "");
+  const normalized = currentPathname.replace(/\/+$/, "") || "/";
+  return normalized === "/stories/editor";
 }
 
 export function readSelectedForumThreadID(pathname?: string, search?: string): string | null {
@@ -80,6 +99,10 @@ export function readSelectedForumThreadID(pathname?: string, search?: string): s
   const currentSearch =
     search ??
     (typeof window !== "undefined" ? window.location.search : "");
+  if (readForumEditorMode(currentPathname)) {
+    return null;
+  }
+
   const match = currentPathname.match(/^\/forum\/threads\/([^/]+)$/);
   if (match?.[1]) {
     return decodeURIComponent(match[1]);
@@ -90,12 +113,33 @@ export function readSelectedForumThreadID(pathname?: string, search?: string): s
   return legacyThreadID?.trim() || null;
 }
 
+export function readForumEditorMode(pathname?: string): boolean {
+  const currentPathname =
+    pathname ??
+    (typeof window !== "undefined" ? window.location.pathname : "");
+  const normalized = currentPathname.replace(/\/+$/, "") || "/";
+  return normalized === "/forum/editor";
+}
+
 export function readSelectedAnonymousThreadID(pathname?: string): string | null {
   const currentPathname =
     pathname ??
     (typeof window !== "undefined" ? window.location.pathname : "");
   const match = currentPathname.match(/^\/anonymous\/threads\/([^/]+)$/);
   return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
+export function readPublicProfileUsername(pathname?: string): string | null {
+  const currentPathname =
+    pathname ??
+    (typeof window !== "undefined" ? window.location.pathname : "");
+  const match = currentPathname.match(/^\/users\/([^/]+)$/);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  const username = decodeURIComponent(match[1]).trim();
+  return username ? username : null;
 }
 
 export function readCurrentPath(): RoutePath {

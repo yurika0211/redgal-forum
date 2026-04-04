@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
+import katex from "katex";
 
 function renderInlineFormattedText(text: string, keyPrefix: string): ReactNode[] {
-  const tokens = text.split(/(\[[^\]]+]\((?:https?:\/\/|\/)[^)]+\)|`[^`]+`|\*\*[^*]+\*\*)/g);
+  const tokens = text.split(
+    /(\[[^\]]+]\((?:https?:\/\/|\/)[^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\$[^$\n]+\$|\\\([^)]+\))/g,
+  );
 
   return tokens.filter(Boolean).map((token, index) => {
     const key = `${keyPrefix}-${index}`;
@@ -29,8 +32,44 @@ function renderInlineFormattedText(text: string, keyPrefix: string): ReactNode[]
       return <strong key={key}>{token.slice(2, -2)}</strong>;
     }
 
+    const inlineMathDollarMatch = token.match(/^\$([^$\n]+)\$$/);
+    if (inlineMathDollarMatch) {
+      return renderKatexMath(inlineMathDollarMatch[1], false, key);
+    }
+
+    const inlineMathParenMatch = token.match(/^\\\((.+)\\\)$/);
+    if (inlineMathParenMatch) {
+      return renderKatexMath(inlineMathParenMatch[1], false, key);
+    }
+
     return <span key={key}>{token}</span>;
   });
+}
+
+function renderKatexMath(expression: string, displayMode: boolean, key: string): ReactNode {
+  const source = expression.trim();
+  if (!source) {
+    return null;
+  }
+
+  try {
+    const html = katex.renderToString(source, {
+      displayMode,
+      output: "htmlAndMathml",
+      strict: "ignore",
+      throwOnError: false,
+    });
+
+    return (
+      <span
+        className={`detail-body__math-katex ${displayMode ? "detail-body__math-katex--block" : "detail-body__math-katex--inline"}`}
+        dangerouslySetInnerHTML={{ __html: html }}
+        key={key}
+      />
+    );
+  } catch {
+    return <code key={key}>{displayMode ? `$$${source}$$` : `$${source}$`}</code>;
+  }
 }
 
 interface RichContentProps {
@@ -145,6 +184,24 @@ export default function RichContent({ content }: RichContentProps) {
             <pre className="detail-body__code" key={key}>
               <code>{code}</code>
             </pre>
+          );
+        }
+
+        const displayMathDollarMatch = block.match(/^\$\$\n?([\s\S]*?)\n?\$\$$/);
+        if (displayMathDollarMatch) {
+          return (
+            <div className="detail-body__math-block" key={key}>
+              {renderKatexMath(displayMathDollarMatch[1], true, `${key}-math`)}
+            </div>
+          );
+        }
+
+        const displayMathBracketMatch = block.match(/^\\\[\n?([\s\S]*?)\n?\\\]$/);
+        if (displayMathBracketMatch) {
+          return (
+            <div className="detail-body__math-block" key={key}>
+              {renderKatexMath(displayMathBracketMatch[1], true, `${key}-math`)}
+            </div>
           );
         }
 

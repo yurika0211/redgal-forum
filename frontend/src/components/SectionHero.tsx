@@ -5,7 +5,7 @@ import StatusChip from "./StatusChip";
 interface SectionHeroProps {
   children?: ReactNode;
   description: string;
-  kicker: string;
+  kicker?: string;
   metrics: HeroMetric[];
   title: string;
 }
@@ -20,7 +20,7 @@ export default function SectionHero({
   return (
     <section className="hero-panel page-hero-panel">
       <div className="hero-copy">
-        <p className="eyebrow">{kicker}</p>
+        {kicker ? <p className="eyebrow">{kicker}</p> : null}
         <h1>{title}</h1>
         <p className="hero-description">{description}</p>
         {children}

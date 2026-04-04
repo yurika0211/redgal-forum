@@ -18,7 +18,7 @@ export default function PaginationBar({
   return (
     <div className="pagination-bar">
       <span className="pagination-bar__meta">
-        第 {pager.page} / {Math.max(pager.totalPages, 1)} 页，共 {pager.total} 条，每页 6 条
+        第 {pager.page} / {Math.max(pager.totalPages, 1)} 页，共 {pager.total} 条，每页 {pager.pageSize} 条
       </span>
       <div className="pagination-bar__actions">
         <button

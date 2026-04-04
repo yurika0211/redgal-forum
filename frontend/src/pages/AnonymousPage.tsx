@@ -10,11 +10,15 @@ import type {
 } from "../api";
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
-import SectionHero from "../components/SectionHero";
 import StatusChip from "../components/StatusChip";
 import { formatForumFloor } from "../lib/forum";
 import type { PagerState } from "../lib/pagination";
-import { excerpt, extractMarkdownPreviewImage, formatDateTime } from "../lib/text";
+import {
+  excerpt,
+  extractMarkdownPreviewImage,
+  formatDateTime,
+  parseTags,
+} from "../lib/text";
 import type {
   FormActionState,
   ReplyFormState,
@@ -38,13 +42,60 @@ interface AnonymousPageProps {
   onAnonymousReplyFieldChange: (
     event: ChangeEvent<HTMLSelectElement | HTMLTextAreaElement | HTMLInputElement>,
   ) => void;
+  onAnonymousReplyTargetChange: (threadID: string) => void;
+  onAnonymousReplyTargetClear: () => void;
   onAnonymousReplySubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onAnonymousThreadFieldChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
   onAnonymousThreadPageChange: (page: number) => void;
+  onAnonymousTopicChange: (topic: string) => void;
   onAnonymousThreadSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onNavigate: (href: string) => void;
+}
+
+const ANONYMOUS_TOPICS = [
+  {
+    id: "daily",
+    label: "闲聊",
+    description: "路过一句、碎碎念、今天的心情。",
+  },
+  {
+    id: "intel",
+    label: "情报",
+    description: "活动更新、资源提醒、值得记下的信息。",
+  },
+  {
+    id: "fun",
+    label: "娱乐",
+    description: "轻松话题、段子、梗和放松区。",
+  },
+] as const;
+
+function resolveAnonymousTopic(thread: Pick<ApiForumThread, "tags">): string {
+  const matchedTopic = ANONYMOUS_TOPICS.find((topic) =>
+    thread.tags.some((tag) => tag === topic.label),
+  );
+  return matchedTopic?.label || "闲聊";
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function formatAnonymousCardTitle(thread: Pick<ApiForumThread, "tags" | "title">): string {
+  const topic = resolveAnonymousTopic(thread);
+  const rawTitle = thread.title.trim();
+  if (!rawTitle) {
+    return topic;
+  }
+
+  const prefixPattern = new RegExp(
+    `^${escapeRegExp(topic)}\\s*[·•|｜:：\\-]\\s*`,
+  );
+  const cleanedTitle = rawTitle.replace(prefixPattern, "").trim();
+
+  return cleanedTitle ? `${topic} • ${cleanedTitle}` : topic;
 }
 
 export default function AnonymousPage({
@@ -62,12 +113,23 @@ export default function AnonymousPage({
   selectedAnonymousThreadID,
   session,
   onAnonymousReplyFieldChange,
+  onAnonymousReplyTargetChange,
+  onAnonymousReplyTargetClear,
   onAnonymousReplySubmit,
   onAnonymousThreadFieldChange,
   onAnonymousThreadPageChange,
+  onAnonymousTopicChange,
   onAnonymousThreadSubmit,
   onNavigate,
 }: AnonymousPageProps) {
+  const selectedTopic =
+    ANONYMOUS_TOPICS.find((topic) =>
+      parseTags(anonymousThreadForm.tagsText).includes(topic.label),
+    )?.label || "闲聊";
+  const replyTargetThread =
+    anonymousThreadFeed.find((thread) => thread.id === anonymousReplyForm.threadID) ||
+    (activeAnonymousThread?.id === anonymousReplyForm.threadID ? activeAnonymousThread : null);
+
   if (selectedAnonymousThreadID) {
     const anonymousCover = activeAnonymousThread
       ? extractMarkdownPreviewImage(activeAnonymousThread.content)
@@ -78,16 +140,11 @@ export default function AnonymousPage({
         <article className="panel detail-hero detail-hero--anonymous">
           <div className="detail-hero__top">
             <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/anonymous")}>
-              返回匿名板
+              返回匿名画板
             </button>
           </div>
           <p className="eyebrow">匿名串详情</p>
           <h1 className="detail-hero__title">{activeAnonymousThread?.title || "匿名主题详情"}</h1>
-          <p className="detail-hero__lede">
-            {activeAnonymousThread
-              ? "这里按独立串页来阅读，Tripcode、锁帖状态和楼层都集中展示。"
-              : "正在读取匿名主题详情。"}
-          </p>
           <div className="detail-hero__meta">
             <span>{activeAnonymousThread?.tripcode || "◆……"}</span>
             <span>{activeAnonymousThread ? `${activeAnonymousThread.reply_count} / 1000` : "楼层读取中"}</span>
@@ -101,116 +158,38 @@ export default function AnonymousPage({
           </section>
         ) : null}
 
-        <section className="detail-layout">
-          <article className="panel detail-main detail-main--thread">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">匿名主楼</p>
-                <h2>{activeAnonymousThread?.title || "匿名主题"}</h2>
-              </div>
-              {activeAnonymousThread ? (
-                <StatusChip tone={activeAnonymousThread.locked ? "warn" : "neutral"}>
-                  {activeAnonymousThread.locked ? "已锁定" : "讨论中"}
-                </StatusChip>
-              ) : null}
+        <article className="panel detail-main detail-main--thread">
+          <div className="panel-heading">
+            <div>
+              <p className="panel-kicker">匿名主楼</p>
+              <h2>{activeAnonymousThread?.title || "匿名主题"}</h2>
             </div>
-            {anonymousThreadDetailError ? (
-              <p className="panel-error">{anonymousThreadDetailError}</p>
-            ) : activeAnonymousThread ? (
-              <div className="detail-body">
-                <p className="detail-body__meta">
-                  {activeAnonymousThread.author} {activeAnonymousThread.tripcode || ""}
-                </p>
-                <RichContent content={activeAnonymousThread.content} />
-                <div className="tag-row">
-                  {activeAnonymousThread.tags.map((tag) => (
-                    <span className="module-tag" key={`${activeAnonymousThread.id}-${tag}`}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="panel-empty">匿名主题详情加载中。</p>
-            )}
-          </article>
-
-          <aside className="panel detail-side">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">匿名规则</p>
-                <h2>参与说明</h2>
+            {activeAnonymousThread ? (
+              <StatusChip tone={activeAnonymousThread.locked ? "warn" : "neutral"}>
+                {activeAnonymousThread.locked ? "已锁定" : "讨论中"}
+              </StatusChip>
+            ) : null}
+          </div>
+          {anonymousThreadDetailError ? (
+            <p className="panel-error">{anonymousThreadDetailError}</p>
+          ) : activeAnonymousThread ? (
+            <div className="detail-body">
+              <p className="detail-body__meta">
+                {activeAnonymousThread.author} {activeAnonymousThread.tripcode || ""}
+              </p>
+              <RichContent content={activeAnonymousThread.content} />
+              <div className="tag-row">
+                {activeAnonymousThread.tags.map((tag) => (
+                  <span className="module-tag" key={`${activeAnonymousThread.id}-${tag}`}>
+                    {tag}
+                  </span>
+                ))}
               </div>
             </div>
-            <div className="stack-list">
-              <div className="content-card detail-side-card">
-                <div className="content-card__header">
-                  <h3>Tripcode</h3>
-                  <StatusChip tone="accent">◆匿名校验</StatusChip>
-                </div>
-                <p>系统会根据登录用户名生成稳定匿名标识，用来证明“还是同一个匿名发言者”。</p>
-              </div>
-              <div className="content-card detail-side-card">
-                <div className="content-card__header">
-                  <h3>sage</h3>
-                  <StatusChip tone="neutral">不顶帖</StatusChip>
-                </div>
-                <p>勾选 sage 后，回复会成功提交，但不会把主题重新顶回串列表顶部。</p>
-              </div>
-              <div className="content-card detail-side-card">
-                <div className="content-card__header">
-                  <h3>回复本串</h3>
-                  <StatusChip tone={session ? "success" : "warn"}>
-                    {session ? "可参与" : "需登录"}
-                  </StatusChip>
-                </div>
-                {!session ? (
-                  <p>匿名板允许已登录用户参与，即使还没通过正式认证也能发言。</p>
-                ) : (
-                  <form className="space-form" onSubmit={(event) => void onAnonymousReplySubmit(event)}>
-                    <label>
-                      <span>当前主题</span>
-                      <input type="text" value={activeAnonymousThread?.title || ""} disabled readOnly />
-                    </label>
-                    <label>
-                      <span>回复内容</span>
-                      <textarea
-                        name="content"
-                        rows={5}
-                        value={anonymousReplyForm.content}
-                        onChange={onAnonymousReplyFieldChange}
-                        placeholder="写下你的匿名回复"
-                        required
-                      />
-                    </label>
-                    <label className="gallery-admin__toggle">
-                      <input
-                        checked={anonymousReplyForm.sage}
-                        name="sage"
-                        type="checkbox"
-                        onChange={onAnonymousReplyFieldChange}
-                      />
-                      <span>sage 回复，不顶帖</span>
-                    </label>
-                    {anonymousReplyActionState.error ? <p className="panel-error">{anonymousReplyActionState.error}</p> : null}
-                    {anonymousReplyActionState.success ? <p className="panel-empty">{anonymousReplyActionState.success}</p> : null}
-                    <button
-                      className="primary-button"
-                      type="submit"
-                      disabled={anonymousReplyActionState.pending || activeAnonymousThread?.locked}
-                    >
-                      {activeAnonymousThread?.locked
-                        ? "主题已锁定"
-                        : anonymousReplyActionState.pending
-                          ? "提交中..."
-                          : "提交匿名回复"}
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </aside>
-        </section>
+          ) : (
+            <p className="panel-empty">匿名主题详情加载中。</p>
+          )}
+        </article>
 
         <section className="panel detail-thread-replies">
           <div className="panel-heading">
@@ -220,21 +199,17 @@ export default function AnonymousPage({
             </div>
             <StatusChip tone="accent">{anonymousThreadDetail?.replies.length || 0} 条</StatusChip>
           </div>
-          <div className="thread-reply-list forum-floor-list">
+          <div className="anonymous-thread-chat">
             {(anonymousThreadDetail?.replies || []).map((reply) => (
-              <article className="content-card thread-reply-card forum-floor-card" key={reply.id}>
-                <div className="content-card__header">
-                  <div>
-                    <h3>{formatForumFloor(reply.floor_no)}</h3>
-                    <p className="forum-reply-meta">
-                      <span>{reply.author}</span>
-                      {reply.tripcode ? <span>{reply.tripcode}</span> : null}
-                      <span>{formatDateTime(reply.created_at)}</span>
-                      {reply.reply_to_author ? <span>@{reply.reply_to_author}</span> : null}
-                    </p>
-                  </div>
+              <article className="anonymous-thread-chat__message" key={reply.id}>
+                <div className="anonymous-thread-chat__meta">
+                  <strong>{formatForumFloor(reply.floor_no)}</strong>
+                  <span>{reply.author}</span>
+                  {reply.tripcode ? <span>{reply.tripcode}</span> : null}
+                  <span>{formatDateTime(reply.created_at)}</span>
+                  {reply.reply_to_author ? <span>@{reply.reply_to_author}</span> : null}
                 </div>
-                <div className="detail-body detail-body--reply">
+                <div className="detail-body detail-body--reply anonymous-thread-chat__body">
                   <RichContent content={reply.content} />
                 </div>
               </article>
@@ -244,158 +219,223 @@ export default function AnonymousPage({
             ) : null}
           </div>
         </section>
+
+        <section className="panel anonymous-detail-reply">
+          <div className="panel-heading">
+            <div>
+              <p className="panel-kicker">快速回复</p>
+              <h2>回复本串</h2>
+            </div>
+            {activeAnonymousThread ? (
+              <StatusChip tone={activeAnonymousThread.locked ? "warn" : "success"}>
+                {activeAnonymousThread.locked ? "主题已锁定" : "可回复"}
+              </StatusChip>
+            ) : null}
+          </div>
+          {!session ? (
+            <div className="anonymous-detail-reply__guest">
+              <p className="panel-empty">登录后可直接回复本串。</p>
+              <button className="primary-button" type="button" onClick={() => onNavigate("/space")}>
+                去登录
+              </button>
+            </div>
+          ) : activeAnonymousThread?.locked ? (
+            <p className="panel-empty">主题已锁定，暂时不能回复。</p>
+          ) : (
+            <form className="anonymous-detail-reply__form" onSubmit={(event) => void onAnonymousReplySubmit(event)}>
+              <textarea
+                name="content"
+                rows={4}
+                value={anonymousReplyForm.content}
+                onChange={onAnonymousReplyFieldChange}
+                placeholder="写下你的匿名回复"
+                required
+              />
+              <div className="anonymous-detail-reply__actions">
+                <label className="gallery-admin__toggle">
+                  <input
+                    checked={anonymousReplyForm.sage}
+                    name="sage"
+                    type="checkbox"
+                    onChange={onAnonymousReplyFieldChange}
+                  />
+                  <span>sage，不顶帖</span>
+                </label>
+                <button className="primary-button" type="submit" disabled={anonymousReplyActionState.pending}>
+                  {anonymousReplyActionState.pending ? "提交中..." : "提交回复"}
+                </button>
+              </div>
+              {anonymousReplyActionState.error ? <p className="panel-error">{anonymousReplyActionState.error}</p> : null}
+              {anonymousReplyActionState.success ? <p className="panel-empty">{anonymousReplyActionState.success}</p> : null}
+            </form>
+          )}
+        </section>
       </section>
     );
   }
 
-  return (
-    <>
-      <SectionHero
-        kicker="匿名板"
-        title="独立匿名版面"
-        description="这是单独的匿名板页面。默认按最后回复时间排序，支持 Tripcode、sage 回复以及 1000 楼封顶。"
-        metrics={[
-          {
-            label: "当前主题",
-            value: String(anonymousThreadPager.total),
-            detail: anonymousThreadsError || "按最后回复时间浮沉",
-            tone: anonymousThreadsError ? "warn" : "accent",
-          },
-          {
-            label: "身份规则",
-            value: session ? "已登录可发言" : "需登录",
-            detail: "只要注册登录即可参与基础匿名讨论",
-            tone: session ? "success" : "neutral",
-          },
-          {
-            label: "串寿命",
-            value: "1000",
-            detail: "到达上限自动锁帖，需要开新串继续",
-            tone: "warn",
-          },
-        ]}
-      />
+  const topicColumns = ANONYMOUS_TOPICS.map((topic) => ({
+    ...topic,
+    items: anonymousThreadFeed.filter(
+      (thread) => resolveAnonymousTopic(thread) === topic.label,
+    ),
+  }));
+  const activeTopicColumn = topicColumns.find((topic) => topic.label === selectedTopic) || topicColumns[0];
 
-      <section className="page-split-grid">
-        <article className="panel">
-          <div className="panel-heading">
+  return (
+    <section className="panel anonymous-wall anonymous-wall--board">
+      {anonymousThreadsError ? <p className="panel-error">{anonymousThreadsError}</p> : null}
+
+      <div className="anonymous-board">
+        <aside className="anonymous-board__sidebar">
+          <div className="anonymous-board__sidebar-head">
             <div>
-              <p className="panel-kicker">串列表</p>
-              <h2>匿名主题串</h2>
+              <p className="panel-kicker">匿名主题</p>
+              <h2>Sidebar</h2>
             </div>
-            <StatusChip tone="accent">{anonymousThreadPager.total} 串</StatusChip>
+            <StatusChip tone="neutral">{anonymousThreadPager.total} 条</StatusChip>
           </div>
-          {anonymousThreadsError ? <p className="panel-error">{anonymousThreadsError}</p> : null}
-          <div className="stack-list">
-            {anonymousThreadFeed.map((thread) => (
+          <div className="anonymous-wall__topic-sidebar" role="tablist" aria-label="匿名主题标签">
+            {topicColumns.map((topic) => (
               <button
-                className="content-card thread-card-button anonymous-thread-card"
-                key={thread.id}
+                key={topic.id}
+                className={`anonymous-wall__topic-button anonymous-wall__topic-button--tag ${
+                  selectedTopic === topic.label ? "anonymous-wall__topic-button--active" : ""
+                }`}
                 type="button"
-                onClick={() => onNavigate(`/anonymous/threads/${encodeURIComponent(thread.id)}`)}
+                onClick={() => onAnonymousTopicChange(topic.label)}
               >
-                <div className="content-card__header">
-                  <h3>{thread.title}</h3>
-                  <StatusChip tone={thread.locked ? "warn" : "neutral"}>
-                    {thread.locked ? "已锁定" : "上浮中"}
-                  </StatusChip>
-                </div>
-                <p>{excerpt(thread.content, 180)}</p>
-                <div className="meta-row">
-                  <span>
-                    {thread.author} {thread.tripcode || ""}
-                  </span>
-                  <span>{thread.reply_count} / 1000</span>
-                </div>
-                <div className="tag-row">
-                  {thread.tags.map((tag) => (
-                    <span className="module-tag" key={`${thread.id}-${tag}`}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                <span>{topic.label}</span>
+                <span className="anonymous-wall__topic-count">{topic.items.length}</span>
               </button>
             ))}
-            {!anonymousThreadFeed.length ? (
-              <p className="panel-empty">
-                {isLoadingData ? "匿名串数据加载中。" : "当前还没有匿名主题。"}
-              </p>
-            ) : null}
           </div>
-          <PaginationBar pager={anonymousThreadPager} onPageChange={onAnonymousThreadPageChange} emptyText="暂无匿名主题。" />
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="panel-kicker">发起匿名串</p>
-              <h2>新串与使用说明</h2>
+          {!session ? (
+            <div className="anonymous-board__sidebar-login">
+              <p>登录后可贴匿名留言。</p>
+              <button className="primary-button" type="button" onClick={() => onNavigate("/space")}>
+                去登录
+              </button>
             </div>
-            <StatusChip tone={session ? "success" : "warn"}>
-              {session ? "已登录可发言" : "需登录"}
-            </StatusChip>
-          </div>
-          <div className="stack-list">
-            <div className="content-card">
-              <div className="content-card__header">
-                <h3>Tripcode</h3>
-                <StatusChip tone="accent">◆匿名校验</StatusChip>
-              </div>
-              <p>系统会根据登录用户名和固定 key 生成稳定的匿名标识，用于在匿名环境中证明“还是同一个人”。</p>
-            </div>
-            <div className="content-card">
-              <div className="content-card__header">
-                <h3>sage 回复</h3>
-                <StatusChip tone="neutral">不顶帖</StatusChip>
-              </div>
-              <p>回复时勾选 sage，就能完成回复而不把主题重新顶到首页。</p>
-            </div>
-            {!session ? (
-              <p className="panel-empty">请先登录后再发起匿名主题。</p>
-            ) : (
-              <form className="space-form" onSubmit={(event) => void onAnonymousThreadSubmit(event)}>
-                <label>
-                  <span>主题标题</span>
-                  <input
-                    name="title"
-                    type="text"
-                    value={anonymousThreadForm.title}
-                    onChange={onAnonymousThreadFieldChange}
-                    placeholder="输入匿名串标题"
-                    required
-                  />
-                </label>
-                <label>
-                  <span>标签</span>
-                  <input
-                    name="tagsText"
-                    type="text"
-                    value={anonymousThreadForm.tagsText}
-                    onChange={onAnonymousThreadFieldChange}
-                    placeholder="用逗号分隔，例如：树洞，闲聊"
-                  />
-                </label>
-                <label>
-                  <span>主题内容</span>
-                  <textarea
-                    name="content"
-                    rows={6}
-                    value={anonymousThreadForm.content}
-                    onChange={onAnonymousThreadFieldChange}
-                    placeholder="写下匿名串的开场内容"
-                    required
-                  />
-                </label>
-                {anonymousThreadActionState.error ? <p className="panel-error">{anonymousThreadActionState.error}</p> : null}
-                {anonymousThreadActionState.success ? <p className="panel-empty">{anonymousThreadActionState.success}</p> : null}
-                <button className="primary-button" type="submit" disabled={anonymousThreadActionState.pending}>
-                  {anonymousThreadActionState.pending ? "发布中..." : "发起匿名串"}
+          ) : (
+            <form
+              className="anonymous-board__quick-form"
+              onSubmit={(event) =>
+                void (replyTargetThread ? onAnonymousReplySubmit(event) : onAnonymousThreadSubmit(event))
+              }
+            >
+              {replyTargetThread ? (
+                <div className="anonymous-board__quick-target">
+                  <strong>回应：{excerpt(replyTargetThread.content, 34)}</strong>
+                  <button className="ghost-button" type="button" onClick={onAnonymousReplyTargetClear}>
+                    取消
+                  </button>
+                </div>
+              ) : null}
+              <textarea
+                name="content"
+                rows={3}
+                value={replyTargetThread ? anonymousReplyForm.content : anonymousThreadForm.content}
+                onChange={replyTargetThread ? onAnonymousReplyFieldChange : onAnonymousThreadFieldChange}
+                placeholder={replyTargetThread ? "写下你想回应的话" : `写在「${selectedTopic}」主题下`}
+                required
+              />
+              <div className="anonymous-board__quick-actions">
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={replyTargetThread ? anonymousReplyActionState.pending : anonymousThreadActionState.pending}
+                >
+                  {replyTargetThread
+                    ? anonymousReplyActionState.pending
+                      ? "回应中..."
+                      : "回应"
+                    : anonymousThreadActionState.pending
+                      ? "贴上中..."
+                      : "贴上"}
                 </button>
-              </form>
+              </div>
+              {replyTargetThread ? (
+                <>
+                  {anonymousReplyActionState.error ? <p className="panel-error">{anonymousReplyActionState.error}</p> : null}
+                  {anonymousReplyActionState.success ? <p className="panel-empty">{anonymousReplyActionState.success}</p> : null}
+                </>
+              ) : (
+                <>
+                  {anonymousThreadActionState.error ? <p className="panel-error">{anonymousThreadActionState.error}</p> : null}
+                  {anonymousThreadActionState.success ? <p className="panel-empty">{anonymousThreadActionState.success}</p> : null}
+                </>
+              )}
+            </form>
+          )}
+        </aside>
+
+        <section className="anonymous-board__feed">
+          <p className="anonymous-board__hint">
+            在「{activeTopicColumn.label}」主题下浏览匿名发言，可查看串页或直接回应此串。
+          </p>
+          <div className="anonymous-board__list">
+            {activeTopicColumn.items.length ? (
+              activeTopicColumn.items.map((thread) => (
+                <article
+                  className={`anonymous-board-card ${
+                    anonymousReplyForm.threadID === thread.id ? "anonymous-board-card--targeted" : ""
+                  }`}
+                  key={thread.id}
+                >
+                  <div className="anonymous-board-card__head">
+                    <strong>{formatAnonymousCardTitle(thread)}</strong>
+                  </div>
+                  <p className="anonymous-board-card__content">{excerpt(thread.content, 180)}</p>
+                  <div className="anonymous-board-card__foot">
+                    <p className="anonymous-board-card__meta">
+                      {thread.author}
+                      {thread.tripcode ? ` ${thread.tripcode}` : ""}
+                      {" · "}
+                      {formatDateTime(thread.last_post_at)}
+                      {" · "}
+                      {thread.reply_count} 条回应
+                    </p>
+                    <div className="anonymous-board-card__actions">
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => onNavigate(`/anonymous/threads/${encodeURIComponent(thread.id)}`)}
+                      >
+                        查看串页
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() =>
+                          anonymousReplyForm.threadID === thread.id
+                            ? onAnonymousReplyTargetClear()
+                            : onAnonymousReplyTargetChange(thread.id)
+                        }
+                      >
+                        {anonymousReplyForm.threadID === thread.id ? "取消回应" : "回应此串"}
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="anonymous-wall__empty">
+                <strong>这个主题下还没有留言</strong>
+                <p>可以从左侧选择其他主题，或者先贴第一条。</p>
+              </div>
             )}
           </div>
-        </article>
-      </section>
-    </>
+
+          <div className="anonymous-wall__pager">
+            <PaginationBar
+              pager={anonymousThreadPager}
+              onPageChange={onAnonymousThreadPageChange}
+              emptyText="暂无匿名主题。"
+            />
+          </div>
+        </section>
+      </div>
+    </section>
   );
 }

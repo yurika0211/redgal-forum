@@ -2,6 +2,10 @@ html {
   color-scheme: light;
 }
 
+html[data-theme="night"] {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   background: transparent;

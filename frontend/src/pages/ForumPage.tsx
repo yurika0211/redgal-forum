@@ -1,6 +1,7 @@
 import type {
   ChangeEvent,
   FormEvent,
+  MouseEvent,
   ReactNode,
   RefObject,
 } from "react";
@@ -12,7 +13,6 @@ import type {
 } from "../api";
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
-import SectionHero from "../components/SectionHero";
 import StatusChip from "../components/StatusChip";
 import {
   buildForumReplyTree,
@@ -31,12 +31,11 @@ interface ForumPageProps {
   activeForumThread: ApiForumThread | null;
   boardFilterOptions: string[];
   boardOptions: string[];
-  expandedReplyID: string | null;
+  expandedReplyIDs: string[];
   featuredThread: ApiForumThread | null;
-  forumProgressPanelCompact: ReactNode;
-  forumProgressPanelFull: ReactNode;
   forumReplyTextareaRef: RefObject<HTMLTextAreaElement | null>;
   hasVerifiedSpaceAccess: boolean;
+  isForumEditorMode: boolean;
   isLoadingData: boolean;
   onlyShowThreadAuthor: boolean;
   replyActionState: FormActionState<ApiForumReply>;
@@ -49,11 +48,12 @@ interface ForumPageProps {
   threadDetailError: string;
   threadForm: ThreadFormState;
   threadPager: PagerState;
+  threadSearchKeyword: string;
   threadsError: string;
   filteredThreadFeed: ApiForumThread[];
   onClearReplyTarget: () => void;
   onCollapseNestedReplies: () => void;
-  onExpandedReplyChange: (replyID: string | null) => void;
+  onExpandedReplyToggle: (replyID: string) => void;
   onInsertReplySnippet: (snippet: string) => void;
   onNavigate: (href: string) => void;
   onReplyFieldChange: (
@@ -67,6 +67,7 @@ interface ForumPageProps {
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
   onThreadPageChange: (page: number) => void;
+  onThreadSearchKeywordChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onThreadSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onToggleOnlyShowThreadAuthor: () => void;
 }
@@ -75,12 +76,11 @@ export default function ForumPage({
   activeForumThread,
   boardFilterOptions,
   boardOptions,
-  expandedReplyID,
+  expandedReplyIDs,
   featuredThread,
-  forumProgressPanelCompact,
-  forumProgressPanelFull,
   forumReplyTextareaRef,
   hasVerifiedSpaceAccess,
+  isForumEditorMode,
   isLoadingData,
   onlyShowThreadAuthor,
   replyActionState,
@@ -93,11 +93,12 @@ export default function ForumPage({
   threadDetailError,
   threadForm,
   threadPager,
+  threadSearchKeyword,
   threadsError,
   filteredThreadFeed,
   onClearReplyTarget,
   onCollapseNestedReplies,
-  onExpandedReplyChange,
+  onExpandedReplyToggle,
   onInsertReplySnippet,
   onNavigate,
   onReplyFieldChange,
@@ -107,9 +108,28 @@ export default function ForumPage({
   onShareThread,
   onThreadFieldChange,
   onThreadPageChange,
+  onThreadSearchKeywordChange,
   onThreadSubmit,
   onToggleOnlyShowThreadAuthor,
 }: ForumPageProps) {
+  function handleReplyButtonClick(event: MouseEvent<HTMLButtonElement>, reply: ApiForumReply): void {
+    event.preventDefault();
+    event.stopPropagation();
+    onReplyToFloor(reply);
+  }
+
+  function handleExpandButtonClick(event: MouseEvent<HTMLButtonElement>, replyID: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    onExpandedReplyToggle(replyID);
+  }
+
+  function handleCollapseButtonClick(event: MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    onCollapseNestedReplies();
+  }
+
   if (selectedForumThreadID) {
     const replies = threadDetail?.replies || [];
     const replyTarget = replies.find((reply) => reply.id === replyForm.parentID) || null;
@@ -121,22 +141,86 @@ export default function ForumPage({
       ? extractMarkdownPreviewImage(activeForumThread.content)
       : null;
 
+    function renderReplyComposer(formClassName: string): ReactNode {
+      return (
+        <form className={formClassName} onSubmit={(event) => void onReplySubmit(event)}>
+          {replyTarget ? (
+            <div className="forum-reply-target-bar">
+              <span>
+                正在回复 {formatForumFloor(replyTarget.floor_no)} · {replyTarget.author}
+              </span>
+              <button className="ghost-button" type="button" onClick={onClearReplyTarget}>
+                取消
+              </button>
+            </div>
+          ) : null}
+          <textarea
+            ref={forumReplyTextareaRef}
+            name="content"
+            rows={4}
+            value={replyForm.content}
+            onChange={onReplyFieldChange}
+            placeholder={replyTarget ? "写下你的楼中楼回复" : "写下你对这个主题的看法"}
+            required
+          />
+          <div className="forum-sticky-reply__actions">
+            <label className="gallery-admin__toggle">
+              <input
+                checked={replyForm.sage}
+                name="sage"
+                type="checkbox"
+                onChange={onReplyFieldChange}
+              />
+              <span>sage，不顶帖</span>
+            </label>
+            <button className="primary-button" type="submit" disabled={replyActionState.pending}>
+              {replyActionState.pending ? "提交中..." : "提交回复"}
+            </button>
+          </div>
+          {replyActionState.error ? <p className="panel-error">{replyActionState.error}</p> : null}
+          {replyActionState.success ? <p className="panel-empty">{replyActionState.success}</p> : null}
+        </form>
+      );
+    }
+
+    function renderInlineReplyComposer(currentReply: ApiForumReply): ReactNode {
+      if (!replyTarget || replyTarget.id !== currentReply.id) {
+        return null;
+      }
+
+      if (!session) {
+        return <p className="panel-empty">登录并通过认证后可在此楼层直接回复。</p>;
+      }
+      if (!hasVerifiedSpaceAccess) {
+        return <p className="panel-empty">当前账号还没有回复权限，需要通过认证后才能参与讨论。</p>;
+      }
+      if (activeForumThread?.locked) {
+        return <p className="panel-empty">当前主题已锁定，暂时不能继续回复。</p>;
+      }
+
+      return (
+        <div className="forum-inline-reply">
+          {renderReplyComposer("forum-sticky-reply__form forum-sticky-reply__form--inline")}
+        </div>
+      );
+    }
+
     function renderNestedReplies(nodes: ForumReplyNode[], depth = 1): ReactNode {
       if (!nodes.length) {
         return null;
       }
 
       return (
-        <div className="forum-subreply-list">
+        <div className="forum-comment-sublist">
           {nodes.map((node) => (
             <article
-              className="content-card forum-subreply-card"
+              className="forum-comment-item forum-comment-item--nested"
               key={node.reply.id}
               style={{ marginLeft: `${Math.min(depth, 4) * 14}px` }}
             >
-              <div className="content-card__header">
+              <div className="forum-comment-item__head">
                 <div>
-                  <h3>{formatForumFloor(node.reply.floor_no)}</h3>
+                  <h3 className="forum-comment-item__floor">{formatForumFloor(node.reply.floor_no)}</h3>
                   <p className="forum-reply-meta">
                     <span>{node.reply.author}</span>
                     {node.reply.tripcode ? <span>{node.reply.tripcode}</span> : null}
@@ -145,14 +229,19 @@ export default function ForumPage({
                   </p>
                 </div>
                 <div className="forum-reply-actions">
-                  <button className="ghost-button" type="button" onClick={() => onReplyToFloor(node.reply)}>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={(event) => handleReplyButtonClick(event, node.reply)}
+                  >
                     回复
                   </button>
                 </div>
               </div>
-              <div className="detail-body detail-body--reply">
+              <div className="forum-comment-item__body detail-body detail-body--reply">
                 <RichContent content={node.reply.content} />
               </div>
+              {renderInlineReplyComposer(node.reply)}
               {node.children.length ? renderNestedReplies(node.children, depth + 1) : null}
             </article>
           ))}
@@ -213,78 +302,37 @@ export default function ForumPage({
             </section>
           ) : null}
 
-          <section className="detail-layout">
-            <article className="panel detail-main detail-main--thread">
-              <div className="panel-heading">
-                <div>
-                  <p className="panel-kicker">主楼</p>
-                  <h2>{activeForumThread?.title || "讨论主题"}</h2>
-                </div>
-                {activeForumThread ? (
-                  <StatusChip tone={activeForumThread.anonymous ? "warn" : "neutral"}>
-                    {activeForumThread.author}
-                  </StatusChip>
-                ) : null}
+          <section className="panel detail-main detail-main--thread forum-thread-reading">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">主楼正文</p>
+                <h2>{activeForumThread?.title || "讨论主题"}</h2>
               </div>
-              {threadDetailError ? (
-                <p className="panel-error">{threadDetailError}</p>
-              ) : activeForumThread ? (
-                <div className="detail-body">
-                  <p className="detail-body__meta">
-                    {formatDateTime(activeForumThread.created_at)} 发布 · {formatDateTime(activeForumThread.last_post_at)} 最后活跃
-                  </p>
-                  <RichContent content={activeForumThread.content} />
-                </div>
-              ) : (
-                <p className="panel-empty">主题详情加载中。</p>
-              )}
-            </article>
-
-            <aside className="panel detail-side">
-              <div className="panel-heading">
-                <div>
-                  <p className="panel-kicker">阅读辅助</p>
-                  <h2>跟帖信息</h2>
-                </div>
+              {activeForumThread ? (
+                <StatusChip tone={activeForumThread.anonymous ? "warn" : "neutral"}>
+                  {activeForumThread.author}
+                </StatusChip>
+              ) : null}
+            </div>
+            {threadDetailError ? (
+              <p className="panel-error">{threadDetailError}</p>
+            ) : activeForumThread ? (
+              <div className="detail-body">
+                <p className="detail-body__meta">
+                  {formatDateTime(activeForumThread.created_at)} 发布 · {formatDateTime(activeForumThread.last_post_at)} 最后活跃
+                </p>
+                <RichContent content={activeForumThread.content} />
               </div>
-              <div className="stack-list">
-                <div className="content-card detail-side-card">
-                  <div className="content-card__header">
-                    <h3>阅读模式</h3>
-                    <StatusChip tone={onlyShowThreadAuthor ? "accent" : "neutral"}>
-                      {onlyShowThreadAuthor ? "只看楼主" : "全部楼层"}
-                    </StatusChip>
-                  </div>
-                  <p>开启“只看楼主”后，会过滤掉所有非楼主楼层，更像长帖阅读模式。</p>
-                </div>
-                <div className="content-card detail-side-card">
-                  <div className="content-card__header">
-                    <h3>回复目标</h3>
-                    <StatusChip tone={replyTarget ? "accent" : "neutral"}>
-                      {replyTarget ? formatForumFloor(replyTarget.floor_no) : "主楼"}
-                    </StatusChip>
-                  </div>
-                  <p>
-                    {replyTarget
-                      ? `当前准备回复 ${replyTarget.author} 的楼层。`
-                      : "当前默认直接回复主楼。"}
-                  </p>
-                  {replyTarget ? (
-                    <button className="ghost-button" type="button" onClick={onClearReplyTarget}>
-                      改为回复主楼
-                    </button>
-                  ) : null}
-                </div>
-                {forumProgressPanelCompact}
-              </div>
-            </aside>
+            ) : (
+              <p className="panel-empty">主题详情加载中。</p>
+            )}
           </section>
 
           <section className="panel detail-thread-replies">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">回复区</p>
-                <h2>楼层与楼中楼</h2>
+                <h2>正文评论列表</h2>
               </div>
               <div className="forum-thread-toolbar">
                 <button
@@ -294,19 +342,39 @@ export default function ForumPage({
                 >
                   {onlyShowThreadAuthor ? "恢复全部楼层" : "只看楼主"}
                 </button>
-                <button className="ghost-button" type="button" onClick={onCollapseNestedReplies}>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={handleCollapseButtonClick}
+                >
                   收起楼中楼
                 </button>
               </div>
             </div>
-            <div className="thread-reply-list forum-floor-list">
+            <div className="forum-thread-replies__helper">
+              <p className="panel-empty">
+                阅读模式：{onlyShowThreadAuthor ? "只看楼主" : "全部楼层"}。
+              </p>
+              <p className="panel-empty">
+                回复目标：{replyTarget ? `${formatForumFloor(replyTarget.floor_no)} · ${replyTarget.author}` : "主楼"}。
+                {replyTarget ? (
+                  <>
+                    {" "}
+                    <button className="detail-inline-button" type="button" onClick={onClearReplyTarget}>
+                      改为回复主楼
+                    </button>
+                  </>
+                ) : null}
+              </p>
+            </div>
+            <div className="forum-comment-list">
               {onlyShowThreadAuthor ? (
                 opReplies.length ? (
-                  opReplies.map((reply) => (
-                    <article className="content-card thread-reply-card forum-floor-card forum-floor-card--op" key={reply.id}>
-                      <div className="content-card__header">
-                        <div>
-                          <h3>{formatForumFloor(reply.floor_no)}</h3>
+                opReplies.map((reply) => (
+                  <article className="forum-comment-item forum-comment-item--op" key={reply.id}>
+                    <div className="forum-comment-item__head">
+                      <div>
+                        <h3 className="forum-comment-item__floor">{formatForumFloor(reply.floor_no)}</h3>
                           <p className="forum-reply-meta">
                             <span>{reply.author}</span>
                             {reply.tripcode ? <span>{reply.tripcode}</span> : null}
@@ -314,22 +382,32 @@ export default function ForumPage({
                             {reply.reply_to_author ? <span>@{reply.reply_to_author}</span> : null}
                           </p>
                         </div>
-                        <StatusChip tone="accent">楼主</StatusChip>
+                        <div className="forum-reply-actions">
+                          <StatusChip tone="accent">楼主</StatusChip>
+                          <button
+                            className="ghost-button"
+                            type="button"
+                            onClick={(event) => handleReplyButtonClick(event, reply)}
+                          >
+                            回复TA
+                          </button>
+                        </div>
                       </div>
-                      <div className="detail-body detail-body--reply">
-                        <RichContent content={reply.content} />
-                      </div>
-                    </article>
-                  ))
+                    <div className="forum-comment-item__body detail-body detail-body--reply">
+                      <RichContent content={reply.content} />
+                    </div>
+                    {renderInlineReplyComposer(reply)}
+                  </article>
+                ))
                 ) : (
                   <p className="panel-empty">楼主暂时还没有后续跟帖。</p>
                 )
               ) : replyRoots.length ? (
                 replyRoots.map((node) => (
-                  <article className="content-card thread-reply-card forum-floor-card" key={node.reply.id}>
-                    <div className="content-card__header">
+                  <article className="forum-comment-item" key={node.reply.id}>
+                    <div className="forum-comment-item__head">
                       <div>
-                        <h3>{formatForumFloor(node.reply.floor_no)}</h3>
+                        <h3 className="forum-comment-item__floor">{formatForumFloor(node.reply.floor_no)}</h3>
                         <p className="forum-reply-meta">
                           <span>{node.reply.author}</span>
                           {node.reply.tripcode ? <span>{node.reply.tripcode}</span> : null}
@@ -340,28 +418,31 @@ export default function ForumPage({
                         {node.reply.author === activeForumThread?.author ? (
                           <StatusChip tone="accent">楼主</StatusChip>
                         ) : null}
-                        <button className="ghost-button" type="button" onClick={() => onReplyToFloor(node.reply)}>
+                        <button
+                          className="ghost-button"
+                          type="button"
+                          onClick={(event) => handleReplyButtonClick(event, node.reply)}
+                        >
                           回复TA
                         </button>
                         {node.descendantCount ? (
                           <button
                             className="ghost-button"
                             type="button"
-                            onClick={() =>
-                              onExpandedReplyChange(expandedReplyID === node.reply.id ? null : node.reply.id)
-                            }
+                            onClick={(event) => handleExpandButtonClick(event, node.reply.id)}
                           >
-                            {expandedReplyID === node.reply.id
+                            {expandedReplyIDs.includes(node.reply.id)
                               ? "收起楼中楼"
                               : `展开楼中楼 (${node.descendantCount})`}
                           </button>
                         ) : null}
                       </div>
                     </div>
-                    <div className="detail-body detail-body--reply">
+                    <div className="forum-comment-item__body detail-body detail-body--reply">
                       <RichContent content={node.reply.content} />
                     </div>
-                    {expandedReplyID === node.reply.id && node.children.length
+                    {renderInlineReplyComposer(node.reply)}
+                    {expandedReplyIDs.includes(node.reply.id) && node.children.length
                       ? renderNestedReplies(node.children)
                       : null}
                   </article>
@@ -371,10 +452,8 @@ export default function ForumPage({
               )}
             </div>
           </section>
-        </section>
 
-        <section className="forum-sticky-reply">
-          <div className="forum-sticky-reply__shell">
+          <section className="panel forum-sticky-reply forum-sticky-reply--plain">
             <div className="forum-sticky-reply__header">
               <div>
                 <p className="panel-kicker">底部互动区</p>
@@ -401,55 +480,17 @@ export default function ForumPage({
               <p className="panel-empty">当前账号还没有回复权限，需要通过认证后才能参与讨论。</p>
             ) : activeForumThread?.locked ? (
               <p className="panel-empty">当前主题已锁定，暂时不能继续回复。</p>
+            ) : replyTarget ? (
+              <p className="panel-empty">
+                正在回复 {formatForumFloor(replyTarget.floor_no)} · {replyTarget.author}，输入框已在对应楼层展开。
+                <button className="detail-inline-button" type="button" onClick={onClearReplyTarget}>
+                  改为回复主楼
+                </button>
+              </p>
             ) : (
-              <form className="forum-sticky-reply__form" onSubmit={(event) => void onReplySubmit(event)}>
-                {replyTarget ? (
-                  <div className="forum-reply-target-bar">
-                    <span>
-                      正在回复 {formatForumFloor(replyTarget.floor_no)} · {replyTarget.author}
-                    </span>
-                    <button className="ghost-button" type="button" onClick={onClearReplyTarget}>
-                      取消
-                    </button>
-                  </div>
-                ) : null}
-                <textarea
-                  ref={forumReplyTextareaRef}
-                  name="content"
-                  rows={4}
-                  value={replyForm.content}
-                  onChange={onReplyFieldChange}
-                  placeholder={replyTarget ? "写下你的楼中楼回复" : "写下你对这个主题的看法"}
-                  required
-                />
-                <div className="forum-sticky-reply__actions">
-                  <label className="gallery-admin__toggle">
-                    <input
-                      checked={replyForm.anonymous}
-                      name="anonymous"
-                      type="checkbox"
-                      onChange={onReplyFieldChange}
-                    />
-                    <span>匿名回复</span>
-                  </label>
-                  <label className="gallery-admin__toggle">
-                    <input
-                      checked={replyForm.sage}
-                      name="sage"
-                      type="checkbox"
-                      onChange={onReplyFieldChange}
-                    />
-                    <span>sage，不顶帖</span>
-                  </label>
-                  <button className="primary-button" type="submit" disabled={replyActionState.pending}>
-                    {replyActionState.pending ? "提交中..." : "提交回复"}
-                  </button>
-                </div>
-                {replyActionState.error ? <p className="panel-error">{replyActionState.error}</p> : null}
-                {replyActionState.success ? <p className="panel-empty">{replyActionState.success}</p> : null}
-              </form>
+              renderReplyComposer("forum-sticky-reply__form")
             )}
-          </div>
+          </section>
         </section>
       </>
     );
@@ -457,48 +498,172 @@ export default function ForumPage({
 
   const featuredListThread = filteredThreadFeed[0] ?? featuredThread;
   const boardCount = new Set(filteredThreadFeed.map((thread) => thread.board)).size;
+  const canCompose = Boolean(session && hasVerifiedSpaceAccess);
+
+  if (isForumEditorMode) {
+    return (
+      <section className="detail-page">
+        <article className="panel detail-hero detail-hero--forum detail-hero--compact">
+          <div className="detail-hero__top">
+            <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/forum")}>
+              返回讨论列表
+            </button>
+          </div>
+          <div className="detail-hero__meta detail-hero__meta--compact">
+            <span>/ 主题编辑</span>
+            <span>{session ? "已登录" : "游客模式"}</span>
+            <span>{boardCount} 个分区</span>
+          </div>
+          <h1 className="detail-hero__title detail-hero__title--compact">发布主题</h1>
+          <p className="detail-hero__lede detail-hero__lede--compact">
+            在这里独立编辑标题、分区、标签与正文。发布后会自动跳到主题详情页继续互动。
+          </p>
+        </article>
+
+        {!session ? (
+          <article className="panel">
+            <p className="panel-empty">登录并通过认证后，这里可以直接发布新的讨论主题。</p>
+          </article>
+        ) : !hasVerifiedSpaceAccess ? (
+          <article className="panel">
+            <p className="panel-empty">当前账号还没有论坛写权限，需要通过认证后才能发帖。</p>
+          </article>
+        ) : (
+          <form className="panel stories-editor" onSubmit={(event) => void onThreadSubmit(event)}>
+            <div className="stories-editor__toolbar">
+              <div>
+                <p className="panel-kicker">Editor</p>
+                <h2>主题编辑器</h2>
+              </div>
+              <div className="stories-editor__toolbar-actions">
+                {threadActionState.success ? <span className="panel-empty">{threadActionState.success}</span> : null}
+                <button className="primary-button" type="submit" disabled={threadActionState.pending}>
+                  {threadActionState.pending ? "发布中..." : "发布主题"}
+                </button>
+              </div>
+            </div>
+
+            <label>
+              <span>主题标题</span>
+              <input
+                name="title"
+                type="text"
+                value={threadForm.title}
+                onChange={onThreadFieldChange}
+                placeholder="输入讨论主题"
+                required
+              />
+            </label>
+
+            <div className="stories-editor__meta-grid">
+              <label>
+                <span>所属分区</span>
+                <input
+                  name="board"
+                  type="text"
+                  value={threadForm.board}
+                  onChange={onThreadFieldChange}
+                  list="forum-editor-board-options"
+                  placeholder="例如：剧情讨论"
+                  required
+                />
+                <datalist id="forum-editor-board-options">
+                  {boardOptions.map((board) => (
+                    <option key={board} value={board} />
+                  ))}
+                </datalist>
+              </label>
+              <label>
+                <span>标签</span>
+                <input
+                  name="tagsText"
+                  type="text"
+                  value={threadForm.tagsText}
+                  onChange={onThreadFieldChange}
+                  placeholder="用逗号分隔，例如：叙事，慢热"
+                />
+              </label>
+            </div>
+
+            <div className="stories-editor__split">
+              <section className="stories-editor__pane">
+                <div className="stories-editor__pane-head">Markdown Source</div>
+                <textarea
+                  name="content"
+                  rows={14}
+                  value={threadForm.content}
+                  onChange={onThreadFieldChange}
+                  placeholder="写下主题内容，支持 Markdown；图片可直接贴 Markdown 图片链接。"
+                  required
+                />
+              </section>
+              <section className="stories-editor__pane stories-editor__pane--preview">
+                <div className="stories-editor__pane-head">Live Preview</div>
+                <div className="stories-editor__preview">
+                  {threadForm.content.trim() ? (
+                    <RichContent content={threadForm.content} />
+                  ) : (
+                    <p className="panel-empty">预览区：输入主题内容后会实时显示。</p>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {threadActionState.error ? <p className="panel-error">{threadActionState.error}</p> : null}
+
+            {featuredListThread ? (
+              <button
+                className="forum-featured-text-item"
+                type="button"
+                onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(featuredListThread.id)}`)}
+              >
+                <span className="forum-featured-text-item__kicker">最新活跃主题</span>
+                <strong>{featuredListThread.title}</strong>
+                <span>
+                  {featuredListThread.author} · {featuredListThread.reply_count} 回复 ·{" "}
+                  {formatDateTime(featuredListThread.last_post_at)}
+                </span>
+              </button>
+            ) : null}
+          </form>
+        )}
+      </section>
+    );
+  }
 
   return (
     <>
-      <SectionHero
-        kicker="论坛交流"
-        title="讨论板与主题串"
-        description="讨论板主页优先展示帖子流：标题、正文预览、作者、最后活跃时间和回复数量都压在一屏内，方便快速扫帖。"
-        metrics={[
-          {
-            label: "可见主题",
-            value: String(filteredThreadFeed.length),
-            detail: threadsError || (boardCount ? `${boardCount} 个分区在持续活跃` : "分区整理中"),
-            tone: threadsError ? "warn" : filteredThreadFeed.length ? "accent" : "warn",
-          },
-          {
-            label: "默认排序",
-            value: "顶帖优先",
-            detail: "按最后回复时间上浮或下沉",
-            tone: "success",
-          },
-          {
-            label: "当前筛选",
-            value: selectedForumBoard,
-            detail: featuredListThread
-              ? `最新活跃：${formatDateTime(featuredListThread.last_post_at)}`
-              : "等待更多主题出现",
-            tone: featuredListThread ? "neutral" : "warn",
-          },
-        ]}
-      />
-
-      <section className="page-split-grid">
+      <section className="page-split-grid forum-list-page forum-list-page--compact">
         <article className="panel forum-feed-panel">
           <div className="panel-heading">
             <div>
               <p className="panel-kicker">帖子流</p>
               <h2>讨论串列表</h2>
             </div>
-            <StatusChip tone="accent">{threadPager.total} 条主题</StatusChip>
+            <div className="forum-list-page__toolbar">
+              <StatusChip tone="accent">{threadPager.total} 条主题</StatusChip>
+              <button
+                className={`${canCompose ? "primary-button" : "ghost-button"} small-action-button`}
+                type="button"
+                onClick={() => onNavigate("/forum/editor")}
+              >
+                发帖
+              </button>
+            </div>
           </div>
           {threadsError ? <p className="panel-error">{threadsError}</p> : null}
           <div className="forum-board-filter-row">
+            <label className="list-search-row" htmlFor="forum-thread-search">
+              <span>关键词搜索</span>
+              <input
+                id="forum-thread-search"
+                className="list-search-row__input"
+                type="search"
+                value={threadSearchKeyword}
+                onChange={onThreadSearchKeywordChange}
+                placeholder="按标题、正文、版块、作者、标签搜索帖子"
+              />
+            </label>
             {boardFilterOptions.map((board) => (
               <button
                 className={`ghost-button ${selectedForumBoard === board ? "ghost-button--active" : ""}`}
@@ -510,51 +675,36 @@ export default function ForumPage({
               </button>
             ))}
           </div>
-          <div className="stack-list">
+          <p className="panel-empty">
+            列表页主打浏览；真正的回复、楼中楼和只看楼主都集中在详情页中完成。
+          </p>
+          <div className="forum-thread-text-list">
             {filteredThreadFeed.map((thread) => {
-              const previewImage = extractMarkdownPreviewImage(thread.content);
               return (
                 <button
-                  className="content-card thread-card-button forum-thread-feed-card"
+                  className="forum-thread-text-item"
                   key={thread.id}
                   type="button"
                   onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
                 >
-                  <div className="forum-thread-feed-card__body">
-                    <div className="content-card__header">
-                      <div>
-                        <h3>{thread.title}</h3>
-                        <p className="forum-reply-meta">
-                          <span>{thread.author}</span>
-                          {thread.tripcode ? <span>{thread.tripcode}</span> : null}
-                          <span>{formatDateTime(thread.last_post_at)} 最后回复</span>
-                        </p>
-                      </div>
-                      <div className="forum-feed-card__status">
-                        {thread.is_pinned ? <StatusChip tone="accent">置顶</StatusChip> : null}
-                        {thread.locked ? <StatusChip tone="warn">锁定</StatusChip> : null}
-                        <StatusChip tone={thread.anonymous ? "warn" : "neutral"}>/{thread.board}</StatusChip>
-                      </div>
-                    </div>
-                    <p>{excerpt(thread.content, previewImage ? 120 : 180)}</p>
-                    <div className="meta-row">
-                      <span>{thread.reply_count} 条回复</span>
-                      <span>{thread.view_count} 次浏览</span>
-                      <span>{formatDateTime(thread.created_at)} 发帖</span>
-                    </div>
-                    <div className="tag-row">
-                      {thread.tags.map((tag) => (
-                        <span className="module-tag" key={`${thread.id}-${tag}`}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="forum-thread-text-item__head">
+                    <strong>{thread.title}</strong>
+                    <span className="forum-thread-text-item__board">/{thread.board}</span>
                   </div>
-                  {previewImage ? (
-                    <div className="forum-thread-feed-card__preview">
-                      <img alt={thread.title} src={previewImage} />
-                    </div>
-                  ) : null}
+                  <p className="forum-thread-text-item__meta">
+                    <span>{thread.author}</span>
+                    {thread.tripcode ? <span>{thread.tripcode}</span> : null}
+                    {thread.is_pinned ? <span>置顶</span> : null}
+                    {thread.locked ? <span>锁定</span> : null}
+                    <span>{formatDateTime(thread.last_post_at)} 最后回复</span>
+                  </p>
+                  <p className="forum-thread-text-item__excerpt">{excerpt(thread.content, 150)}</p>
+                  <p className="forum-thread-text-item__stats">
+                    <span>{thread.reply_count} 条回复</span>
+                    <span>{thread.view_count} 次浏览</span>
+                    <span>{formatDateTime(thread.created_at)} 发帖</span>
+                    {thread.tags.length ? <span>#{thread.tags.join(" #")}</span> : null}
+                  </p>
                 </button>
               );
             })}
@@ -564,113 +714,21 @@ export default function ForumPage({
               </p>
             ) : null}
           </div>
+          {featuredListThread ? (
+            <button
+              className="forum-featured-text-item"
+              type="button"
+              onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(featuredListThread.id)}`)}
+            >
+              <span className="forum-featured-text-item__kicker">最新活跃主题</span>
+              <strong>{featuredListThread.title}</strong>
+              <span>
+                {featuredListThread.author} · {featuredListThread.reply_count} 回复 ·{" "}
+                {formatDateTime(featuredListThread.last_post_at)}
+              </span>
+            </button>
+          ) : null}
           <PaginationBar pager={threadPager} onPageChange={onThreadPageChange} emptyText="暂无讨论主题。" />
-        </article>
-
-        <article className="panel forum-composer-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="panel-kicker">发帖区</p>
-              <h2>发布新主题</h2>
-            </div>
-            <StatusChip tone="neutral">Feed / Detail 双栏</StatusChip>
-          </div>
-          {!session ? (
-            <p className="panel-empty">登录并通过认证后，可以在这里发主题；回复建议进入详情页底部互动区操作。</p>
-          ) : !hasVerifiedSpaceAccess ? (
-            <p className="panel-empty">当前账号还没有论坛写权限，需要通过认证后才能发帖和回复。</p>
-          ) : (
-            <div className="stack-list">
-              <form className="space-form" onSubmit={(event) => void onThreadSubmit(event)}>
-                <label>
-                  <span>主题标题</span>
-                  <input
-                    name="title"
-                    type="text"
-                    value={threadForm.title}
-                    onChange={onThreadFieldChange}
-                    placeholder="输入讨论主题"
-                    required
-                  />
-                </label>
-                <label>
-                  <span>所属分区</span>
-                  <input
-                    name="board"
-                    type="text"
-                    value={threadForm.board}
-                    onChange={onThreadFieldChange}
-                    list="forum-board-options"
-                    placeholder="例如：剧情讨论"
-                    required
-                  />
-                  <datalist id="forum-board-options">
-                    {boardOptions.map((board) => (
-                      <option key={board} value={board} />
-                    ))}
-                  </datalist>
-                </label>
-                <label>
-                  <span>标签</span>
-                  <input
-                    name="tagsText"
-                    type="text"
-                    value={threadForm.tagsText}
-                    onChange={onThreadFieldChange}
-                    placeholder="用逗号分隔，例如：叙事，慢热"
-                  />
-                </label>
-                <label>
-                  <span>主题内容</span>
-                  <textarea
-                    name="content"
-                    rows={5}
-                    value={threadForm.content}
-                    onChange={onThreadFieldChange}
-                    placeholder="写下主题内容，支持 Markdown；图片可直接贴 Markdown 图片链接。"
-                    required
-                  />
-                </label>
-                <label className="gallery-admin__toggle">
-                  <input
-                    checked={threadForm.anonymous}
-                    name="anonymous"
-                    type="checkbox"
-                    onChange={onThreadFieldChange}
-                  />
-                  <span>匿名发布</span>
-                </label>
-                {threadActionState.error ? <p className="panel-error">{threadActionState.error}</p> : null}
-                {threadActionState.success ? <p className="panel-empty">{threadActionState.success}</p> : null}
-                <button className="primary-button" type="submit" disabled={threadActionState.pending}>
-                  {threadActionState.pending ? "发布中..." : "发布主题"}
-                </button>
-              </form>
-            </div>
-          )}
-          <div className="stack-list">
-            {featuredListThread ? (
-              <button
-                className="content-card content-card--story thread-card-button"
-                type="button"
-                onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(featuredListThread.id)}`)}
-              >
-                <div className="content-card__header">
-                  <h3>最新活跃主题</h3>
-                  <StatusChip tone="accent">{featuredListThread.reply_count} 回复</StatusChip>
-                </div>
-                <p>{featuredListThread.title}</p>
-                <div className="meta-row">
-                  <span>{featuredListThread.author}</span>
-                  <span>{formatDateTime(featuredListThread.last_post_at)}</span>
-                </div>
-              </button>
-            ) : null}
-            <p className="panel-empty">
-              列表页主打浏览和发主题；真正的回复、楼中楼和只看楼主都集中在详情页中完成。
-            </p>
-            {forumProgressPanelFull}
-          </div>
         </article>
       </section>
     </>

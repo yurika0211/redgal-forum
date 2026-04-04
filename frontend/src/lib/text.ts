@@ -14,6 +14,25 @@ export function excerpt(value: string, maxLength = 160): string {
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 }
 
+export function createAnonymousThreadTitle(
+  content: string,
+  topic = "闲聊",
+): string {
+  const plain = content
+    .replace(/!\[[^\]]*]\(([^)]+)\)/g, "[图片]")
+    .replace(/[`#>*_[\]-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!plain) {
+    return `${topic} · 新的匿名留言`;
+  }
+
+  const sliced =
+    plain.length > 18 ? `${plain.slice(0, 18).trimEnd()}...` : plain;
+  return `${topic} · ${sliced}`;
+}
+
 export function normalizeVisibilityLabel(value: string): string {
   switch (value) {
     case "public":

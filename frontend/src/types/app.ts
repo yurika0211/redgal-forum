@@ -20,6 +20,7 @@ export interface LoginState {
 }
 
 export interface ProfileFormState {
+  username: string;
   nickname: string;
   signature: string;
   bio: string;
@@ -99,6 +100,15 @@ export interface DisplayActivity {
   label: string;
   title: string;
   description: string;
+}
+
+export interface DisplayNotice {
+  id: string;
+  kicker: string;
+  label: string;
+  title: string;
+  description: string;
+  body: string;
 }
 
 export interface DisplayJoinStep {

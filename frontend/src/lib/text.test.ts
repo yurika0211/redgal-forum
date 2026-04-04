@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createAnonymousThreadTitle,
   excerpt,
   extractMarkdownPreviewImage,
   galleryEntryTypeLabel,
@@ -11,6 +12,13 @@ import {
 describe("text helpers", () => {
   it("truncates long text with ellipsis", () => {
     expect(excerpt("1234567890", 5)).toBe("12345...");
+  });
+
+  it("creates anonymous thread titles from content", () => {
+    expect(createAnonymousThreadTitle("今天在食堂遇到了神奇剧情", "闲聊")).toBe(
+      "闲聊 · 今天在食堂遇到了神奇剧情",
+    );
+    expect(createAnonymousThreadTitle("   ", "情报")).toBe("情报 · 新的匿名留言");
   });
 
   it("parses lines and tags", () => {

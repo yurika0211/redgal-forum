@@ -1,24 +1,24 @@
 import type {
   DisplayActivity,
-  DisplayHighlight,
   DisplayJoinStep,
+  DisplayNotice,
   DisplayPillar,
   DisplayPortalPage,
 } from "../types/app";
 
 interface PortalPageProps {
+  notices: DisplayNotice[];
   portalPages: DisplayPortalPage[];
   societyActivities: DisplayActivity[];
-  societyHighlights: DisplayHighlight[];
   societyJoinSteps: DisplayJoinStep[];
   societyPillars: DisplayPillar[];
   onNavigate: (href: string) => void;
 }
 
 export default function PortalPage({
+  notices,
   portalPages,
   societyActivities,
-  societyHighlights,
   societyJoinSteps,
   societyPillars,
   onNavigate,
@@ -30,7 +30,7 @@ export default function PortalPage({
           <p className="eyebrow">社团介绍 / manifesto</p>
           <h1>这里聚着一群愿意认真聊视觉小说的人。</h1>
         </div>
-        <div className="portal-manifesto__body">
+        <div className="portal-manifesto__body portal-manifesto__body--single">
           <div className="portal-manifesto__copy">
             <p>
               百川乃大不是只用来“看作品”的地方。我们会拆剧情、聊角色、做共赏、
@@ -45,15 +45,6 @@ export default function PortalPage({
               那你大概就能明白这个地方为什么会存在。
             </p>
           </div>
-          <aside className="portal-manifesto__aside">
-            {societyHighlights.map((highlight) => (
-              <div className="portal-manifesto__note" key={highlight.id}>
-                <span>{highlight.kicker}</span>
-                <strong>{highlight.title}</strong>
-                <p>{highlight.body}</p>
-              </div>
-            ))}
-          </aside>
         </div>
       </section>
 
@@ -100,6 +91,25 @@ export default function PortalPage({
       </section>
 
       <section className="page-split-grid portal-brief-grid">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="panel-kicker">站内公告</p>
+              <h2>最新公告栏</h2>
+            </div>
+          </div>
+          <div className="portal-brief-list">
+            {notices.map((notice) => (
+              <div className="portal-brief-item" key={notice.id}>
+                <span>{notice.kicker || "公告"}</span>
+                <strong>{notice.title}</strong>
+                <p>{notice.description || notice.body}</p>
+              </div>
+            ))}
+            {!notices.length ? <p className="panel-empty">当前还没有发布公告。</p> : null}
+          </div>
+        </article>
+
         <article className="panel">
           <div className="panel-heading">
             <div>

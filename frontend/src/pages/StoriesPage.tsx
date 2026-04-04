@@ -2,10 +2,14 @@ import type {
   ChangeEvent,
   FormEvent,
 } from "react";
-import type { Article as ApiArticle, Session } from "../api";
+import type {
+  Article as ApiArticle,
+  DeleteArticleResult,
+  Profile as ApiProfile,
+  Session,
+} from "../api";
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
-import SectionHero from "../components/SectionHero";
 import StatusChip from "../components/StatusChip";
 import type { PagerState } from "../lib/pagination";
 import {
@@ -18,14 +22,18 @@ import type { ArticleFormState, FormActionState } from "../types/app";
 interface StoriesPageProps {
   activeArticle: ApiArticle | null;
   articleActionState: FormActionState<ApiArticle>;
+  articleManageActionState: FormActionState<ApiArticle | DeleteArticleResult>;
   articleDetailError: string;
   articleForm: ArticleFormState;
   articlePager: PagerState;
+  articleSearchKeyword: string;
   articlesError: string;
-  backendReachable: boolean;
+  canDeleteArticle: boolean;
+  displayProfile: ApiProfile | null;
   hasVerifiedSpaceAccess: boolean;
   isLoadingData: boolean;
-  lastUpdatedLabel: string;
+  isStoriesEditorMode: boolean;
+  articleEditingTargetID: string | null;
   selectedArticleID: string | null;
   session: Session | null;
   storyFeed: ApiArticle[];
@@ -33,270 +41,162 @@ interface StoriesPageProps {
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => void;
   onArticlePageChange: (page: number) => void;
+  onArticleSearchKeywordChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onArticleSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onArticleDelete: (articleID: string) => Promise<boolean>;
+  onStartArticleCreate: () => void;
+  onStartArticleEdit: (article: ApiArticle) => void;
   onNavigate: (href: string) => void;
+}
+
+function formatStoryDate(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    return "----.--.--";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "----.--.--";
+  }
+
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function estimateReadMinutes(content: string): number {
+  const chars = content.replace(/\s+/g, "").length;
+  return Math.max(1, Math.ceil(chars / 900));
+}
+
+function extractStoryHeadings(content: string): string[] {
+  const headings = content
+    .split("\n")
+    .map((line) => line.trim())
+    .map((line) => line.match(/^#{1,3}\s+(.+)$/)?.[1]?.trim() || "")
+    .filter(Boolean);
+
+  return headings.slice(0, 10);
 }
 
 export default function StoriesPage({
   activeArticle,
   articleActionState,
+  articleManageActionState,
   articleDetailError,
   articleForm,
   articlePager,
+  articleSearchKeyword,
   articlesError,
-  backendReachable,
+  canDeleteArticle,
+  displayProfile,
   hasVerifiedSpaceAccess,
   isLoadingData,
-  lastUpdatedLabel,
+  isStoriesEditorMode,
+  articleEditingTargetID,
   selectedArticleID,
   session,
   storyFeed,
+  onArticleDelete,
   onArticleFieldChange,
   onArticlePageChange,
+  onArticleSearchKeywordChange,
   onArticleSubmit,
+  onStartArticleCreate,
+  onStartArticleEdit,
   onNavigate,
 }: StoriesPageProps) {
-  if (selectedArticleID) {
-    const articleCover = activeArticle ? extractMarkdownPreviewImage(activeArticle.content) : null;
-    const relatedArticles = storyFeed
-      .filter((article) => article.id !== selectedArticleID)
-      .slice(0, 5);
+  async function handleDeleteArticle(): Promise<void> {
+    if (!activeArticle) {
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(`确认删除《${activeArticle.title}》？该操作不可撤销。`);
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    await onArticleDelete(activeArticle.id);
+  }
+
+  const profileNames = [
+    displayProfile?.username?.trim().toLowerCase() ?? "",
+    displayProfile?.nickname?.trim().toLowerCase() ?? "",
+  ].filter(Boolean);
+  const activeAuthor = activeArticle?.author.trim().toLowerCase() ?? "";
+  const canEditActiveArticle = Boolean(
+    session &&
+      hasVerifiedSpaceAccess &&
+      activeArticle &&
+      profileNames.some((name) => name === activeAuthor),
+  );
+
+  if (isStoriesEditorMode) {
+    const isEditingMode = Boolean(articleEditingTargetID);
 
     return (
       <section className="detail-page">
-        <article className="panel detail-hero detail-hero--story">
+        <article className="panel detail-hero detail-hero--story detail-hero--compact">
           <div className="detail-hero__top">
             <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/stories")}>
               返回文章列表
             </button>
           </div>
-          <p className="eyebrow">文章详情</p>
-          <h1 className="detail-hero__title">{activeArticle?.title || "文章详情"}</h1>
-          <p className="detail-hero__lede">
-            {activeArticle?.summary || "这里会像博客文章页一样，把正文放在单独的阅读上下文里。"}
+          <div className="detail-hero__meta detail-hero__meta--compact">
+            <span>/ 文章编辑</span>
+            <span>{session ? "已登录" : "游客模式"}</span>
+            <span>{isEditingMode ? `编辑 #${articleEditingTargetID}` : "新建模式"}</span>
+          </div>
+          <h1 className="detail-hero__title detail-hero__title--compact">{isEditingMode ? "编辑文章" : "发布文章"}</h1>
+          <p className="detail-hero__lede detail-hero__lede--compact">
+            在这里独立编辑标题、摘要、正文与可见范围，不再挤在文章详情面板里。
           </p>
-          <div className="detail-hero__meta">
-            <span>{activeArticle?.author || "读取中"}</span>
-            <span>{activeArticle ? normalizeVisibilityLabel(activeArticle.visibility) : "读取中"}</span>
-            <span>{activeArticle?.tags.length || 0} 个标签</span>
-          </div>
-          {activeArticle?.tags.length ? (
-            <div className="tag-row">
-              {activeArticle.tags.map((tag) => (
-                <span className="module-tag" key={`${activeArticle.id}-hero-${tag}`}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </article>
 
-        {articleCover ? (
-          <section className="panel detail-cover">
-            <img alt={activeArticle?.title || "文章封面"} src={articleCover} />
-          </section>
-        ) : null}
-
-        <section className="detail-layout">
-          <article className="panel detail-main">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">正文</p>
-                <h2>{activeArticle?.title || "文章内容"}</h2>
-              </div>
-              {activeArticle ? (
-                <StatusChip tone={activeArticle.visibility === "public" ? "success" : "accent"}>
-                  {normalizeVisibilityLabel(activeArticle.visibility)}
-                </StatusChip>
-              ) : null}
-            </div>
-            {articleDetailError ? (
-              <p className="panel-error">{articleDetailError}</p>
-            ) : activeArticle ? (
-              <div className="detail-body">
-                <RichContent content={activeArticle.content} />
-              </div>
-            ) : (
-              <p className="panel-empty">文章详情加载中。</p>
-            )}
-          </article>
-
-          <aside className="panel detail-side">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">文章信息</p>
-                <h2>阅读索引</h2>
-              </div>
-            </div>
-            <div className="stack-list">
-              <div className="content-card detail-side-card">
-                <div className="content-card__header">
-                  <h3>作者</h3>
-                  <StatusChip tone="neutral">Article</StatusChip>
-                </div>
-                <p>{activeArticle?.author || "读取中"}</p>
-              </div>
-              <div className="content-card detail-side-card">
-                <div className="content-card__header">
-                  <h3>可见范围</h3>
-                  <StatusChip tone="accent">Visibility</StatusChip>
-                </div>
-                <p>{activeArticle ? normalizeVisibilityLabel(activeArticle.visibility) : "读取中"}</p>
-              </div>
-              <div className="content-card detail-side-card">
-                <div className="content-card__header">
-                  <h3>继续阅读</h3>
-                  <StatusChip tone="neutral">{relatedArticles.length} 篇</StatusChip>
-                </div>
-                <div className="stack-list detail-related-list">
-                  {relatedArticles.map((article) => (
-                    <button
-                      className="content-card thread-card-button detail-related-card"
-                      key={article.id}
-                      type="button"
-                      onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
-                    >
-                      <strong>{article.title}</strong>
-                      <p>{excerpt(article.summary || article.content, 110)}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </aside>
-        </section>
-      </section>
-    );
-  }
-
-  return (
-    <>
-      <SectionHero
-        kicker="文章札记"
-        title="公开文章与感悟区"
-        description="这里放长文、短札、读后感和那些没来得及在群里说完的话。"
-        metrics={[
-          {
-            label: "文章数",
-            value: String(storyFeed.length),
-            detail: articlesError || "本页公开可读",
-            tone: articlesError ? "warn" : "success",
-          },
-          {
-            label: "当前阅读",
-            value: activeArticle ? "已展开" : "未选择",
-            detail: activeArticle ? activeArticle.title : "从左侧选一篇展开",
-            tone: activeArticle ? "accent" : "neutral",
-          },
-          {
-            label: "最近同步",
-            value: lastUpdatedLabel,
-            detail: backendReachable ? "文章列表来自后端" : "当前使用兜底数据",
-            tone: backendReachable ? "neutral" : "warn",
-          },
-        ]}
-      />
-
-      <section className="page-split-grid">
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="panel-kicker">文章流</p>
-              <h2>公开文章</h2>
-            </div>
-            <StatusChip tone="accent">{articlePager.total} 篇</StatusChip>
-          </div>
-          {articlesError ? <p className="panel-error">{articlesError}</p> : null}
-          <div className="stack-list">
-            {storyFeed.map((article) => (
-              <button
-                className="content-card content-card--story thread-card-button"
-                key={article.id}
-                type="button"
-                onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
-              >
-                <div className="content-card__header">
-                  <h3>{article.title}</h3>
-                  <StatusChip tone={article.visibility === "public" ? "success" : "accent"}>
-                    {normalizeVisibilityLabel(article.visibility)}
-                  </StatusChip>
-                </div>
-                <p>{excerpt(article.summary || article.content, 220)}</p>
-                <div className="meta-row">
-                  <span>{article.author}</span>
-                  <span>{article.tags.join(" · ") || "暂无标签"}</span>
-                </div>
-                <div className="tag-row">
-                  {article.tags.map((tag) => (
-                    <span className="module-tag" key={`${article.id}-${tag}`}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </button>
-            ))}
-            {!storyFeed.length ? (
-              <p className="panel-empty">
-                {isLoadingData ? "文章数据加载中。" : "当前没有可展示的文章数据。"}
-              </p>
-            ) : null}
-          </div>
-          <PaginationBar pager={articlePager} onPageChange={onArticlePageChange} emptyText="暂无文章。" />
-        </article>
-
-        <article className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="panel-kicker">文章详情</p>
-              <h2>{activeArticle?.title || "选择文章查看正文"}</h2>
-            </div>
-            <StatusChip tone={activeArticle ? "accent" : "neutral"}>
-              {activeArticle ? "详情模式" : "等待选择"}
-            </StatusChip>
-          </div>
-          {articleDetailError ? <p className="panel-error">{articleDetailError}</p> : null}
-          {activeArticle ? (
-            <div className="content-card content-card--story">
-              <div className="content-card__header">
-                <h3>{activeArticle.title}</h3>
-                <StatusChip tone={activeArticle.visibility === "public" ? "success" : "accent"}>
-                  {normalizeVisibilityLabel(activeArticle.visibility)}
-                </StatusChip>
-              </div>
-              <p>{activeArticle.summary}</p>
-              <p>{activeArticle.content}</p>
-              <div className="meta-row">
-                <span>{activeArticle.author}</span>
-                <span>{activeArticle.tags.join(" · ") || "暂无标签"}</span>
-              </div>
-              <div className="tag-row">
-                {activeArticle.tags.map((tag) => (
-                  <span className="module-tag" key={`${activeArticle.id}-${tag}`}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="panel-empty">从左侧列表中点击一篇文章，即可在这里查看完整正文。</p>
-          )}
-          {!session ? (
+        {!session ? (
+          <article className="panel">
             <p className="panel-empty">登录并通过认证后，这里可以直接发布新的文章札记。</p>
-          ) : !hasVerifiedSpaceAccess ? (
+          </article>
+        ) : !hasVerifiedSpaceAccess ? (
+          <article className="panel">
             <p className="panel-empty">当前账号还没有写作权限，需要通过认证后才能发文。</p>
-          ) : (
-            <form className="space-form" onSubmit={(event) => void onArticleSubmit(event)}>
-              <label>
-                <span>标题</span>
-                <input
-                  name="title"
-                  type="text"
-                  value={articleForm.title}
-                  onChange={onArticleFieldChange}
-                  placeholder="输入文章标题"
-                  required
-                />
-              </label>
+          </article>
+        ) : (
+          <form className="panel stories-editor" onSubmit={(event) => void onArticleSubmit(event)}>
+            <div className="stories-editor__toolbar">
+              <div>
+                <p className="panel-kicker">Editor</p>
+                <h2>Markdown 编辑器</h2>
+              </div>
+              <div className="stories-editor__toolbar-actions">
+                {articleActionState.success ? <span className="panel-empty">{articleActionState.success}</span> : null}
+                {isEditingMode ? (
+                  <button className="ghost-button" type="button" onClick={onStartArticleCreate}>
+                    新建文章
+                  </button>
+                ) : null}
+                <button className="primary-button" type="submit" disabled={articleActionState.pending}>
+                  {articleActionState.pending ? (isEditingMode ? "保存中..." : "发布中...") : isEditingMode ? "保存修改" : "发布文章"}
+                </button>
+              </div>
+            </div>
+
+            <label>
+              <span>标题</span>
+              <input
+                name="title"
+                type="text"
+                value={articleForm.title}
+                onChange={onArticleFieldChange}
+                placeholder="输入文章标题"
+                required
+              />
+            </label>
+
+            <div className="stories-editor__meta-grid">
               <label>
                 <span>摘要</span>
                 <input
@@ -305,17 +205,6 @@ export default function StoriesPage({
                   value={articleForm.summary}
                   onChange={onArticleFieldChange}
                   placeholder="一句话概括这篇札记"
-                />
-              </label>
-              <label>
-                <span>正文</span>
-                <textarea
-                  name="content"
-                  rows={6}
-                  value={articleForm.content}
-                  onChange={onArticleFieldChange}
-                  placeholder="写下正文内容"
-                  required
                 />
               </label>
               <label>
@@ -336,13 +225,242 @@ export default function StoriesPage({
                   <option value="private">私有</option>
                 </select>
               </label>
-              {articleActionState.error ? <p className="panel-error">{articleActionState.error}</p> : null}
-              {articleActionState.success ? <p className="panel-empty">{articleActionState.success}</p> : null}
-              <button className="primary-button" type="submit" disabled={articleActionState.pending}>
-                {articleActionState.pending ? "发布中..." : "发布文章"}
+            </div>
+
+            <div className="stories-editor__split">
+              <section className="stories-editor__pane">
+                <div className="stories-editor__pane-head">Markdown Source</div>
+                <textarea
+                  name="content"
+                  rows={14}
+                  value={articleForm.content}
+                  onChange={onArticleFieldChange}
+                  placeholder={"写下正文内容，支持 Markdown 与 LaTeX\n例如：行内 $E=mc^2$；块级 $$\\int_0^1 x^2\\,dx$$"}
+                  required
+                />
+              </section>
+              <section className="stories-editor__pane stories-editor__pane--preview">
+                <div className="stories-editor__pane-head">Live Preview</div>
+                <div className="stories-editor__preview">
+                  {articleForm.content.trim() ? (
+                    <RichContent content={articleForm.content} />
+                  ) : (
+                    <p className="panel-empty">预览区：输入 Markdown 后会实时显示。</p>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {articleActionState.error ? <p className="panel-error">{articleActionState.error}</p> : null}
+          </form>
+        )}
+      </section>
+    );
+  }
+
+  if (selectedArticleID) {
+    const articleCover = activeArticle ? extractMarkdownPreviewImage(activeArticle.content) : null;
+    const articleCreatedAt = formatStoryDate(activeArticle?.created_at);
+    const articleUpdatedAt = formatStoryDate(activeArticle?.updated_at);
+    const readMinutes = estimateReadMinutes(activeArticle?.content || "");
+    const commentCount = activeArticle?.comment_count ?? 0;
+    const likeCount = activeArticle?.like_count ?? 0;
+    const articleHeadings = activeArticle ? extractStoryHeadings(activeArticle.content) : [];
+    const relatedArticles = storyFeed
+      .filter((article) => article.id !== selectedArticleID)
+      .slice(0, 5);
+
+    return (
+      <section className="story-article-view">
+        <header
+          className="story-article-hero"
+          style={
+            articleCover
+              ? {
+                  backgroundImage: `linear-gradient(180deg, rgba(18, 16, 30, 0.76), rgba(18, 16, 30, 0.8)), url(${articleCover})`,
+                }
+              : undefined
+          }
+        >
+          <div className="story-article-hero__inner">
+            <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/stories")}>
+              ← Back to list
+            </button>
+            <h1>{activeArticle?.title || "文章详情"}</h1>
+            <p className="story-article-hero__line">Created: {articleCreatedAt}</p>
+            <p className="story-article-hero__line">Updated: {articleUpdatedAt}</p>
+            <p className="story-article-hero__line">
+              {readMinutes} min read · {commentCount} comments · {likeCount} likes
+            </p>
+            {activeArticle?.tags.length ? (
+              <div className="story-article-hero__tags">
+                {activeArticle.tags.map((tag) => (
+                  <span key={`${activeArticle.id}-hero-${tag}`}>#{tag}</span>
+                ))}
+              </div>
+            ) : null}
+            {canEditActiveArticle || canDeleteArticle ? (
+              <div className="story-article-hero__actions">
+                {canEditActiveArticle && activeArticle ? (
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => onStartArticleEdit(activeArticle)}
+                    disabled={articleManageActionState.pending || articleActionState.pending}
+                  >
+                    Edit article
+                  </button>
+                ) : null}
+                {canDeleteArticle ? (
+                  <button
+                    className="ghost-button story-reading-delete-button"
+                    type="button"
+                    onClick={() => void handleDeleteArticle()}
+                    disabled={articleManageActionState.pending}
+                  >
+                    Delete article
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {articleManageActionState.error ? <p className="panel-error">{articleManageActionState.error}</p> : null}
+            {articleManageActionState.success ? <p className="panel-empty">{articleManageActionState.success}</p> : null}
+          </div>
+        </header>
+
+        <section className="story-article-sheet">
+          <div className="story-article-sheet__layout">
+            <article className="story-article-main">
+              <p className="story-article-main__date">{articleCreatedAt}</p>
+              {articleDetailError ? (
+                <p className="panel-error">{articleDetailError}</p>
+              ) : activeArticle ? (
+                <div className="detail-body story-article-main__body">
+                  <RichContent content={activeArticle.content} />
+                </div>
+              ) : (
+                <p className="panel-empty">文章详情加载中。</p>
+              )}
+            </article>
+
+            <aside className="story-article-toc">
+              <p className="story-article-toc__title">Table of Contents</p>
+              {articleHeadings.length ? (
+                <ul className="story-article-toc__list">
+                  {articleHeadings.map((heading, index) => (
+                    <li key={`${selectedArticleID}-toc-${String(index)}`}>{heading}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="panel-empty">No table of contents available</p>
+              )}
+            </aside>
+          </div>
+        </section>
+
+        <section className="story-reading-foot">
+          <div className="story-reading-foot__inner">
+            <div className="story-reading-foot__head">
+              <span>继续阅读</span>
+              <span>{relatedArticles.length} 篇</span>
+            </div>
+            {relatedArticles.length ? (
+              <ul className="story-reading-related-list">
+                {relatedArticles.map((article) => (
+                  <li key={article.id}>
+                    <button
+                      className="story-reading-related-link"
+                      type="button"
+                      onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
+                    >
+                      {article.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="panel-empty">暂无可跳转的其他文章。</p>
+            )}
+          </div>
+        </section>
+      </section>
+    );
+  }
+
+  const canWriteArticle = Boolean(session && hasVerifiedSpaceAccess);
+
+  return (
+    <>
+      <section className="stories-feed-shell">
+        <article className="panel">
+          <div className="panel-heading">
+            <div>
+              <p className="panel-kicker">文章流</p>
+              <h2>公开文章</h2>
+            </div>
+            <div className="stories-list-toolbar">
+              <StatusChip tone="accent">{articlePager.total} 篇</StatusChip>
+              <button
+                className={`${canWriteArticle ? "primary-button" : "ghost-button"} small-action-button`}
+                type="button"
+                onClick={onStartArticleCreate}
+              >
+                发文章
               </button>
-            </form>
-          )}
+            </div>
+          </div>
+          <label className="list-search-row" htmlFor="story-list-search">
+            <span>关键词搜索</span>
+            <input
+              id="story-list-search"
+              className="list-search-row__input"
+              type="search"
+              value={articleSearchKeyword}
+              onChange={onArticleSearchKeywordChange}
+              placeholder="按标题、摘要、正文、作者、标签搜索文章"
+            />
+          </label>
+          {articlesError ? <p className="panel-error">{articlesError}</p> : null}
+          <div className="story-snippet-list">
+            {storyFeed.map((article) => {
+              const previewImage = extractMarkdownPreviewImage(article.content);
+
+              return (
+                <button
+                  className="story-snippet-item"
+                  key={article.id}
+                  type="button"
+                  onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
+                >
+                  <div className="story-snippet-item__layout">
+                    <div className="story-snippet-item__content">
+                      <div className="story-snippet-item__head">
+                        <h3>{article.title}</h3>
+                        <span className="story-snippet-item__visibility">
+                          {normalizeVisibilityLabel(article.visibility)}
+                        </span>
+                      </div>
+                      <p className="story-snippet-item__excerpt">{excerpt(article.summary || article.content, 190)}</p>
+                      <p className="story-snippet-item__meta">
+                        {article.author} · {article.tags.join(" · ") || "暂无标签"}
+                      </p>
+                    </div>
+                    {previewImage ? (
+                      <div className="story-snippet-item__cover">
+                        <img alt={`${article.title} 头图`} src={previewImage} />
+                      </div>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+            {!storyFeed.length ? (
+              <p className="panel-empty">
+                {isLoadingData ? "文章数据加载中。" : "当前没有可展示的文章数据。"}
+              </p>
+            ) : null}
+          </div>
+          <PaginationBar pager={articlePager} onPageChange={onArticlePageChange} emptyText="暂无文章。" />
         </article>
       </section>
     </>
