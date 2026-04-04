@@ -49,7 +49,13 @@ The scaffold intentionally focuses on structure instead of full business logic:
 
 ```bash
 go mod tidy
+# from repo root:
+# cp .env.example .env
+# from backend dir (legacy):
+# cp .env.example .env
 go run ./cmd/api
 ```
 
-Use `.env.example` as the base environment file. The service can start without external middleware dependencies connected yet; those are intentionally left as next-step integrations.
+Use the project root `.env.example` as the canonical base environment file.
+Backend startup now loads root `.env` first and then falls back to `backend/.env` for compatibility.
+The service can start without external middleware dependencies connected yet; those are intentionally left as next-step integrations.

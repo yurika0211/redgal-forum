@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -25,6 +26,10 @@ import (
 )
 
 func main() {
+	if _, err := config.LoadEnvFromDefaultFiles(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to load .env files: %v\n", err)
+	}
+
 	cfg := config.Load()
 	logger := newLogger(cfg.App.Env)
 
