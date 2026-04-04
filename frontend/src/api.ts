@@ -11,6 +11,7 @@ export interface Paginated<T> {
 export interface ListParams {
   page?: number;
   pageSize?: number;
+  q?: string;
 }
 
 export interface Session {
@@ -22,6 +23,20 @@ export interface Session {
 export interface LoginPayload {
   account: string;
   password: string;
+}
+
+export interface RegisterPayload {
+  student_id: string;
+  username: string;
+  password: string;
+}
+
+export interface RegisterResult {
+  user_id: string;
+  username: string;
+  status: string;
+  verified: boolean;
+  roles: string[];
 }
 
 export interface HealthData {
@@ -42,6 +57,7 @@ export interface HealthData {
 export interface Profile {
   user_id: string;
   username: string;
+  space_id_editable?: boolean;
   nickname: string;
   signature: string;
   bio: string;
@@ -52,7 +68,46 @@ export interface Profile {
   collections: Record<string, number>;
 }
 
+export interface FriendSummary {
+  user_id: string;
+  username: string;
+  nickname: string;
+  avatar_url: string;
+  signature: string;
+}
+
+export interface FriendRequest {
+  request_id: string;
+  requester_id: string;
+  requester_username: string;
+  requester_nickname: string;
+  requester_avatar_url: string;
+  receiver_id: string;
+  receiver_username: string;
+  receiver_nickname: string;
+  receiver_avatar_url: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  message: string;
+  created_at: string;
+  reviewed_at?: string;
+}
+
+export interface CreateFriendRequestPayload {
+  username: string;
+  message?: string;
+}
+
+export interface ReviewFriendRequestPayload {
+  action: "approve" | "reject";
+}
+
+export interface ReviewFriendRequestResult {
+  request_id: string;
+  status: string;
+}
+
 export interface UpdateProfilePayload {
+  username: string;
   nickname: string;
   signature: string;
   bio: string;
@@ -60,15 +115,63 @@ export interface UpdateProfilePayload {
 }
 
 export interface BangumiImportPayload {
-  subject_ids: number[];
-  status: string;
+  subject_ids?: number[];
+  status?: string;
   visibility?: string;
+  sync_mode?: "subject_ids" | "account";
+  bangumi_username?: string;
+  max_items?: number;
 }
 
 export interface BangumiImportJob {
   job_id: string;
+  user_id?: string;
+  username?: string;
+  external_account_id?: string;
+  job_type?: string;
   status: string;
   channel: string;
+  request_payload?: Record<string, unknown>;
+  result_payload?: Record<string, unknown>;
+  error_message?: string;
+  started_at?: string;
+  finished_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BangumiCollection {
+  collection_id: string;
+  subject_id: string;
+  bgm_subject_id: number;
+  subject_url?: string;
+  subject_type: number;
+  name: string;
+  name_cn?: string;
+  summary?: string;
+  cover_image_url?: string;
+  air_date?: string;
+  rating_score?: number;
+  rank_no?: number;
+  platforms: string[];
+  collection_status: "wish" | "doing" | "collect" | "on_hold" | "dropped";
+  my_score?: number;
+  my_comment?: string;
+  visibility: "public" | "members" | "private";
+  synced_at?: string;
+  updated_at?: string;
+}
+
+export interface UpdateMyBangumiCollectionPayload {
+  collection_status: "wish" | "doing" | "collect" | "on_hold" | "dropped";
+  my_score?: number | null;
+  my_comment?: string;
+}
+
+export interface UpdateBangumiJobStatusPayload {
+  status: string;
+  result_payload?: Record<string, unknown>;
+  error_message?: string;
 }
 
 export interface AdminUser {
@@ -107,6 +210,10 @@ export interface UpdateUserStatusPayload {
   status: string;
 }
 
+export interface ModerateUserPayload {
+  action: "mute" | "unmute" | "ban" | "unban" | "demote";
+}
+
 export interface ReviewVerificationPayload {
   action: string;
   note?: string;
@@ -130,6 +237,10 @@ export interface Article {
   visibility: string;
   author: string;
   tags: string[];
+  comment_count?: number;
+  like_count?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CreateArticlePayload {
@@ -138,6 +249,11 @@ export interface CreateArticlePayload {
   content: string;
   visibility: "public" | "member" | "private";
   tags: string[];
+}
+
+export interface DeleteArticleResult {
+  article_id: string;
+  status: string;
 }
 
 export interface ForumThread {
@@ -307,6 +423,7 @@ export interface SiteContentBlock {
     | "portal_page"
     | "portal_highlight"
     | "portal_pillar"
+    | "portal_notice"
     | "portal_activity"
     | "portal_join_step";
   slug: string;
@@ -383,6 +500,7 @@ export interface SiteContent {
   portal_pages: SiteContentBlock[];
   portal_highlights: SiteContentBlock[];
   portal_pillars: SiteContentBlock[];
+  portal_notices: SiteContentBlock[];
   portal_activities: SiteContentBlock[];
   portal_join_steps: SiteContentBlock[];
   gallery_entries: SiteGalleryEntry[];
@@ -407,6 +525,63 @@ interface RequestOptions extends Omit<RequestInit, "body" | "headers"> {
   headers?: HeadersInit;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isApiEnvelopeValue<T>(value: unknown): value is ApiEnvelope<T> {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (typeof value.ok !== "boolean") {
+    return false;
+  }
+
+  return (
+    Object.prototype.hasOwnProperty.call(value, "data") ||
+    Object.prototype.hasOwnProperty.call(value, "error") ||
+    Object.prototype.hasOwnProperty.call(value, "request_id")
+  );
+}
+
+function parseJSONLoose(text: string): unknown {
+  const normalized = text.trim().replace(/^\uFEFF/, "");
+  if (!normalized) {
+    return null;
+  }
+
+  const candidates = [normalized];
+
+  const withoutNullPrefix = normalized.replace(/^null\s*(?=[{\[])/i, "");
+  if (withoutNullPrefix !== normalized) {
+    candidates.push(withoutNullPrefix);
+  }
+
+  const firstObjectStart = withoutNullPrefix.indexOf("{");
+  const lastObjectEnd = withoutNullPrefix.lastIndexOf("}");
+  if (firstObjectStart >= 0 && lastObjectEnd > firstObjectStart) {
+    candidates.push(withoutNullPrefix.slice(firstObjectStart, lastObjectEnd + 1));
+  }
+
+  const firstArrayStart = withoutNullPrefix.indexOf("[");
+  const lastArrayEnd = withoutNullPrefix.lastIndexOf("]");
+  if (firstArrayStart >= 0 && lastArrayEnd > firstArrayStart) {
+    candidates.push(withoutNullPrefix.slice(firstArrayStart, lastArrayEnd + 1));
+  }
+
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("invalid JSON response");
+}
+
 function withListQuery(path: string, params?: ListParams): string {
   if (!params) {
     return path;
@@ -418,6 +593,9 @@ function withListQuery(path: string, params?: ListParams): string {
   }
   if (params.pageSize) {
     searchParams.set("page_size", String(params.pageSize));
+  }
+  if (typeof params.q === "string" && params.q.trim()) {
+    searchParams.set("q", params.q.trim());
   }
 
   const suffix = searchParams.toString();
@@ -445,17 +623,44 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   });
 
   const text = await response.text();
-  const payload = text ? (JSON.parse(text) as ApiEnvelope<T>) : null;
+  let parsed: unknown = null;
 
-  if (!response.ok || payload?.ok === false) {
-    throw new Error(payload?.error || `Request failed with status ${response.status}`);
+  if (text) {
+    try {
+      parsed = parseJSONLoose(text);
+    } catch (error) {
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      throw new Error(`Response is not valid JSON: ${error instanceof Error ? error.message : "unknown parse error"}`);
+    }
   }
 
-  if (!payload || !Object.prototype.hasOwnProperty.call(payload, "data")) {
-    throw new Error("Response payload missing data");
+  const envelope = isApiEnvelopeValue<T>(parsed) ? parsed : null;
+
+  if (!response.ok || envelope?.ok === false) {
+    if (envelope?.error) {
+      throw new Error(envelope.error);
+    }
+
+    const compact = text.replace(/\s+/g, " ").trim();
+    throw new Error(compact || `Request failed with status ${response.status}`);
   }
 
-  return payload.data as T;
+  if (envelope) {
+    if (!Object.prototype.hasOwnProperty.call(envelope, "data")) {
+      throw new Error("Response payload missing data");
+    }
+
+    return envelope.data as T;
+  }
+
+  if (parsed !== null) {
+    return parsed as T;
+  }
+
+  throw new Error("Response payload missing data");
 }
 
 export function fetchHealth(token?: string): Promise<HealthData> {
@@ -475,8 +680,58 @@ export async function login(body: LoginPayload): Promise<Session> {
   };
 }
 
+export function registerAccount(body: RegisterPayload): Promise<RegisterResult> {
+  return request<RegisterResult>("/auth/register", {
+    method: "POST",
+    body,
+  });
+}
+
+export function logout(token: string): Promise<{ status: string }> {
+  return request<{ status: string }>("/auth/logout", {
+    method: "POST",
+    token,
+  });
+}
+
 export function fetchMyProfile(token: string): Promise<Profile> {
   return request<Profile>("/users/me", { token });
+}
+
+export function fetchMyFriends(token: string, params?: ListParams): Promise<Paginated<FriendSummary>> {
+  return request<Paginated<FriendSummary>>(withListQuery("/users/me/friends", params), { token });
+}
+
+export function fetchIncomingFriendRequests(token: string, params?: ListParams): Promise<Paginated<FriendRequest>> {
+  return request<Paginated<FriendRequest>>(withListQuery("/users/me/friend-requests/incoming", params), {
+    token,
+  });
+}
+
+export function fetchOutgoingFriendRequests(token: string, params?: ListParams): Promise<Paginated<FriendRequest>> {
+  return request<Paginated<FriendRequest>>(withListQuery("/users/me/friend-requests/outgoing", params), {
+    token,
+  });
+}
+
+export function createFriendRequest(token: string, body: CreateFriendRequestPayload): Promise<FriendRequest> {
+  return request<FriendRequest>("/users/me/friend-requests", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export function reviewFriendRequest(
+  token: string,
+  requestID: string,
+  body: ReviewFriendRequestPayload,
+): Promise<ReviewFriendRequestResult> {
+  return request<ReviewFriendRequestResult>(`/users/me/friend-requests/${encodeURIComponent(requestID)}/review`, {
+    method: "POST",
+    token,
+    body,
+  });
 }
 
 export function fetchAdminDashboard(token: string): Promise<AdminDashboard> {
@@ -498,6 +753,18 @@ export function updateAdminUserStatus(
 ): Promise<AdminUser> {
   return request<AdminUser>(`/admin/users/${encodeURIComponent(userID)}/status`, {
     method: "PATCH",
+    token,
+    body,
+  });
+}
+
+export function moderateAdminUser(
+  token: string,
+  userID: string,
+  body: ModerateUserPayload,
+): Promise<AdminUser> {
+  return request<AdminUser>(`/admin/users/${encodeURIComponent(userID)}/moderation`, {
+    method: "POST",
     token,
     body,
   });
@@ -529,6 +796,63 @@ export function importBangumiCollections(
 ): Promise<BangumiImportJob> {
   return request<BangumiImportJob>("/users/me/bangumi/import", {
     method: "POST",
+    token,
+    body,
+  });
+}
+
+export function fetchMyBangumiJobs(token: string, params?: ListParams): Promise<Paginated<BangumiImportJob>> {
+  return request<Paginated<BangumiImportJob>>(withListQuery("/users/me/bangumi/jobs", params), {
+    token,
+  });
+}
+
+export function fetchMyBangumiCollections(
+  token: string,
+  params?: ListParams,
+): Promise<Paginated<BangumiCollection>> {
+  return request<Paginated<BangumiCollection>>(withListQuery("/users/me/bangumi/collections", params), {
+    token,
+  });
+}
+
+export function fetchUserBangumiCollections(
+  username: string,
+  params?: ListParams,
+): Promise<Paginated<BangumiCollection>> {
+  return request<Paginated<BangumiCollection>>(
+    withListQuery(`/users/${encodeURIComponent(username)}/bangumi/collections`, params),
+  );
+}
+
+export function updateMyBangumiCollection(
+  token: string,
+  collectionID: string,
+  body: UpdateMyBangumiCollectionPayload,
+): Promise<BangumiCollection> {
+  return request<BangumiCollection>(`/users/me/bangumi/collections/${encodeURIComponent(collectionID)}`, {
+    method: "PATCH",
+    token,
+    body,
+  });
+}
+
+export function fetchAdminBangumiJobs(
+  token: string,
+  params?: ListParams,
+): Promise<Paginated<BangumiImportJob>> {
+  return request<Paginated<BangumiImportJob>>(withListQuery("/admin/bangumi/jobs", params), {
+    token,
+  });
+}
+
+export function updateBangumiJobStatus(
+  token: string,
+  jobID: string,
+  body: UpdateBangumiJobStatusPayload,
+): Promise<BangumiImportJob> {
+  return request<BangumiImportJob>(`/admin/bangumi/jobs/${encodeURIComponent(jobID)}/status`, {
+    method: "PATCH",
     token,
     body,
   });
@@ -587,6 +911,25 @@ export function createArticle(body: CreateArticlePayload, token: string): Promis
   return request<Article>("/articles", {
     method: "POST",
     body,
+    token,
+  });
+}
+
+export function updateArticle(
+  articleID: string,
+  body: CreateArticlePayload,
+  token: string,
+): Promise<Article> {
+  return request<Article>(`/articles/${encodeURIComponent(articleID)}`, {
+    method: "PATCH",
+    body,
+    token,
+  });
+}
+
+export function deleteArticle(articleID: string, token: string): Promise<DeleteArticleResult> {
+  return request<DeleteArticleResult>(`/admin/articles/${encodeURIComponent(articleID)}`, {
+    method: "DELETE",
     token,
   });
 }

@@ -19,18 +19,24 @@ import {
   createWritingContest,
   createWallSubmission,
   createGalleryEntry,
+  deleteArticle,
   deleteContentBlock,
   deleteGalleryEntry,
   fetchAdminContentBlocks,
+  fetchAdminBangumiJobs,
   fetchAdminDashboard,
   fetchArticleDetail,
   fetchArticles,
   fetchAdminGalleryEntries,
   fetchAdminUsers,
+  fetchIncomingFriendRequests,
   fetchForumProgress,
   fetchAnonymousThreadDetail,
   fetchAnonymousThreads,
   fetchHealth,
+  fetchMyBangumiCollections,
+  fetchMyBangumiJobs,
+  fetchUserBangumiCollections,
   fetchMyProfile,
   fetchPublicProfile,
   fetchRelays,
@@ -49,9 +55,11 @@ import {
   type AdminUser as ApiAdminUser,
   type BangumiImportJob,
   type BangumiImportPayload,
+  type BangumiCollection,
   type CreateContentBlockPayload,
   type CreateRelayPayload,
   type CreateArticlePayload,
+  type DeleteArticleResult,
   type CreateReplyPayload,
   type CreateThreadPayload,
   type CreateGalleryEntryPayload,
@@ -70,14 +78,17 @@ import {
   type SiteContentBlock,
   type SuperAdminDashboard as ApiSuperAdminDashboard,
   type UpdateContentBlockPayload,
+  type ModerateUserPayload,
   type UpdateRelayStatusPayload,
-  type UpdateUserStatusPayload,
   type UpdateWritingContestStatusPayload,
   type VerificationDecisionResult as ApiVerificationDecisionResult,
   type WallEntry as ApiWallEntry,
   type WritingContest as ApiWritingContest,
   login,
-  updateAdminUserStatus,
+  logout,
+  registerAccount,
+  moderateAdminUser,
+  updateArticle,
   updateContentBlock,
   signInForum,
   type Session,
@@ -89,8 +100,7 @@ import {
   updateWritingContestStatus,
   updateMyProfile,
 } from "./api";
-import Header from "./components/Header";
-import AuthPanel from "./components/AuthPanel";
+import Header, { type HeaderNotificationItem } from "./components/Header";
 import ForumProgressPanel from "./components/ForumProgressPanel";
 import AnonymousPage from "./pages/AnonymousPage";
 import ForumPage from "./pages/ForumPage";
@@ -102,9 +112,7 @@ import StoriesPage from "./pages/StoriesPage";
 import {
   NAV_ITEMS,
   DEFAULT_PUBLIC_PROFILE_USERNAME,
-  SPACE_FRIENDS,
   SPACE_SHOWCASE_GROUPS,
-  SPACE_TIME_CAPSULES,
 } from "./content";
 import { buildForumReplyTree, forumActionLabel, formatForumFloor, type ForumReplyNode } from "./lib/forum";
 import {
@@ -116,14 +124,18 @@ import {
   HEADER_SUMMARY_BY_ROUTE,
   normalizePath,
   readCurrentPath,
+  readForumEditorMode,
+  readPublicProfileUsername,
   readSelectedAnonymousThreadID,
   readSelectedArticleID,
   readSelectedForumThreadID,
+  readStoriesEditorMode,
   TITLE_BY_ROUTE,
   type RoutePath,
 } from "./lib/routes";
 import { persistSession, readStoredSession } from "./lib/session";
 import {
+  createAnonymousThreadTitle,
   excerpt,
   extractMarkdownPreviewImage,
   formatDateTime,
@@ -137,6 +149,173 @@ import {
 } from "./lib/text";
 
 type StatusTone = "neutral" | "success" | "warn" | "accent";
+type ThemeMode = "day" | "night";
+
+const THEME_STORAGE_KEY = "rubedo_theme_mode";
+const NOTIFICATION_STORE_KEY = "rubedo_notification_store_v1";
+const NOTIFICATION_MAX_ITEMS = 48;
+const HOME_NOTICE_SEEN_KEY = "rubedo_home_notice_seen_v1";
+const HOME_NOTICE_SEEN_LIMIT = 96;
+
+function readStoredThemeMode(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "night";
+  }
+
+  return window.localStorage.getItem(THEME_STORAGE_KEY) === "day" ? "day" : "night";
+}
+
+type NotificationKind = "forum_reply" | "friend_request" | "announcement";
+
+interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  description: string;
+  href?: string;
+  createdAt: string;
+  unread: boolean;
+}
+
+interface NotificationStore {
+  friendBaselineReady: boolean;
+  items: AppNotification[];
+  noticeBaselineReady: boolean;
+  seenNoticeIDs: string[];
+  seenIncomingRequestIDs: string[];
+  threadBaselineReady: boolean;
+  threadReplySnapshot: Record<string, number>;
+}
+
+function createEmptyNotificationStore(): NotificationStore {
+  return {
+    friendBaselineReady: false,
+    items: [],
+    noticeBaselineReady: false,
+    seenNoticeIDs: [],
+    seenIncomingRequestIDs: [],
+    threadBaselineReady: false,
+    threadReplySnapshot: {},
+  };
+}
+
+function sortAndTrimNotifications(items: readonly AppNotification[]): AppNotification[] {
+  const map = new Map<string, AppNotification>();
+  items.forEach((item) => {
+    if (typeof item.id !== "string" || !item.id.trim()) {
+      return;
+    }
+
+    map.set(item.id, {
+      ...item,
+      createdAt: item.createdAt || new Date().toISOString(),
+      unread: Boolean(item.unread),
+    });
+  });
+
+  return Array.from(map.values())
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.createdAt) || 0;
+      const rightTime = Date.parse(right.createdAt) || 0;
+      return rightTime - leftTime;
+    })
+    .slice(0, NOTIFICATION_MAX_ITEMS);
+}
+
+function readStoredNotificationStore(): NotificationStore {
+  if (typeof window === "undefined") {
+    return createEmptyNotificationStore();
+  }
+
+  const raw = window.localStorage.getItem(NOTIFICATION_STORE_KEY);
+  if (!raw) {
+    return createEmptyNotificationStore();
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<NotificationStore> | null;
+    if (!parsed || typeof parsed !== "object") {
+      return createEmptyNotificationStore();
+    }
+
+    const items = Array.isArray(parsed.items)
+      ? sortAndTrimNotifications(parsed.items as AppNotification[])
+      : [];
+    const seenIncomingRequestIDs = Array.isArray(parsed.seenIncomingRequestIDs)
+      ? parsed.seenIncomingRequestIDs.filter(
+          (item): item is string => typeof item === "string" && Boolean(item.trim()),
+        )
+      : [];
+    const seenNoticeIDs = Array.isArray(parsed.seenNoticeIDs)
+      ? parsed.seenNoticeIDs.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+      : [];
+    const threadReplySnapshot =
+      parsed.threadReplySnapshot && typeof parsed.threadReplySnapshot === "object"
+        ? Object.entries(parsed.threadReplySnapshot).reduce<Record<string, number>>(
+            (result, [threadID, count]) => {
+              if (typeof count === "number" && Number.isFinite(count) && count >= 0) {
+                result[threadID] = count;
+              }
+              return result;
+            },
+            {},
+          )
+        : {};
+
+    return {
+      friendBaselineReady: Boolean(parsed.friendBaselineReady),
+      items,
+      noticeBaselineReady: Boolean(parsed.noticeBaselineReady),
+      seenNoticeIDs,
+      seenIncomingRequestIDs,
+      threadBaselineReady: Boolean(parsed.threadBaselineReady),
+      threadReplySnapshot,
+    };
+  } catch {
+    window.localStorage.removeItem(NOTIFICATION_STORE_KEY);
+    return createEmptyNotificationStore();
+  }
+}
+
+function normalizeHomeNoticeSeenIDs(items: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  items.forEach((item) => {
+    const value = typeof item === "string" ? item.trim() : "";
+    if (!value || seen.has(value)) {
+      return;
+    }
+    seen.add(value);
+    normalized.push(value);
+  });
+
+  return normalized.slice(0, HOME_NOTICE_SEEN_LIMIT);
+}
+
+function readStoredHomeNoticeSeenIDs(): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  const raw = window.localStorage.getItem(HOME_NOTICE_SEEN_KEY);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      window.localStorage.removeItem(HOME_NOTICE_SEEN_KEY);
+      return [];
+    }
+
+    return normalizeHomeNoticeSeenIDs(parsed);
+  } catch {
+    window.localStorage.removeItem(HOME_NOTICE_SEEN_KEY);
+    return [];
+  }
+}
 
 interface StatusChipProps {
   tone?: StatusTone;
@@ -168,11 +347,35 @@ interface LoginState {
   error: string;
 }
 
+interface RegisterFormState {
+  student_id: string;
+  username: string;
+  password: string;
+}
+
+interface RegisterState {
+  pending: boolean;
+  error: string;
+  success: string;
+}
+
 interface ProfileFormState {
+  username: string;
   nickname: string;
   signature: string;
   bio: string;
   avatar_url: string;
+}
+
+type BangumiSyncMode = "subject_ids" | "account";
+
+interface BangumiImportFormState extends BangumiImportPayload {
+  subjectIdsText: string;
+  sync_mode: BangumiSyncMode;
+  bangumi_username: string;
+  status: string;
+  visibility: string;
+  maxItemsText: string;
 }
 
 interface GalleryFormState {
@@ -247,6 +450,15 @@ interface ContestFormState {
   ends_at: string;
 }
 
+interface AnnouncementFormState {
+  title: string;
+  description: string;
+  body: string;
+  label: string;
+  sort_order: string;
+  active: boolean;
+}
+
 interface FormActionState<T> {
   pending: boolean;
   error: string;
@@ -279,6 +491,15 @@ interface DisplayActivity {
   label: string;
   title: string;
   description: string;
+}
+
+interface DisplayNotice {
+  id: string;
+  kicker: string;
+  label: string;
+  title: string;
+  description: string;
+  body: string;
 }
 
 interface DisplayJoinStep {
@@ -322,6 +543,97 @@ interface DisplayTrack {
   mood: string;
   length: string;
   detail: string;
+}
+
+type AdminSectionKey = "moderation" | "dashboard" | "site" | "gallery" | "members";
+type AdminPageKey =
+  | "moderation-wall"
+  | "moderation-bangumi"
+  | "dashboard-overview"
+  | "dashboard-todos"
+  | "dashboard-actions"
+  | "site-blocks"
+  | "site-relays"
+  | "site-contests"
+  | "site-notes"
+  | "gallery-editor"
+  | "gallery-list"
+  | "members-users"
+  | "members-verifications"
+  | "members-permissions";
+
+const ADMIN_SIDEBAR_SECTIONS: ReadonlyArray<{
+  id: AdminSectionKey;
+  title: string;
+  kicker: string;
+  description: string;
+  children: ReadonlyArray<{
+    id: AdminPageKey;
+    label: string;
+  }>;
+}> = [
+  {
+    id: "moderation",
+    title: "审核内容",
+    kicker: "Moderation",
+    description: "展示墙投稿与 Bangumi 任务状态。",
+    children: [
+      { id: "moderation-wall", label: "展示墙投稿审核" },
+      { id: "moderation-bangumi", label: "Bangumi 导入任务" },
+    ],
+  },
+  {
+    id: "dashboard",
+    title: "数据看板",
+    kicker: "Dashboard",
+    description: "核心指标、待办提醒与快捷入口。",
+    children: [
+      { id: "dashboard-overview", label: "核心指标速览" },
+      { id: "dashboard-todos", label: "待办提醒" },
+      { id: "dashboard-actions", label: "高频入口" },
+    ],
+  },
+  {
+    id: "site",
+    title: "站点内容管理",
+    kicker: "CMS",
+    description: "内容块、接龙活动、征文活动与系统说明。",
+    children: [
+      { id: "site-blocks", label: "内容块编辑" },
+      { id: "site-relays", label: "接龙活动" },
+      { id: "site-contests", label: "征文活动" },
+      { id: "site-notes", label: "系统说明" },
+    ],
+  },
+  {
+    id: "gallery",
+    title: "展示条目列表",
+    kicker: "Gallery Assets",
+    description: "展示资源录入、编辑与列表维护。",
+    children: [
+      { id: "gallery-editor", label: "新建展示条目" },
+      { id: "gallery-list", label: "展示条目列表" },
+    ],
+  },
+  {
+    id: "members",
+    title: "成员与审核管理",
+    kicker: "Members",
+    description: "成员状态流转、认证审批与权限说明。",
+    children: [
+      { id: "members-users", label: "成员状态" },
+      { id: "members-verifications", label: "认证审批" },
+      { id: "members-permissions", label: "权限建议" },
+    ],
+  },
+] as const;
+
+function adminSectionFromPage(page: AdminPageKey): AdminSectionKey {
+  const match = ADMIN_SIDEBAR_SECTIONS.find((section) =>
+    section.children.some((child) => child.id === page),
+  );
+
+  return match?.id ?? "dashboard";
 }
 
 const HOME_POEM_LINES = [
@@ -463,6 +775,17 @@ const DEFAULT_SOCIETY_ACTIVITIES: DisplayActivity[] = [
   },
 ];
 
+const DEFAULT_SOCIETY_NOTICES: DisplayNotice[] = [
+  {
+    id: "notice-1",
+    kicker: "公告",
+    label: "置顶",
+    title: "公告功能已接入管理界面",
+    description: "管理员可在后台直接发布公告，前台会自动同步展示。",
+    body: "公告支持标题、摘要与正文；后续会继续补充定时发布与归档。",
+  },
+];
+
 const DEFAULT_SOCIETY_JOIN_STEPS: DisplayJoinStep[] = [
   {
     id: "join-1",
@@ -525,6 +848,7 @@ function getAvatarFallback(profile: Pick<ApiProfile, "nickname" | "username"> | 
 
 function createProfileFormState(profile: ApiProfile | null): ProfileFormState {
   return {
+    username: profile?.username || "",
     nickname: profile?.nickname || "",
     signature: profile?.signature || "",
     bio: profile?.bio || "",
@@ -552,6 +876,16 @@ function createArticleFormState(): ArticleFormState {
     content: "",
     visibility: "public",
     tagsText: "",
+  };
+}
+
+function createArticleFormStateFromArticle(article: ApiArticle): ArticleFormState {
+  return {
+    title: article.title,
+    summary: article.summary,
+    content: article.content,
+    visibility: article.visibility === "private" ? "private" : article.visibility === "member" || article.visibility === "members" ? "member" : "public",
+    tagsText: article.tags.join(", "),
   };
 }
 
@@ -620,6 +954,37 @@ function createContestFormState(): ContestFormState {
   };
 }
 
+function createAnnouncementFormState(): AnnouncementFormState {
+  return {
+    title: "",
+    description: "",
+    body: "",
+    label: "公告",
+    sort_order: "0",
+    active: true,
+  };
+}
+
+function slugifyValue(input: string): string {
+  const normalized = input.trim().toLowerCase();
+  if (!normalized) {
+    return "item";
+  }
+
+  const slug = normalized.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
+  return slug || "item";
+}
+
+function createAnnouncementSlug(title: string): string {
+  const suffix = Date.now().toString(36);
+  const normalized = slugifyValue(title);
+  const base = normalized === "item" ? "notice" : normalized;
+  const maxBaseLength = Math.max(8, 112 - suffix.length);
+  const trimmedBase = base.slice(0, maxBaseLength);
+
+  return `notice-${trimmedBase}-${suffix}`;
+}
+
 function createEmptyActionState<T>(): FormActionState<T> {
   return {
     pending: false,
@@ -659,12 +1024,22 @@ function App() {
   const forumReplyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
   const [routePath, setRoutePath] = useState<RoutePath>(() => readCurrentPath());
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredThemeMode());
   const [spaceShelfTab, setSpaceShelfTab] = useState<(typeof SPACE_SHOWCASE_GROUPS)[number]["id"]>("games");
   const [selectedArticleID, setSelectedArticleID] = useState<string | null>(() =>
     readSelectedArticleID(),
   );
+  const [isStoriesEditorMode, setIsStoriesEditorMode] = useState<boolean>(() =>
+    readStoriesEditorMode(),
+  );
   const [selectedForumThreadID, setSelectedForumThreadID] = useState<string | null>(() =>
     readSelectedForumThreadID(),
+  );
+  const [isForumEditorMode, setIsForumEditorMode] = useState<boolean>(() =>
+    readForumEditorMode(),
+  );
+  const [selectedPublicProfileUsername, setSelectedPublicProfileUsername] = useState<string | null>(
+    () => readPublicProfileUsername(),
   );
   const [selectedAnonymousThreadID, setSelectedAnonymousThreadID] = useState<string | null>(() =>
     readSelectedAnonymousThreadID(),
@@ -683,17 +1058,31 @@ function App() {
     account: DEFAULT_PUBLIC_PROFILE_USERNAME,
     password: "",
   });
+  const [registerForm, setRegisterForm] = useState<RegisterFormState>({
+    student_id: "",
+    username: "",
+    password: "",
+  });
   const [profileForm, setProfileForm] = useState<ProfileFormState>(() => createProfileFormState(null));
   const [profileActionState, setProfileActionState] =
     useState<FormActionState<ApiProfile>>(createEmptyActionState<ApiProfile>);
-  const [bangumiForm, setBangumiForm] = useState<BangumiImportPayload & { subjectIdsText: string }>({
+  const [bangumiForm, setBangumiForm] = useState<BangumiImportFormState>({
     subjectIdsText: "",
     subject_ids: [],
+    sync_mode: "subject_ids",
+    bangumi_username: "",
     status: "wish",
     visibility: "public",
+    maxItemsText: "120",
+    max_items: 120,
   });
   const [bangumiActionState, setBangumiActionState] =
     useState<FormActionState<BangumiImportJob>>(createEmptyActionState<BangumiImportJob>);
+  const [myBangumiJobs, setMyBangumiJobs] = useState<BangumiImportJob[]>([]);
+  const [myBangumiCollections, setMyBangumiCollections] = useState<BangumiCollection[]>([]);
+  const [myBangumiJobsPager, setMyBangumiJobsPager] = useState<PagerState>(() => createPagerState(6));
+  const [bangumiJobsError, setBangumiJobsError] = useState("");
+  const [bangumiCollectionsError, setBangumiCollectionsError] = useState("");
   const [adminGalleryEntries, setAdminGalleryEntries] = useState<SiteGalleryEntry[]>([]);
   const [galleryForm, setGalleryForm] = useState<GalleryFormState>(() => createGalleryFormState());
   const [galleryActionState, setGalleryActionState] =
@@ -707,6 +1096,10 @@ function App() {
     useState<FormActionState<ApiAdminUser | ApiVerificationDecisionResult>>(
       createEmptyActionState<ApiAdminUser | ApiVerificationDecisionResult>,
     );
+  const [adminBangumiJobs, setAdminBangumiJobs] = useState<BangumiImportJob[]>([]);
+  const [adminBangumiJobsPager, setAdminBangumiJobsPager] = useState<PagerState>(() => createPagerState(6));
+  const [adminActivePage, setAdminActivePage] =
+    useState<AdminPageKey>("dashboard-overview");
   const [adminContentBlocks, setAdminContentBlocks] = useState<SiteContentBlock[]>([]);
   const [adminContentBlocksPager, setAdminContentBlocksPager] = useState<PagerState>(() => createPagerState(6));
   const [contentBlockForm, setContentBlockForm] =
@@ -714,6 +1107,10 @@ function App() {
   const [contentBlockActionState, setContentBlockActionState] =
     useState<FormActionState<SiteContentBlock>>(createEmptyActionState<SiteContentBlock>);
   const [editingContentBlockID, setEditingContentBlockID] = useState<string | null>(null);
+  const [announcementForm, setAnnouncementForm] =
+    useState<AnnouncementFormState>(() => createAnnouncementFormState());
+  const [announcementActionState, setAnnouncementActionState] =
+    useState<FormActionState<SiteContentBlock>>(createEmptyActionState<SiteContentBlock>);
   const [relays, setRelays] = useState<ApiRelayEvent[]>([]);
   const [relayPager, setRelayPager] = useState<PagerState>(() => createPagerState(6));
   const [relayForm, setRelayForm] = useState<RelayFormState>(() => createRelayFormState());
@@ -727,6 +1124,11 @@ function App() {
   const [articleForm, setArticleForm] = useState<ArticleFormState>(() => createArticleFormState());
   const [articleActionState, setArticleActionState] =
     useState<FormActionState<ApiArticle>>(createEmptyActionState<ApiArticle>);
+  const [articleEditingTargetID, setArticleEditingTargetID] = useState<string | null>(null);
+  const [articleManageActionState, setArticleManageActionState] =
+    useState<FormActionState<ApiArticle | DeleteArticleResult>>(
+      createEmptyActionState<ApiArticle | DeleteArticleResult>,
+    );
   const [threadForm, setThreadForm] = useState<ThreadFormState>(() => createThreadFormState());
   const [threadActionState, setThreadActionState] =
     useState<FormActionState<ApiForumThread>>(createEmptyActionState<ApiForumThread>);
@@ -740,15 +1142,18 @@ function App() {
     ...createThreadFormState(),
     board: "匿名板",
     anonymous: true,
+    tagsText: "闲聊",
   }));
   const [anonymousThreadActionState, setAnonymousThreadActionState] =
     useState<FormActionState<ApiForumThread>>(createEmptyActionState<ApiForumThread>);
   const [anonymousReplyForm, setAnonymousReplyForm] = useState<ReplyFormState>(() => createReplyFormState());
   const [anonymousReplyActionState, setAnonymousReplyActionState] =
     useState<FormActionState<ApiForumReply>>(createEmptyActionState<ApiForumReply>);
+  const [articleSearchKeyword, setArticleSearchKeyword] = useState("");
   const [selectedForumBoard, setSelectedForumBoard] = useState("全部");
+  const [threadSearchKeyword, setThreadSearchKeyword] = useState("");
   const [onlyShowThreadAuthor, setOnlyShowThreadAuthor] = useState(false);
-  const [expandedReplyID, setExpandedReplyID] = useState<string | null>(null);
+  const [expandedReplyIDs, setExpandedReplyIDs] = useState<string[]>([]);
   const [wallForm, setWallForm] = useState<WallSubmissionFormState>(() => createWallSubmissionFormState());
   const [wallActionState, setWallActionState] =
     useState<FormActionState<ApiWallEntry>>(createEmptyActionState<ApiWallEntry>);
@@ -758,6 +1163,11 @@ function App() {
   const [loginState, setLoginState] = useState<LoginState>({
     pending: false,
     error: "",
+  });
+  const [registerState, setRegisterState] = useState<RegisterState>({
+    pending: false,
+    error: "",
+    success: "",
   });
   const [articlePager, setArticlePager] = useState<PagerState>(() => createPagerState(6));
   const [threadPager, setThreadPager] = useState<PagerState>(() => createPagerState(6));
@@ -777,6 +1187,7 @@ function App() {
   const [profileError, setProfileError] = useState("");
   const [adminDashboardError, setAdminDashboardError] = useState("");
   const [adminUsersError, setAdminUsersError] = useState("");
+  const [adminBangumiJobsError, setAdminBangumiJobsError] = useState("");
   const [adminContentBlocksError, setAdminContentBlocksError] = useState("");
   const [adminActivityError, setAdminActivityError] = useState("");
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -784,6 +1195,12 @@ function App() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState("");
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [notificationStore, setNotificationStore] = useState<NotificationStore>(() =>
+    readStoredNotificationStore(),
+  );
+  const [homeNoticeSeenIDs, setHomeNoticeSeenIDs] = useState<string[]>(() =>
+    readStoredHomeNoticeSeenIDs(),
+  );
 
   const portalPages: DisplayPortalPage[] = siteContent?.portal_pages.length
     ? siteContent.portal_pages.map((item) => ({
@@ -816,6 +1233,16 @@ function App() {
         description: item.description || "",
       }))
     : DEFAULT_SOCIETY_ACTIVITIES;
+  const societyNotices: DisplayNotice[] = siteContent?.portal_notices?.length
+    ? siteContent.portal_notices.map((item) => ({
+        id: item.slug,
+        kicker: item.kicker || "公告",
+        label: item.label || "",
+        title: item.title,
+        description: item.description || "",
+        body: item.body || "",
+      }))
+    : DEFAULT_SOCIETY_NOTICES;
   const societyJoinSteps: DisplayJoinStep[] = siteContent?.portal_join_steps.length
     ? siteContent.portal_join_steps.map((item) => ({
         id: item.slug,
@@ -903,9 +1330,8 @@ function App() {
   const canManageGallery = Boolean(
     session && profile?.roles?.some((role) => role === "admin" || role === "super_admin"),
   );
+  const canUseBangumiImport = Boolean(session);
   const hasVerifiedSpaceAccess = Boolean(session && profile);
-  const spaceAccessBlocked =
-    Boolean(session) && !profile && profileError.toLowerCase().includes("verified user required");
   const spaceLogEntries = storyFeed.filter((article) => {
     if (!displayProfile) {
       return false;
@@ -938,6 +1364,31 @@ function App() {
         )
       : 100
     : 0;
+  const sortedNotifications = [...notificationStore.items].sort((left, right) => {
+    const leftTime = Date.parse(left.createdAt) || 0;
+    const rightTime = Date.parse(right.createdAt) || 0;
+    return rightTime - leftTime;
+  });
+  const unreadNotificationCount = notificationStore.items.reduce(
+    (count, item) => count + (item.unread ? 1 : 0),
+    0,
+  );
+  const headerNotifications: HeaderNotificationItem[] = sortedNotifications.slice(0, 18).map((item) => ({
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    href: item.href,
+    timeLabel: formatDateTime(item.createdAt),
+    unread: item.unread,
+  }));
+  const activeHomeNotice =
+    routePath === "/"
+      ? societyNotices.find((notice) => {
+          const noticeID = notice.id.trim();
+          return noticeID !== "" && !homeNoticeSeenIDs.includes(noticeID);
+        }) || null
+      : null;
+  const activeHomeNoticeID = activeHomeNotice?.id.trim() || "";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -947,7 +1398,10 @@ function App() {
     function handlePopstate(): void {
       setRoutePath(readCurrentPath());
       setSelectedArticleID(readSelectedArticleID());
+      setIsStoriesEditorMode(readStoriesEditorMode());
       setSelectedForumThreadID(readSelectedForumThreadID());
+      setIsForumEditorMode(readForumEditorMode());
+      setSelectedPublicProfileUsername(readPublicProfileUsername());
       setSelectedAnonymousThreadID(readSelectedAnonymousThreadID());
     }
 
@@ -956,6 +1410,254 @@ function App() {
       window.removeEventListener("popstate", handlePopstate);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", themeMode);
+    }
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    }
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(NOTIFICATION_STORE_KEY, JSON.stringify(notificationStore));
+  }, [notificationStore]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (homeNoticeSeenIDs.length === 0) {
+      window.localStorage.removeItem(HOME_NOTICE_SEEN_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(HOME_NOTICE_SEEN_KEY, JSON.stringify(homeNoticeSeenIDs));
+  }, [homeNoticeSeenIDs]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !activeHomeNoticeID) {
+      return;
+    }
+
+    function handleKeydown(event: KeyboardEvent): void {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      setHomeNoticeSeenIDs((current) => normalizeHomeNoticeSeenIDs([activeHomeNoticeID, ...current]));
+    }
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    };
+  }, [activeHomeNoticeID]);
+
+  useEffect(() => {
+    if (session) {
+      return;
+    }
+
+    setNotificationStore(createEmptyNotificationStore());
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(NOTIFICATION_STORE_KEY);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    const noticeBlocks = (siteContent?.portal_notices || []).filter((item) => item.active);
+    if (!noticeBlocks.length) {
+      return;
+    }
+
+    setNotificationStore((current) => {
+      const next: NotificationStore = {
+        ...current,
+        items: [...current.items],
+        seenNoticeIDs: [...current.seenNoticeIDs],
+      };
+      const seenNoticeIDs = new Set(next.seenNoticeIDs);
+      const notificationIDs = new Set(next.items.map((item) => item.id));
+
+      if (!next.noticeBaselineReady) {
+        noticeBlocks.forEach((notice) => {
+          const noticeKey = `${notice.id}:${notice.slug || notice.title}`;
+          seenNoticeIDs.add(noticeKey);
+        });
+        next.noticeBaselineReady = true;
+        next.seenNoticeIDs = Array.from(seenNoticeIDs).slice(-320);
+        return next;
+      }
+
+      noticeBlocks.forEach((notice) => {
+        const noticeKey = `${notice.id}:${notice.slug || notice.title}`;
+        if (seenNoticeIDs.has(noticeKey)) {
+          return;
+        }
+
+        const notificationID = `announcement:${noticeKey}`;
+        if (!notificationIDs.has(notificationID)) {
+          const summary = (notice.description || notice.body || "").trim();
+          next.items.push({
+            id: notificationID,
+            kind: "announcement",
+            title: `站内公告：${notice.title}`,
+            description: summary ? excerpt(summary, 72) : "后台发布了新的站内公告。",
+            href: "/",
+            createdAt: new Date().toISOString(),
+            unread: true,
+          });
+          notificationIDs.add(notificationID);
+        }
+
+        seenNoticeIDs.add(noticeKey);
+      });
+
+      next.items = sortAndTrimNotifications(next.items);
+      next.seenNoticeIDs = Array.from(seenNoticeIDs).slice(-320);
+      return next;
+    });
+  }, [session, siteContent]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!session?.accessToken || !profile) {
+      return;
+    }
+
+    const identityAliases = Array.from(
+      new Set(
+        [profile.username, profile.nickname]
+          .map((value) => value.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    );
+    if (!identityAliases.length) {
+      return;
+    }
+
+    let active = true;
+    const accessToken = session.accessToken;
+
+    async function pollNotificationEvents(): Promise<void> {
+      const [incomingResult, threadsResult] = await Promise.allSettled([
+        fetchIncomingFriendRequests(accessToken, { page: 1, pageSize: 60 }),
+        fetchThreads(accessToken, { page: 1, pageSize: 120 }),
+      ]);
+      if (!active) {
+        return;
+      }
+
+      setNotificationStore((current) => {
+        const next: NotificationStore = {
+          ...current,
+          items: [...current.items],
+          seenIncomingRequestIDs: [...current.seenIncomingRequestIDs],
+          threadReplySnapshot: { ...current.threadReplySnapshot },
+        };
+        const seenRequestIDs = new Set(next.seenIncomingRequestIDs);
+        const notificationIDs = new Set(next.items.map((item) => item.id));
+
+        if (incomingResult.status === "fulfilled") {
+          const pendingIncoming = incomingResult.value.items.filter((request) => request.status === "pending");
+
+          if (!next.friendBaselineReady) {
+            pendingIncoming.forEach((request) => {
+              seenRequestIDs.add(request.request_id);
+            });
+            next.friendBaselineReady = true;
+          } else {
+            pendingIncoming.forEach((request) => {
+              if (seenRequestIDs.has(request.request_id)) {
+                return;
+              }
+
+              const notificationID = `friend-request:${request.request_id}`;
+              if (!notificationIDs.has(notificationID)) {
+                next.items.push({
+                  id: notificationID,
+                  kind: "friend_request",
+                  title: "收到新的好友申请",
+                  description: `@${request.requester_username} 请求添加你为好友。`,
+                  href: "/space",
+                  createdAt: request.created_at || new Date().toISOString(),
+                  unread: true,
+                });
+                notificationIDs.add(notificationID);
+              }
+              seenRequestIDs.add(request.request_id);
+            });
+          }
+        }
+
+        if (threadsResult.status === "fulfilled") {
+          const ownThreads = threadsResult.value.items.filter((thread) =>
+            identityAliases.includes((thread.author || "").trim().toLowerCase()),
+          );
+
+          if (!next.threadBaselineReady) {
+            ownThreads.forEach((thread) => {
+              next.threadReplySnapshot[thread.id] = thread.reply_count;
+            });
+            next.threadBaselineReady = true;
+          } else {
+            ownThreads.forEach((thread) => {
+              const previousReplyCount = next.threadReplySnapshot[thread.id];
+              if (typeof previousReplyCount === "number" && thread.reply_count > previousReplyCount) {
+                const increasedCount = thread.reply_count - previousReplyCount;
+                const notificationID = `forum-reply:${thread.id}:${thread.reply_count}:${thread.last_post_at || ""}`;
+                if (!notificationIDs.has(notificationID)) {
+                  next.items.push({
+                    id: notificationID,
+                    kind: "forum_reply",
+                    title: "你的帖子有新回复",
+                    description: `《${thread.title}》新增 ${increasedCount} 条回复。`,
+                    href: `/forum/threads/${encodeURIComponent(thread.id)}`,
+                    createdAt: thread.last_post_at || new Date().toISOString(),
+                    unread: true,
+                  });
+                  notificationIDs.add(notificationID);
+                }
+              }
+
+              next.threadReplySnapshot[thread.id] = thread.reply_count;
+            });
+          }
+        }
+
+        next.items = sortAndTrimNotifications(next.items);
+        next.seenIncomingRequestIDs = Array.from(seenRequestIDs).slice(-240);
+        return next;
+      });
+    }
+
+    void pollNotificationEvents();
+    const intervalID = window.setInterval(() => {
+      void pollNotificationEvents();
+    }, 45000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalID);
+    };
+  }, [profile, session?.accessToken]);
+
+  useEffect(() => {
+    if (routePath === "/stories" && !isStoriesEditorMode && articleEditingTargetID) {
+      setArticleEditingTargetID(null);
+    }
+  }, [articleEditingTargetID, isStoriesEditorMode, routePath]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1012,6 +1714,11 @@ function App() {
       return;
     }
 
+    if (routePath === "/stories" && isStoriesEditorMode) {
+      document.title = "发布文章 | Rubedo Forum";
+      return;
+    }
+
     if (routePath === "/stories" && selectedArticleID && activeArticle) {
       document.title = `${activeArticle.title} | Rubedo Forum`;
       return;
@@ -1019,6 +1726,11 @@ function App() {
 
     if (routePath === "/forum" && selectedForumThreadID && activeForumThread) {
       document.title = `${activeForumThread.title} | Rubedo Forum`;
+      return;
+    }
+
+    if (routePath === "/forum" && isForumEditorMode) {
+      document.title = "发布主题 | Rubedo Forum";
       return;
     }
 
@@ -1033,6 +1745,8 @@ function App() {
     activeArticle,
     activeForumThread,
     routePath,
+    isForumEditorMode,
+    isStoriesEditorMode,
     selectedAnonymousThreadID,
     selectedArticleID,
     selectedForumThreadID,
@@ -1072,11 +1786,24 @@ function App() {
       sage: false,
     }));
     setOnlyShowThreadAuthor(false);
-    setExpandedReplyID(null);
+    setExpandedReplyIDs([]);
   }, [selectedForumThreadID]);
 
   useEffect(() => {
     if (!selectedAnonymousThreadID) {
+      setAnonymousReplyForm((current) => {
+        if (!current.threadID && !current.parentID && !current.content && !current.sage) {
+          return current;
+        }
+
+        return {
+          ...current,
+          threadID: "",
+          parentID: "",
+          content: "",
+          sage: false,
+        };
+      });
       return;
     }
 
@@ -1100,9 +1827,11 @@ function App() {
 
     async function loadPageContent(): Promise<void> {
       const token = session?.accessToken;
-      const profileRequest = token
-        ? fetchMyProfile(token)
-        : fetchPublicProfile(DEFAULT_PUBLIC_PROFILE_USERNAME);
+      const profileRequest = selectedPublicProfileUsername
+        ? fetchPublicProfile(selectedPublicProfileUsername)
+        : token
+          ? fetchMyProfile(token)
+          : fetchPublicProfile(DEFAULT_PUBLIC_PROFILE_USERNAME);
       const forumProgressRequest = token
         ? fetchForumProgress(token)
         : Promise.resolve<ApiForumProgress | null>(null);
@@ -1151,11 +1880,13 @@ function App() {
           fetchArticles(token || undefined, {
             page: articlePager.page,
             pageSize: articlePager.pageSize,
+            q: articleSearchKeyword,
           }),
           articleDetailRequest,
           fetchThreads(token || undefined, {
             page: threadPager.page,
             pageSize: threadPager.pageSize,
+            q: threadSearchKeyword,
           }),
           threadDetailRequest,
           anonymousThreadResult,
@@ -1307,8 +2038,10 @@ function App() {
   }, [
     articlePager.page,
     articlePager.pageSize,
+    articleSearchKeyword,
     refreshNonce,
     routePath,
+    selectedPublicProfileUsername,
     selectedArticleID,
     selectedAnonymousThreadID,
     selectedForumThreadID,
@@ -1317,6 +2050,7 @@ function App() {
     anonymousThreadPager.pageSize,
     threadPager.page,
     threadPager.pageSize,
+    threadSearchKeyword,
     wallPager.page,
     wallPager.pageSize,
   ]);
@@ -1368,6 +2102,125 @@ function App() {
   useEffect(() => {
     let active = true;
 
+    if (!session || !canUseBangumiImport || routePath !== "/space") {
+      setMyBangumiJobs([]);
+      setBangumiJobsError("");
+      return () => {
+        active = false;
+      };
+    }
+
+    async function loadMyBangumiJobs(): Promise<void> {
+      const accessToken = session?.accessToken;
+      if (!accessToken) {
+        return;
+      }
+      try {
+        const result = await fetchMyBangumiJobs(accessToken, {
+          page: myBangumiJobsPager.page,
+          pageSize: myBangumiJobsPager.pageSize,
+        });
+        if (!active) {
+          return;
+        }
+        const normalized = normalizeListResult<BangumiImportJob>(result, myBangumiJobsPager);
+        setMyBangumiJobs(normalized.items);
+        setMyBangumiJobsPager(normalized.pager);
+        setBangumiJobsError("");
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setMyBangumiJobs([]);
+        setBangumiJobsError(toErrorMessage(error));
+      }
+    }
+
+    void loadMyBangumiJobs();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    canUseBangumiImport,
+    myBangumiJobsPager.page,
+    myBangumiJobsPager.pageSize,
+    refreshNonce,
+    routePath,
+    session,
+  ]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (routePath !== "/space") {
+      setMyBangumiCollections([]);
+      setBangumiCollectionsError("");
+      return () => {
+        active = false;
+      };
+    }
+
+    const targetPublicUsername =
+      selectedPublicProfileUsername || (!session ? DEFAULT_PUBLIC_PROFILE_USERNAME : null);
+
+    async function loadSpaceBangumiCollections(): Promise<void> {
+      if (!targetPublicUsername && !session?.accessToken) {
+        setMyBangumiCollections([]);
+        setBangumiCollectionsError("");
+        return;
+      }
+
+      try {
+        const fetchCollectionsPage = (page: number): Promise<Paginated<BangumiCollection>> =>
+          targetPublicUsername
+            ? fetchUserBangumiCollections(targetPublicUsername, {
+                page,
+                pageSize: 100,
+              })
+            : fetchMyBangumiCollections(session!.accessToken, {
+                page,
+                pageSize: 100,
+              });
+        const items: BangumiCollection[] = [];
+        let page = 1;
+        while (true) {
+          const pageResult = await fetchCollectionsPage(page);
+          items.push(...pageResult.items);
+          if (page >= pageResult.total_pages || pageResult.total_pages <= 0) {
+            break;
+          }
+          page += 1;
+        }
+        if (!active) {
+          return;
+        }
+        setMyBangumiCollections(items);
+        setBangumiCollectionsError("");
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setMyBangumiCollections([]);
+        setBangumiCollectionsError(toErrorMessage(error));
+      }
+    }
+
+    void loadSpaceBangumiCollections();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    refreshNonce,
+    routePath,
+    selectedPublicProfileUsername,
+    session,
+  ]);
+
+  useEffect(() => {
+    let active = true;
+
     if (!session || !canAdmin || routePath !== "/admin") {
       setAdminDashboard(null);
       setSuperAdminDashboard(null);
@@ -1393,6 +2246,7 @@ function App() {
         dashboardResult,
         superAdminResult,
         usersResult,
+        bangumiJobsResult,
         blocksResult,
         wallSubmissionsResult,
         relaysResult,
@@ -1403,6 +2257,10 @@ function App() {
         fetchAdminUsers(accessToken, {
           page: adminUsersPager.page,
           pageSize: adminUsersPager.pageSize,
+        }),
+        fetchAdminBangumiJobs(accessToken, {
+          page: adminBangumiJobsPager.page,
+          pageSize: adminBangumiJobsPager.pageSize,
         }),
         fetchAdminContentBlocks(accessToken, {
           page: adminContentBlocksPager.page,
@@ -1436,6 +2294,14 @@ function App() {
           setAdminUsersPager(normalized.pager);
         } else {
           setAdminUsers([]);
+        }
+
+        if (bangumiJobsResult.status === "fulfilled") {
+          const normalized = normalizeListResult<BangumiImportJob>(bangumiJobsResult.value, adminBangumiJobsPager);
+          setAdminBangumiJobs(normalized.items);
+          setAdminBangumiJobsPager(normalized.pager);
+        } else {
+          setAdminBangumiJobs([]);
         }
 
         if (blocksResult.status === "fulfilled") {
@@ -1472,6 +2338,9 @@ function App() {
 
         setAdminDashboardError(dashboardResult.status === "rejected" ? toErrorMessage(dashboardResult.reason) : "");
         setAdminUsersError(usersResult.status === "rejected" ? toErrorMessage(usersResult.reason) : "");
+        setAdminBangumiJobsError(
+          bangumiJobsResult.status === "rejected" ? toErrorMessage(bangumiJobsResult.reason) : "",
+        );
         setAdminContentBlocksError(
           blocksResult.status === "rejected" ? toErrorMessage(blocksResult.reason) : "",
         );
@@ -1498,6 +2367,8 @@ function App() {
   }, [
     adminContentBlocksPager.page,
     adminContentBlocksPager.pageSize,
+    adminBangumiJobsPager.page,
+    adminBangumiJobsPager.pageSize,
     adminUsersPager.page,
     adminUsersPager.pageSize,
     canAdmin,
@@ -1517,6 +2388,53 @@ function App() {
     setRefreshNonce((current) => current + 1);
   }
 
+  function handleToggleTheme(): void {
+    setThemeMode((current) => (current === "night" ? "day" : "night"));
+  }
+
+  function handleNotificationClick(notificationID: string, href?: string): void {
+    setNotificationStore((current) => ({
+      ...current,
+      items: current.items.map((item) =>
+        item.id === notificationID
+          ? {
+              ...item,
+              unread: false,
+            }
+          : item,
+      ),
+    }));
+
+    if (href) {
+      handleNavigate(href);
+    }
+  }
+
+  function handleNotificationsMarkAllRead(): void {
+    setNotificationStore((current) => ({
+      ...current,
+      items: current.items.map((item) =>
+        item.unread
+          ? {
+              ...item,
+              unread: false,
+            }
+          : item,
+      ),
+    }));
+  }
+
+  function handleDismissHomeNotice(noticeID: string): void {
+    const normalizedNoticeID = noticeID.trim();
+    if (!normalizedNoticeID) {
+      return;
+    }
+
+    setHomeNoticeSeenIDs((current) =>
+      normalizeHomeNoticeSeenIDs([normalizedNoticeID, ...current]),
+    );
+  }
+
   function handleNavigate(nextHref: string): void {
     const resolvedURL =
       typeof window !== "undefined"
@@ -1524,6 +2442,9 @@ function App() {
         : new URL(`http://localhost${nextHref}`);
     const nextPath = normalizePath(resolvedURL.pathname);
     const nextArticleID = readSelectedArticleID(resolvedURL.pathname);
+    const nextStoriesEditorMode = readStoriesEditorMode(resolvedURL.pathname);
+    const nextForumEditorMode = readForumEditorMode(resolvedURL.pathname);
+    const nextPublicProfileUsername = readPublicProfileUsername(resolvedURL.pathname);
     const nextThreadID =
       nextPath === "/forum" ? readSelectedForumThreadID(resolvedURL.pathname, resolvedURL.search) : null;
     const nextAnonymousThreadID =
@@ -1541,7 +2462,10 @@ function App() {
     startTransition(() => {
       setRoutePath(nextPath);
       setSelectedArticleID(nextArticleID);
+      setIsStoriesEditorMode(nextStoriesEditorMode);
       setSelectedForumThreadID(nextThreadID);
+      setIsForumEditorMode(nextForumEditorMode);
+      setSelectedPublicProfileUsername(nextPublicProfileUsername);
       setSelectedAnonymousThreadID(nextAnonymousThreadID);
     });
 
@@ -1554,6 +2478,15 @@ function App() {
     const { name, value } = event.target;
 
     setAuthForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  function handleRegisterFieldChange(event: ChangeEvent<HTMLInputElement>): void {
+    const { name, value } = event.target;
+
+    setRegisterForm((current) => ({
       ...current,
       [name]: value,
     }));
@@ -1575,10 +2508,26 @@ function App() {
   ): void {
     const { name, value } = event.target;
 
-    setBangumiForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setBangumiForm((current) => {
+      switch (name) {
+        case "sync_mode":
+          return {
+            ...current,
+            sync_mode: value === "account" ? "account" : "subject_ids",
+          };
+        case "subjectIdsText":
+        case "bangumi_username":
+        case "status":
+        case "visibility":
+        case "maxItemsText":
+          return {
+            ...current,
+            [name]: value,
+          };
+        default:
+          return current;
+      }
+    });
   }
 
   function handleArticleFieldChange(
@@ -1592,6 +2541,30 @@ function App() {
     }));
   }
 
+  function handleArticleSearchKeywordChange(event: ChangeEvent<HTMLInputElement>): void {
+    const nextKeyword = event.target.value;
+    setArticleSearchKeyword(nextKeyword);
+    setArticlePager((current) =>
+      current.page === 1 ? current : { ...current, page: 1 },
+    );
+  }
+
+  function handleStartArticleCreate(): void {
+    setArticleEditingTargetID(null);
+    setArticleForm(createArticleFormState());
+    setArticleActionState(createEmptyActionState<ApiArticle>());
+    setArticleManageActionState(createEmptyActionState<ApiArticle | DeleteArticleResult>());
+    handleNavigate("/stories/editor");
+  }
+
+  function handleStartArticleEdit(article: ApiArticle): void {
+    setArticleEditingTargetID(article.id);
+    setArticleForm(createArticleFormStateFromArticle(article));
+    setArticleActionState(createEmptyActionState<ApiArticle>());
+    setArticleManageActionState(createEmptyActionState<ApiArticle | DeleteArticleResult>());
+    handleNavigate("/stories/editor");
+  }
+
   function handleThreadFieldChange(
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ): void {
@@ -1603,6 +2576,14 @@ function App() {
       ...current,
       [name]: nextValue,
     }));
+  }
+
+  function handleThreadSearchKeywordChange(event: ChangeEvent<HTMLInputElement>): void {
+    const nextKeyword = event.target.value;
+    setThreadSearchKeyword(nextKeyword);
+    setThreadPager((current) =>
+      current.page === 1 ? current : { ...current, page: 1 },
+    );
   }
 
   function handleAnonymousThreadFieldChange(
@@ -1660,13 +2641,26 @@ function App() {
   async function handleLoginSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
+    const account = authForm.account.trim();
+    const password = authForm.password.trim();
+    if (!account || !password) {
+      setLoginState({
+        pending: false,
+        error: "请填写账号和密码。",
+      });
+      return;
+    }
+
     setLoginState({
       pending: true,
       error: "",
     });
 
     try {
-      const nextSession = await login(authForm);
+      const nextSession = await login({
+        account,
+        password,
+      });
       persistSession(nextSession);
       setSession(nextSession);
       setAuthForm((current) => ({
@@ -1677,6 +2671,11 @@ function App() {
         pending: false,
         error: "",
       });
+      setRegisterState({
+        pending: false,
+        error: "",
+        success: "",
+      });
     } catch (error) {
       setLoginState({
         pending: false,
@@ -1685,13 +2684,72 @@ function App() {
     }
   }
 
+  async function handleRegisterSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    const studentID = registerForm.student_id.trim();
+    const username = registerForm.username.trim();
+    const password = registerForm.password.trim();
+    if (!studentID || !username || !password) {
+      setRegisterState({
+        pending: false,
+        error: "请完整填写学号、用户名和密码。",
+        success: "",
+      });
+      return;
+    }
+
+    setRegisterState({
+      pending: true,
+      error: "",
+      success: "",
+    });
+
+    try {
+      const result = await registerAccount({
+        student_id: studentID,
+        username,
+        password,
+      });
+      setRegisterState({
+        pending: false,
+        error: "",
+        success: `注册成功：@${result.username}，当前状态 ${result.status}。请使用该账号登录。`,
+      });
+      setAuthForm({
+        account: username,
+        password: "",
+      });
+      setRegisterForm({
+        student_id: "",
+        username,
+        password: "",
+      });
+      setLoginState((current) => ({
+        ...current,
+        error: "",
+      }));
+    } catch (error) {
+      setRegisterState({
+        pending: false,
+        error: toErrorMessage(error),
+        success: "",
+      });
+    }
+  }
+
   function handleLogout(): void {
+    if (session) {
+      void logout(session.accessToken).catch(() => undefined);
+    }
     persistSession(null);
     setSession(null);
     setProfile(null);
     setProfileForm(createProfileFormState(null));
     setProfileActionState(createEmptyActionState<ApiProfile>());
     setBangumiActionState(createEmptyActionState<BangumiImportJob>());
+    setArticleEditingTargetID(null);
+    setArticleManageActionState(createEmptyActionState<ApiArticle | DeleteArticleResult>());
     setForumProgress(null);
     setForumSignInState(createEmptyActionState<ApiForumSignInResult>());
     setAdminGalleryEntries([]);
@@ -1701,6 +2759,11 @@ function App() {
     setLoginState({
       pending: false,
       error: "",
+    });
+    setRegisterState({
+      pending: false,
+      error: "",
+      success: "",
     });
   }
 
@@ -1725,14 +2788,24 @@ function App() {
     });
 
     try {
+      const previousUsername = (profile?.username || "").trim();
       const nextProfile = await updateMyProfile(session.accessToken, profileForm as UpdateProfilePayload);
       setProfile(nextProfile);
       setProfileActionState({
         pending: false,
         error: "",
         data: nextProfile,
-        success: "个人资料已同步到后端。",
+        success:
+          previousUsername && previousUsername !== nextProfile.username
+            ? "个人资料已同步。空间 ID 已变更，请重新登录后继续操作。"
+            : "个人资料已同步到后端。",
       });
+
+      if (previousUsername && previousUsername !== nextProfile.username) {
+        persistSession(null);
+        setSession(null);
+        handleNavigate(`/users/${encodeURIComponent(nextProfile.username)}`);
+      }
     } catch (error) {
       setProfileActionState({
         pending: false,
@@ -1756,26 +2829,51 @@ function App() {
       return;
     }
 
-    const subjectIDs = bangumiForm.subjectIdsText
-      .split(/[,\s]+/)
-      .map((value) => Number.parseInt(value, 10))
-      .filter((value) => Number.isFinite(value) && value > 0);
+    const syncMode: BangumiSyncMode = bangumiForm.sync_mode === "account" ? "account" : "subject_ids";
+    let payload: BangumiImportPayload;
+    if (syncMode === "account") {
+      const username = bangumiForm.bangumi_username.trim();
+      if (!username) {
+        setBangumiActionState({
+          pending: false,
+          error: "请输入 Bangumi 登录用户名。",
+          data: null,
+          success: "",
+        });
+        return;
+      }
 
-    if (subjectIDs.length === 0) {
-      setBangumiActionState({
-        pending: false,
-        error: "请至少填写一个有效的 Bangumi 条目 ID。",
-        data: null,
-        success: "",
-      });
-      return;
+      const parsedMaxItems = Number.parseInt(bangumiForm.maxItemsText, 10);
+      const maxItems = Number.isFinite(parsedMaxItems) && parsedMaxItems > 0 ? parsedMaxItems : undefined;
+      payload = {
+        sync_mode: "account",
+        bangumi_username: username,
+        visibility: bangumiForm.visibility || undefined,
+        max_items: maxItems,
+      };
+    } else {
+      const subjectIDs = bangumiForm.subjectIdsText
+        .split(/[,\s]+/)
+        .map((value) => Number.parseInt(value, 10))
+        .filter((value) => Number.isFinite(value) && value > 0);
+
+      if (subjectIDs.length === 0) {
+        setBangumiActionState({
+          pending: false,
+          error: "请至少填写一个有效的 Bangumi 条目 ID。",
+          data: null,
+          success: "",
+        });
+        return;
+      }
+
+      payload = {
+        sync_mode: "subject_ids",
+        subject_ids: subjectIDs,
+        status: bangumiForm.status,
+        visibility: bangumiForm.visibility || undefined,
+      };
     }
-
-    const payload: BangumiImportPayload = {
-      subject_ids: subjectIDs,
-      status: bangumiForm.status,
-      visibility: bangumiForm.visibility || undefined,
-    };
 
     setBangumiActionState({
       pending: true,
@@ -1790,8 +2888,9 @@ function App() {
         pending: false,
         error: "",
         data: job,
-        success: "导入任务已提交到后端队列。",
+        success: syncMode === "account" ? "帐号批量同步已自动执行，无需审批。" : "导入已自动执行，无需审批。",
       });
+      setRefreshNonce((current) => current + 1);
     } catch (error) {
       setBangumiActionState({
         pending: false,
@@ -1808,7 +2907,7 @@ function App() {
     if (!session) {
       setArticleActionState({
         pending: false,
-        error: "请先登录后再发布文章。",
+        error: "请先登录后再提交文章。",
         data: null,
         success: "",
       });
@@ -1823,24 +2922,29 @@ function App() {
     });
 
     try {
-      const article = await createArticle(
-        {
-          title: articleForm.title.trim(),
-          summary: articleForm.summary.trim(),
-          content: articleForm.content.trim(),
-          visibility: articleForm.visibility,
-          tags: parseTags(articleForm.tagsText),
-        },
-        session.accessToken,
-      );
+      const payload: CreateArticlePayload = {
+        title: articleForm.title.trim(),
+        summary: articleForm.summary.trim(),
+        content: articleForm.content.trim(),
+        visibility: articleForm.visibility,
+        tags: parseTags(articleForm.tagsText),
+      };
+      const article = articleEditingTargetID
+        ? await updateArticle(articleEditingTargetID, payload, session.accessToken)
+        : await createArticle(payload, session.accessToken);
 
-      setArticleForm(createArticleFormState());
       setArticleActionState({
         pending: false,
         error: "",
         data: article,
-        success: "文章已发布。",
+        success: articleEditingTargetID ? "文章已更新。" : "文章已发布。",
       });
+      if (articleEditingTargetID) {
+        setArticleEditingTargetID(null);
+        handleNavigate(`/stories/${encodeURIComponent(article.id)}`);
+      } else {
+        setArticleForm(createArticleFormState());
+      }
       setRefreshNonce((current) => current + 1);
     } catch (error) {
       setArticleActionState({
@@ -1849,6 +2953,57 @@ function App() {
         data: null,
         success: "",
       });
+    }
+  }
+
+  async function handleArticleDelete(articleID: string): Promise<boolean> {
+    if (!session) {
+      setArticleManageActionState({
+        pending: false,
+        error: "请先登录后再删除文章。",
+        data: null,
+        success: "",
+      });
+      return false;
+    }
+
+    if (!canAdmin) {
+      setArticleManageActionState({
+        pending: false,
+        error: "当前账号没有删除文章权限。",
+        data: null,
+        success: "",
+      });
+      return false;
+    }
+
+    setArticleManageActionState({
+      pending: true,
+      error: "",
+      data: null,
+      success: "",
+    });
+
+    try {
+      const result = await deleteArticle(articleID, session.accessToken);
+      setArticleManageActionState({
+        pending: false,
+        error: "",
+        data: result,
+        success: "文章已删除。",
+      });
+      setArticleEditingTargetID(null);
+      handleNavigate("/stories");
+      setRefreshNonce((current) => current + 1);
+      return true;
+    } catch (error) {
+      setArticleManageActionState({
+        pending: false,
+        error: toErrorMessage(error),
+        data: null,
+        success: "",
+      });
+      return false;
     }
   }
 
@@ -1878,7 +3033,7 @@ function App() {
           title: threadForm.title.trim(),
           content: threadForm.content.trim(),
           board: threadForm.board.trim(),
-          anonymous: threadForm.anonymous,
+          anonymous: false,
           tags: parseTags(threadForm.tagsText),
         },
         session.accessToken,
@@ -1939,7 +3094,7 @@ function App() {
         replyForm.threadID,
         {
           content: replyForm.content.trim(),
-          anonymous: replyForm.anonymous,
+          anonymous: false,
           parent_id: replyForm.parentID || undefined,
           sage: replyForm.sage,
         },
@@ -1959,7 +3114,6 @@ function App() {
         data: reply,
         success: replyForm.parentID ? "楼中楼回复已提交。" : "回复已提交。",
       });
-      setExpandedReplyID(replyForm.parentID || null);
       setRefreshNonce((current) => current + 1);
     } catch (error) {
       setReplyActionState({
@@ -1992,11 +3146,15 @@ function App() {
     });
 
     try {
+      const anonymousTags = parseTags(anonymousThreadForm.tagsText);
+      const primaryTopic = anonymousTags[0] || "闲聊";
       const thread = await createAnonymousThread(
         {
-          title: anonymousThreadForm.title.trim(),
+          title:
+            anonymousThreadForm.title.trim() ||
+            createAnonymousThreadTitle(anonymousThreadForm.content, primaryTopic),
           content: anonymousThreadForm.content.trim(),
-          tags: parseTags(anonymousThreadForm.tagsText),
+          tags: anonymousTags.length ? anonymousTags : [primaryTopic],
         },
         session.accessToken,
       );
@@ -2005,15 +3163,22 @@ function App() {
         ...createThreadFormState(),
         board: "匿名板",
         anonymous: true,
+        tagsText: primaryTopic,
       });
-      setAnonymousReplyForm(createReplyFormState(thread.id));
+      setAnonymousReplyForm((current) => ({
+        ...current,
+        threadID: "",
+        parentID: "",
+        content: "",
+        anonymous: true,
+        sage: false,
+      }));
       setAnonymousThreadActionState({
         pending: false,
         error: "",
         data: thread,
         success: "匿名主题已发布。",
       });
-      handleNavigate(`/anonymous/threads/${encodeURIComponent(thread.id)}`);
       setRefreshNonce((current) => current + 1);
     } catch (error) {
       setAnonymousThreadActionState({
@@ -2023,6 +3188,33 @@ function App() {
         success: "",
       });
     }
+  }
+
+  function handleAnonymousTopicChange(topic: string): void {
+    setAnonymousThreadForm((current) => ({
+      ...current,
+      tagsText: topic,
+    }));
+  }
+
+  function handleAnonymousReplyTargetChange(threadID: string): void {
+    setAnonymousReplyForm((current) => ({
+      ...current,
+      threadID,
+      parentID: "",
+      content: "",
+      sage: false,
+    }));
+  }
+
+  function handleAnonymousReplyTargetClear(): void {
+    setAnonymousReplyForm((current) => ({
+      ...current,
+      threadID: "",
+      parentID: "",
+      content: "",
+      sage: false,
+    }));
   }
 
   async function handleAnonymousReplySubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -2066,8 +3258,10 @@ function App() {
         session.accessToken,
       );
 
+      const keepReplyTarget = Boolean(selectedAnonymousThreadID);
       setAnonymousReplyForm((current) => ({
         ...current,
+        threadID: keepReplyTarget ? current.threadID : "",
         parentID: "",
         content: "",
         anonymous: true,
@@ -2102,15 +3296,86 @@ function App() {
     }
   }
 
+  function preserveForumViewport(action: () => void): void {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      action();
+      return;
+    }
+
+    const { scrollX, scrollY } = window;
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+
+    action();
+
+    const restore = (): void => {
+      window.scrollTo(scrollX, scrollY);
+    };
+
+    window.requestAnimationFrame(() => {
+      restore();
+      window.requestAnimationFrame(() => {
+        restore();
+        root.style.scrollBehavior = previousScrollBehavior;
+      });
+    });
+  }
+
   function handleReplyToFloor(reply: ApiForumReply): void {
-    setReplyForm((current) => ({
-      ...current,
-      threadID: selectedForumThreadID || current.threadID,
-      parentID: reply.id,
-      content: current.content.trim() ? current.content : `@${reply.author} `,
-    }));
-    setExpandedReplyID(reply.parent_id || reply.id);
-    focusForumReplyBox();
+    const threadReplies = threadDetail?.replies || [];
+    const replyIndex = new Map(threadReplies.map((item) => [item.id, item]));
+    const visited = new Set<string>();
+    let rootReplyID = reply.id;
+    let cursor: ApiForumReply | undefined = reply;
+
+    while (cursor?.parent_id) {
+      if (visited.has(cursor.id)) {
+        break;
+      }
+      visited.add(cursor.id);
+
+      const parent = replyIndex.get(cursor.parent_id);
+      if (!parent) {
+        rootReplyID = cursor.parent_id;
+        break;
+      }
+
+      rootReplyID = parent.id;
+      cursor = parent;
+    }
+
+    preserveForumViewport(() => {
+      setReplyForm((current) => ({
+        ...current,
+        threadID: selectedForumThreadID || current.threadID,
+        parentID: reply.id,
+        content:
+          current.parentID === reply.id && current.content.trim()
+            ? current.content
+            : `@${reply.author} `,
+        sage: false,
+      }));
+      setExpandedReplyIDs((current) =>
+        current.includes(rootReplyID) ? current : [...current, rootReplyID],
+      );
+    });
+  }
+
+  function handleCollapseNestedReplies(): void {
+    preserveForumViewport(() => {
+      setExpandedReplyIDs([]);
+    });
+  }
+
+  function handleExpandedReplyToggle(replyID: string): void {
+    preserveForumViewport(() => {
+      setExpandedReplyIDs((current) =>
+        current.includes(replyID)
+          ? current.filter((currentID) => currentID !== replyID)
+          : [...current, replyID],
+      );
+    });
   }
 
   function handleClearReplyTarget(): void {
@@ -2553,10 +3818,106 @@ function App() {
     }
   }
 
-  async function handleAdminUserStatusChange(userID: string, status: string): Promise<void> {
+  function handleAnnouncementFieldChange(
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ): void {
+    const target = event.target;
+    const nextValue =
+      "checked" in target && target.type === "checkbox" ? target.checked : target.value;
+
+    setAnnouncementForm((current) => ({
+      ...current,
+      [target.name]: nextValue,
+    }));
+  }
+
+  async function handleAnnouncementSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    if (!session) {
+      setAnnouncementActionState({
+        pending: false,
+        error: "请先登录管理员账号后再发布公告。",
+        data: null,
+        success: "",
+      });
+      return;
+    }
+
+    const title = announcementForm.title.trim();
+    if (!title) {
+      setAnnouncementActionState({
+        pending: false,
+        error: "公告标题不能为空。",
+        data: null,
+        success: "",
+      });
+      return;
+    }
+
+    const sortOrder = Number.parseInt(announcementForm.sort_order.trim() || "0", 10);
+    if (!Number.isFinite(sortOrder)) {
+      setAnnouncementActionState({
+        pending: false,
+        error: "排序必须是整数。",
+        data: null,
+        success: "",
+      });
+      return;
+    }
+
+    setAnnouncementActionState({
+      pending: true,
+      error: "",
+      data: null,
+      success: "",
+    });
+
+    try {
+      const result = await createContentBlock(session.accessToken, {
+        block_type: "portal_notice",
+        slug: createAnnouncementSlug(title),
+        title,
+        label: announcementForm.label.trim() || "公告",
+        description: announcementForm.description.trim() || undefined,
+        body: announcementForm.body.trim() || undefined,
+        sort_order: sortOrder,
+        active: announcementForm.active,
+      });
+
+      setAnnouncementActionState({
+        pending: false,
+        error: "",
+        data: result,
+        success: "公告已发布。",
+      });
+      setAnnouncementForm(createAnnouncementFormState());
+      handleRefresh();
+    } catch (error) {
+      setAnnouncementActionState({
+        pending: false,
+        error: toErrorMessage(error),
+        data: null,
+        success: "",
+      });
+    }
+  }
+
+  async function handleAdminUserModerationAction(
+    userID: string,
+    action: ModerateUserPayload["action"],
+  ): Promise<void> {
     if (!session) {
       return;
     }
+
+    const actionLabel: Record<ModerateUserPayload["action"], string> = {
+      mute: "禁言",
+      unmute: "解除禁言",
+      ban: "封禁",
+      unban: "解除封禁",
+      demote: "降级",
+    };
 
     setAdminUserActionState({
       pending: true,
@@ -2566,12 +3927,12 @@ function App() {
     });
 
     try {
-      const result = await updateAdminUserStatus(session.accessToken, userID, { status });
+      const result = await moderateAdminUser(session.accessToken, userID, { action });
       setAdminUserActionState({
         pending: false,
         error: "",
         data: result,
-        success: "用户状态已更新。",
+        success: `用户${actionLabel[action]}已提交。`,
       });
       handleRefresh();
     } catch (error) {
@@ -2927,46 +4288,36 @@ function App() {
     );
   }
 
-  function renderAuthPanel(): ReactNode {
-    return (
-      <AuthPanel
-        authForm={authForm}
-        isAuthenticated={isAuthenticated}
-        loginState={loginState}
-        profileError={profileError}
-        session={session}
-        onAuthFieldChange={handleAuthFieldChange}
-        onLoginSubmit={handleLoginSubmit}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
   function renderHomePage(): ReactNode {
     return (
-      <HomePage
-        articlePager={articlePager}
-        collectionTotal={collectionTotal}
-        displayProfile={displayProfile}
-        threadPager={threadPager}
-        wallEntries={wallEntries}
-        wallPager={wallPager}
-        onNavigate={handleNavigate}
-      />
+      <>
+        <HomePage
+          articlePager={articlePager}
+          collectionTotal={collectionTotal}
+          displayProfile={displayProfile}
+          galleryAlbums={galleryAlbums}
+          galleryPapers={galleryPapers}
+          galleryPolaroids={galleryPolaroids}
+          galleryTimeline={galleryTimeline}
+          galleryTracks={galleryTracks}
+          threadPager={threadPager}
+          wallPager={wallPager}
+          onNavigate={handleNavigate}
+        />
+        <PortalPage
+          notices={societyNotices}
+          portalPages={portalPages}
+          societyActivities={societyActivities}
+          societyJoinSteps={societyJoinSteps}
+          societyPillars={societyPillars}
+          onNavigate={handleNavigate}
+        />
+      </>
     );
   }
 
   function renderPortalPage(): ReactNode {
-    return (
-      <PortalPage
-        portalPages={portalPages}
-        societyActivities={societyActivities}
-        societyHighlights={societyHighlights}
-        societyJoinSteps={societyJoinSteps}
-        societyPillars={societyPillars}
-        onNavigate={handleNavigate}
-      />
-    );
+    return renderHomePage();
   }
 
   function renderStoriesPage(): ReactNode {
@@ -2974,20 +4325,28 @@ function App() {
       <StoriesPage
         activeArticle={activeArticle}
         articleActionState={articleActionState}
+        articleManageActionState={articleManageActionState}
+        articleEditingTargetID={articleEditingTargetID}
         articleDetailError={articleDetailError}
         articleForm={articleForm}
         articlePager={articlePager}
+        articleSearchKeyword={articleSearchKeyword}
         articlesError={articlesError}
-        backendReachable={backendReachable}
+        canDeleteArticle={canAdmin}
+        displayProfile={displayProfile}
         hasVerifiedSpaceAccess={hasVerifiedSpaceAccess}
         isLoadingData={isLoadingData}
-        lastUpdatedLabel={lastUpdatedLabel}
+        isStoriesEditorMode={isStoriesEditorMode}
         selectedArticleID={selectedArticleID}
         session={session}
         storyFeed={storyFeed}
+        onArticleDelete={handleArticleDelete}
         onArticleFieldChange={handleArticleFieldChange}
         onArticlePageChange={(page) => setArticlePager((current) => ({ ...current, page }))}
+        onArticleSearchKeywordChange={handleArticleSearchKeywordChange}
         onArticleSubmit={handleArticleSubmit}
+        onStartArticleCreate={handleStartArticleCreate}
+        onStartArticleEdit={handleStartArticleEdit}
         onNavigate={handleNavigate}
       />
     );
@@ -3139,14 +4498,13 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         activeForumThread={activeForumThread}
         boardFilterOptions={boardFilterOptions}
         boardOptions={boardOptions}
-        expandedReplyID={expandedReplyID}
+        expandedReplyIDs={expandedReplyIDs}
         featuredThread={featuredThread}
         filteredThreadFeed={filteredThreadFeed}
-        forumProgressPanelCompact={renderForumProgressPanel("compact")}
-        forumProgressPanelFull={renderForumProgressPanel("full")}
         forumReplyTextareaRef={forumReplyTextareaRef}
         hasVerifiedSpaceAccess={hasVerifiedSpaceAccess}
         isLoadingData={isLoadingData}
+        isForumEditorMode={isForumEditorMode}
         onlyShowThreadAuthor={onlyShowThreadAuthor}
         replyActionState={replyActionState}
         replyForm={replyForm}
@@ -3158,10 +4516,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         threadDetailError={threadDetailError}
         threadForm={threadForm}
         threadPager={threadPager}
+        threadSearchKeyword={threadSearchKeyword}
         threadsError={threadsError}
         onClearReplyTarget={handleClearReplyTarget}
-        onCollapseNestedReplies={() => setExpandedReplyID(null)}
-        onExpandedReplyChange={setExpandedReplyID}
+        onCollapseNestedReplies={handleCollapseNestedReplies}
+        onExpandedReplyToggle={handleExpandedReplyToggle}
         onInsertReplySnippet={handleInsertReplySnippet}
         onNavigate={handleNavigate}
         onReplyFieldChange={handleReplyFieldChange}
@@ -3171,6 +4530,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         onShareThread={handleShareThread}
         onThreadFieldChange={handleThreadFieldChange}
         onThreadPageChange={(page) => setThreadPager((current) => ({ ...current, page }))}
+        onThreadSearchKeywordChange={handleThreadSearchKeywordChange}
         onThreadSubmit={handleThreadSubmit}
         onToggleOnlyShowThreadAuthor={() => setOnlyShowThreadAuthor((current) => !current)}
       />
@@ -3194,11 +4554,14 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         selectedAnonymousThreadID={selectedAnonymousThreadID}
         session={session}
         onAnonymousReplyFieldChange={handleAnonymousReplyFieldChange}
+        onAnonymousReplyTargetChange={handleAnonymousReplyTargetChange}
+        onAnonymousReplyTargetClear={handleAnonymousReplyTargetClear}
         onAnonymousReplySubmit={handleAnonymousReplySubmit}
         onAnonymousThreadFieldChange={handleAnonymousThreadFieldChange}
         onAnonymousThreadPageChange={(page) =>
           setAnonymousThreadPager((current) => ({ ...current, page }))
         }
+        onAnonymousTopicChange={handleAnonymousTopicChange}
         onAnonymousThreadSubmit={handleAnonymousThreadSubmit}
         onNavigate={handleNavigate}
       />
@@ -3210,23 +4573,45 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       <SpacePage
         articleActionState={articleActionState}
         articleForm={articleForm}
-        authPanel={renderAuthPanel()}
+        authForm={authForm}
+        forumProgressPanel={renderForumProgressPanel("full")}
         bangumiActionState={bangumiActionState}
+        bangumiCollections={myBangumiCollections}
+        bangumiCollectionsError={bangumiCollectionsError}
         bangumiForm={bangumiForm}
+        bangumiJobs={myBangumiJobs}
+        bangumiJobsError={bangumiJobsError}
+        bangumiJobsPager={myBangumiJobsPager}
+        canEditProfile={Boolean(session && !selectedPublicProfileUsername)}
+        canEditShowcase={Boolean(session) && !selectedPublicProfileUsername}
         collectionTotal={collectionTotal}
+        canUseBangumiImport={canUseBangumiImport}
         displayProfile={displayProfile}
         hasVerifiedSpaceAccess={hasVerifiedSpaceAccess}
         isAuthenticated={isAuthenticated}
+        loginState={loginState}
+        profileActionState={profileActionState}
         profileError={profileError}
+        profileForm={profileForm}
+        registerForm={registerForm}
+        registerState={registerState}
         session={session}
-        spaceAccessBlocked={spaceAccessBlocked}
         spaceLogEntries={spaceLogEntries}
         spaceShelfTab={spaceShelfTab}
+        viewingPublicProfileUsername={selectedPublicProfileUsername}
+        onAuthFieldChange={handleAuthFieldChange}
         onArticleFieldChange={handleArticleFieldChange}
         onArticleSubmit={handleArticleSubmit}
         onBangumiFieldChange={handleBangumiFieldChange}
         onBangumiImportSubmit={handleBangumiImportSubmit}
+        onBangumiJobsPageChange={(page) => setMyBangumiJobsPager((current) => ({ ...current, page }))}
         onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        onLoginSubmit={handleLoginSubmit}
+        onProfileFieldChange={handleProfileFieldChange}
+        onProfileSubmit={handleProfileSubmit}
+        onRegisterFieldChange={handleRegisterFieldChange}
+        onRegisterSubmit={handleRegisterSubmit}
         onSpaceShelfTabChange={setSpaceShelfTab}
       />
     );
@@ -3248,7 +4633,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         wallError={wallError}
         wallForm={wallForm}
         wallPager={wallPager}
-        onNavigate={handleNavigate}
         onWallFieldChange={handleWallFieldChange}
         onWallPageChange={(page) => setWallPager((current) => ({ ...current, page }))}
         onWallSubmit={handleWallSubmit}
@@ -3289,44 +4673,79 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       );
     }
 
+    const adminActiveSection = adminSectionFromPage(adminActivePage);
+    const pendingVerificationUsers = adminUsers.filter((user) => user.pending_verification_id);
+    const announcementBlocks = adminContentBlocks
+      .filter((block) => block.block_type === "portal_notice")
+      .sort((left, right) => right.sort_order - left.sort_order);
+    const adminTerminalSpaceID = (profile?.username || "guest").trim();
+
     return (
       <>
-        <SectionHero
-          kicker="后台工作台"
-          title="数据看板、审核流转与内容维护"
-          description="把现有管理员能力集中到一个页面里：先看状态，再处理待办，最后维护前台内容与活动。"
-          metrics={[
-            {
-              label: "注册成员",
-              value: String(adminDashboard?.total_users ?? 0),
-              detail: adminDashboard ? `${adminDashboard.verified_users} 位已认证` : "看板读取中",
-              tone: "accent",
-            },
-            {
-              label: "待审核",
-              value: String(adminDashboard?.pending_verification_users ?? 0),
-              detail: adminDashboard?.verification_approval_rule || "审核规则读取中",
-              tone: (adminDashboard?.pending_verification_users ?? 0) > 0 ? "warn" : "success",
-            },
-            {
-              label: "后台状态",
-              value: backendReachable ? "在线" : "离线",
-              detail: adminDashboardError || `最近同步：${lastUpdatedLabel}`,
-              tone: backendReachable ? "success" : "warn",
-            },
-          ]}
-        >
-          <div className="hero-action-row">
-            <button className="primary-button" type="button" onClick={() => handleNavigate("/gallery")}>
-              去展示墙管理资源
-            </button>
-            <button className="ghost-button" type="button" onClick={handleRefresh}>
-              刷新后台数据
-            </button>
-          </div>
-        </SectionHero>
+        <section className="admin-shell">
+          <aside className="panel admin-sidebar">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">后台工作台</p>
+                <h2>管理导航</h2>
+              </div>
+              <StatusChip tone="accent">Sidebar</StatusChip>
+            </div>
+            <div className="admin-shell__bootlog" aria-hidden="true">
+              <p className="admin-shell__bootline admin-shell__bootline--title">
+                <span className="admin-shell__prompt">^ .</span> // Admin Workbench
+              </p>
+              <p className="admin-shell__bootline">
+                <span className="admin-shell__prompt">.$</span> boot.dashboard --scope admin
+              </p>
+              <p className="admin-shell__bootline admin-shell__bootline--ok">SYSTEM READY.</p>
+              <p className="admin-shell__bootline">
+                <span className="admin-shell__prompt">{adminTerminalSpaceID}@redgal:~$</span> watch -n 5 service.status
+                <span className="admin-shell__cursor" />
+              </p>
+            </div>
+            <div className="stack-list">
+              {ADMIN_SIDEBAR_SECTIONS.map((section) => {
+                const active = section.id === adminActiveSection;
+                return (
+                  <div
+                    className={`admin-sidebar__section ${active ? "admin-sidebar__section--active" : ""}`}
+                    key={section.id}
+                  >
+                    <button
+                      className="admin-sidebar__button"
+                      type="button"
+                      onClick={() => setAdminActivePage(section.children[0].id)}
+                    >
+                      <span>{section.kicker}</span>
+                      <strong>{section.title}</strong>
+                      <p>{section.description}</p>
+                    </button>
+                    {active ? (
+                      <div className="admin-sidebar__children">
+                        {section.children.map((child) => (
+                          <button
+                            className={`admin-sidebar__child ${
+                              child.id === adminActivePage ? "admin-sidebar__child--active" : ""
+                            }`}
+                            key={child.id}
+                            type="button"
+                            onClick={() => setAdminActivePage(child.id)}
+                          >
+                            {child.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </aside>
 
-        <section className="admin-dashboard-grid">
+          <div className="admin-content">
+
+        <section className="admin-dashboard-grid" style={{ display: adminActivePage === "dashboard-overview" ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3349,15 +4768,36 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 </div>
               ))}
             </div>
+          </article>
+        </section>
+
+        <section className="panel-grid preview-grid" style={{ display: adminActivePage === "dashboard-todos" ? undefined : "none" }}>
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">待办提醒</p>
+                <h2>当前需要优先处理的事项</h2>
+              </div>
+              <StatusChip tone={(adminDashboard?.pending_verification_users ?? 0) > 0 ? "warn" : "success"}>
+                {adminDashboard?.pending_verification_users ?? 0} 条
+              </StatusChip>
+            </div>
             <div className="stack-list">
               <div className="content-card">
                 <div className="content-card__header">
-                  <h3>待办提醒</h3>
+                  <h3>成员认证</h3>
                   <StatusChip tone={(adminDashboard?.pending_verification_users ?? 0) > 0 ? "warn" : "success"}>
                     {adminDashboard?.pending_verification_users ?? 0} 条
                   </StatusChip>
                 </div>
                 <p>当前最需要处理的是成员认证与状态流转。审核通过后，前台更多功能才会开放给成员。</p>
+              </div>
+              <div className="content-card">
+                <div className="content-card__header">
+                  <h3>展示墙投稿</h3>
+                  <StatusChip tone="accent">{wallSubmissionsPager.total} 条</StatusChip>
+                </div>
+                <p>展示墙投稿已经进入后台审核流，可以切到“展示墙投稿审核”分页继续处理。</p>
               </div>
               {canSuperAdmin && superAdminDashboard ? (
                 <div className="content-card">
@@ -3375,7 +4815,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               ) : null}
             </div>
           </article>
+        </section>
 
+        <section className="panel-grid preview-grid" style={{ display: adminActivePage === "dashboard-actions" ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3386,30 +4828,31 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             <div className="admin-quick-grid">
               {[
-                { title: "发布新活动", body: "下方活动管理支持直接创建接龙与征文。", target: "#admin-activities" },
-                { title: "维护首页内容", body: "内容块管理可直接修改 Portal、Highlight、Join Step 等前台区块。", target: "#admin-cms" },
-                { title: "审核成员申请", body: "用户与审核区可处理待认证用户。", target: "#admin-users" },
-                { title: "展示墙资源", body: "已有的展示墙 CRUD 保留在 /gallery 页面。", href: "/gallery" },
-              ].map((item) =>
-                item.href ? (
-                  <button className="portal-card" key={item.title} type="button" onClick={() => handleNavigate(item.href)}>
-                    <span className="portal-card__kicker">入口</span>
-                    <strong>{item.title}</strong>
-                    <p>{item.body}</p>
-                  </button>
-                ) : (
-                  <a className="portal-card" href={item.target} key={item.title}>
-                    <span className="portal-card__kicker">入口</span>
-                    <strong>{item.title}</strong>
-                    <p>{item.body}</p>
-                  </a>
-                ),
-              )}
+                { title: "发布新接龙", body: "在接龙活动页创建并维护接龙活动。", next: "site-relays" as const },
+                { title: "发布新征文", body: "在征文活动页创建并维护征文活动。", next: "site-contests" as const },
+                { title: "维护首页内容", body: "内容块管理可直接修改 Portal、Highlight、Join Step 等前台区块。", next: "site-blocks" as const },
+                { title: "审核成员申请", body: "用户与审核区可处理待认证用户。", next: "members-verifications" as const },
+              ].map((item) => (
+                <button
+                  className="portal-card"
+                  key={item.title}
+                  type="button"
+                  onClick={() => setAdminActivePage(item.next)}
+                >
+                  <span className="portal-card__kicker">入口</span>
+                  <strong>{item.title}</strong>
+                  <p>{item.body}</p>
+                </button>
+              ))}
             </div>
           </article>
         </section>
 
-        <section className="page-split-grid" id="admin-users">
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--members"
+          id="admin-users"
+          style={{ display: adminActivePage === "members-users" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3443,20 +4886,72 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   <div className="admin-user-card__actions">
                     {user.pending_verification_id ? (
                       <>
-                        <button className="ghost-button" type="button" onClick={() => void handleAdminVerificationReview(user.user_id, "approved")}>
+                        <button
+                          className="ghost-button"
+                          type="button"
+                          disabled={adminUserActionState.pending}
+                          onClick={() => void handleAdminVerificationReview(user.user_id, "approved")}
+                        >
                           通过审核
                         </button>
-                        <button className="ghost-button gallery-admin__danger" type="button" onClick={() => void handleAdminVerificationReview(user.user_id, "rejected")}>
+                        <button
+                          className="ghost-button gallery-admin__danger"
+                          type="button"
+                          disabled={adminUserActionState.pending}
+                          onClick={() => void handleAdminVerificationReview(user.user_id, "rejected")}
+                        >
                           驳回申请
                         </button>
                       </>
                     ) : null}
-                    <button className="ghost-button" type="button" onClick={() => void handleAdminUserStatusChange(user.user_id, "active")}>
-                      设为 active
-                    </button>
-                    <button className="ghost-button" type="button" onClick={() => void handleAdminUserStatusChange(user.user_id, "suspended")}>
-                      暂停
-                    </button>
+                    {user.status === "suspended" ? (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        disabled={adminUserActionState.pending}
+                        onClick={() => void handleAdminUserModerationAction(user.user_id, "unmute")}
+                      >
+                        解除禁言
+                      </button>
+                    ) : (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        disabled={adminUserActionState.pending}
+                        onClick={() => void handleAdminUserModerationAction(user.user_id, "mute")}
+                      >
+                        禁言
+                      </button>
+                    )}
+                    {user.status === "banned" ? (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        disabled={adminUserActionState.pending}
+                        onClick={() => void handleAdminUserModerationAction(user.user_id, "unban")}
+                      >
+                        解除封禁
+                      </button>
+                    ) : (
+                      <button
+                        className="ghost-button gallery-admin__danger"
+                        type="button"
+                        disabled={adminUserActionState.pending}
+                        onClick={() => void handleAdminUserModerationAction(user.user_id, "ban")}
+                      >
+                        封禁
+                      </button>
+                    )}
+                    {user.roles.some((role) => role === "moderator" || role === "admin" || role === "super_admin") ? (
+                      <button
+                        className="ghost-button gallery-admin__danger"
+                        type="button"
+                        disabled={adminUserActionState.pending}
+                        onClick={() => void handleAdminUserModerationAction(user.user_id, "demote")}
+                      >
+                        降级
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -3464,7 +4959,56 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             {renderPager(adminUsersPager, (page) => setAdminUsersPager((current) => ({ ...current, page })), "暂无成员。")}
           </article>
+        </section>
 
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--verifications"
+          style={{ display: adminActivePage === "members-verifications" ? undefined : "none" }}
+        >
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">Verification Queue</p>
+                <h2>认证审批</h2>
+              </div>
+              <StatusChip tone="warn">{pendingVerificationUsers.length} 条</StatusChip>
+            </div>
+            {adminUsersError ? <p className="panel-error">{adminUsersError}</p> : null}
+            {adminUserActionState.error ? <p className="panel-error">{adminUserActionState.error}</p> : null}
+            {adminUserActionState.success ? <p className="panel-empty">{adminUserActionState.success}</p> : null}
+            <div className="stack-list">
+              {pendingVerificationUsers.map((user) => (
+                <div className="content-card admin-user-card" key={user.user_id}>
+                  <div className="content-card__header">
+                    <div>
+                      <h3>{user.nickname || user.username}</h3>
+                      <p className="forum-reply-meta">
+                        <span>@{user.username}</span>
+                        <span>{user.roles.join(", ") || "无角色"}</span>
+                      </p>
+                    </div>
+                    <StatusChip tone="warn">{user.status}</StatusChip>
+                  </div>
+                  <div className="meta-row">
+                    <span>待审请求 {user.pending_verification_id}</span>
+                    <span>{user.verified ? "已认证" : "未认证"}</span>
+                  </div>
+                  <div className="admin-user-card__actions">
+                    <button className="ghost-button" type="button" onClick={() => void handleAdminVerificationReview(user.user_id, "approved")}>
+                      通过审核
+                    </button>
+                    <button className="ghost-button gallery-admin__danger" type="button" onClick={() => void handleAdminVerificationReview(user.user_id, "rejected")}>
+                      驳回申请
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {!pendingVerificationUsers.length ? <p className="panel-empty">当前没有待处理的认证申请。</p> : null}
+            </div>
+          </article>
+        </section>
+
+        <section className="panel-grid preview-grid" style={{ display: adminActivePage === "members-permissions" ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3498,7 +5042,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
           </article>
         </section>
 
-        <section className="page-split-grid" id="admin-cms">
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--cms"
+          id="admin-cms"
+          style={{ display: adminActivePage === "site-blocks" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3516,6 +5064,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   <option value="portal_page">portal_page</option>
                   <option value="portal_highlight">portal_highlight</option>
                   <option value="portal_pillar">portal_pillar</option>
+                  <option value="portal_notice">portal_notice</option>
                   <option value="portal_activity">portal_activity</option>
                   <option value="portal_join_step">portal_join_step</option>
                   <option value="hero_object">hero_object</option>
@@ -3606,7 +5155,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
           </article>
         </section>
 
-        <section className="page-split-grid" id="admin-gallery">
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--gallery-editor"
+          id="admin-gallery"
+          style={{ display: adminActivePage === "gallery-editor" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3672,6 +5225,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </form>
           </article>
 
+        </section>
+
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--gallery-list"
+          style={{ display: adminActivePage === "gallery-list" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3710,155 +5269,173 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
           </article>
         </section>
 
-        <section className="page-split-grid" id="admin-activities">
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--activities"
+          id="admin-relays"
+          style={{ display: adminActivePage === "site-relays" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">Activities</p>
-                <h2>活动与日程管理</h2>
+                <h2>接龙活动管理</h2>
               </div>
-              <StatusChip tone="accent">Relay / Contest</StatusChip>
+              <StatusChip tone="accent">Relay</StatusChip>
             </div>
             {adminActivityError ? <p className="panel-error">{adminActivityError}</p> : null}
             {relayActionState.error ? <p className="panel-error">{relayActionState.error}</p> : null}
             {relayActionState.success ? <p className="panel-empty">{relayActionState.success}</p> : null}
-            {contestActionState.error ? <p className="panel-error">{contestActionState.error}</p> : null}
-            {contestActionState.success ? <p className="panel-empty">{contestActionState.success}</p> : null}
-            <div className="stack-list">
-              <form className="space-form" onSubmit={(event) => void handleRelaySubmit(event)}>
-                <h3>发布新接龙活动</h3>
-                <label>
-                  <span>标题</span>
-                  <input name="title" value={relayForm.title} onChange={handleRelayFieldChange} required />
-                </label>
-                <label>
-                  <span>描述</span>
-                  <textarea name="description" rows={3} value={relayForm.description} onChange={handleRelayFieldChange} />
-                </label>
-                <label>
-                  <span>规则</span>
-                  <textarea name="rules" rows={3} value={relayForm.rules} onChange={handleRelayFieldChange} />
-                </label>
-                <label>
-                  <span>开始时间</span>
-                  <input name="starts_at" type="datetime-local" value={relayForm.starts_at} onChange={handleRelayFieldChange} />
-                </label>
-                <label>
-                  <span>结束时间</span>
-                  <input name="ends_at" type="datetime-local" value={relayForm.ends_at} onChange={handleRelayFieldChange} />
-                </label>
-                <label className="gallery-admin__toggle">
-                  <input name="allow_unverified" type="checkbox" checked={relayForm.allow_unverified} onChange={handleRelayFieldChange} />
-                  <span>允许未认证用户参与</span>
-                </label>
-                <button className="primary-button" type="submit" disabled={relayActionState.pending}>
-                  {relayActionState.pending ? "创建中..." : "创建接龙活动"}
-                </button>
-              </form>
-
-              <form className="space-form" onSubmit={(event) => void handleContestSubmit(event)}>
-                <h3>发布新征文活动</h3>
-                <label>
-                  <span>标题</span>
-                  <input name="title" value={contestForm.title} onChange={handleContestFieldChange} required />
-                </label>
-                <label>
-                  <span>描述</span>
-                  <textarea name="description" rows={3} value={contestForm.description} onChange={handleContestFieldChange} />
-                </label>
-                <label>
-                  <span>规则</span>
-                  <textarea name="rules" rows={3} value={contestForm.rules} onChange={handleContestFieldChange} />
-                </label>
-                <label>
-                  <span>开始时间</span>
-                  <input name="starts_at" type="datetime-local" value={contestForm.starts_at} onChange={handleContestFieldChange} />
-                </label>
-                <label>
-                  <span>结束时间</span>
-                  <input name="ends_at" type="datetime-local" value={contestForm.ends_at} onChange={handleContestFieldChange} />
-                </label>
-                <label className="gallery-admin__toggle">
-                  <input name="allow_article_repost" type="checkbox" checked={contestForm.allow_article_repost} onChange={handleContestFieldChange} />
-                  <span>允许文章转载投稿</span>
-                </label>
-                <button className="primary-button" type="submit" disabled={contestActionState.pending}>
-                  {contestActionState.pending ? "创建中..." : "创建征文活动"}
-                </button>
-              </form>
-            </div>
+            <form className="space-form" onSubmit={(event) => void handleRelaySubmit(event)}>
+              <h3>发布新接龙活动</h3>
+              <label>
+                <span>标题</span>
+                <input name="title" value={relayForm.title} onChange={handleRelayFieldChange} required />
+              </label>
+              <label>
+                <span>描述</span>
+                <textarea name="description" rows={3} value={relayForm.description} onChange={handleRelayFieldChange} />
+              </label>
+              <label>
+                <span>规则</span>
+                <textarea name="rules" rows={3} value={relayForm.rules} onChange={handleRelayFieldChange} />
+              </label>
+              <label>
+                <span>开始时间</span>
+                <input name="starts_at" type="datetime-local" value={relayForm.starts_at} onChange={handleRelayFieldChange} />
+              </label>
+              <label>
+                <span>结束时间</span>
+                <input name="ends_at" type="datetime-local" value={relayForm.ends_at} onChange={handleRelayFieldChange} />
+              </label>
+              <label className="gallery-admin__toggle">
+                <input name="allow_unverified" type="checkbox" checked={relayForm.allow_unverified} onChange={handleRelayFieldChange} />
+                <span>允许未认证用户参与</span>
+              </label>
+              <button className="primary-button" type="submit" disabled={relayActionState.pending}>
+                {relayActionState.pending ? "创建中..." : "创建接龙活动"}
+              </button>
+            </form>
           </article>
 
           <article className="panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">状态流转</p>
-                <h2>活动与征文列表</h2>
+                <h2>接龙活动列表</h2>
               </div>
+              <StatusChip tone="accent">{relayPager.total} 场</StatusChip>
             </div>
             <div className="stack-list">
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>接龙活动</h3>
-                  <StatusChip tone="accent">{relayPager.total} 场</StatusChip>
+              {relays.map((relay) => (
+                <div className="admin-status-row" key={relay.id}>
+                  <div>
+                    <strong>{relay.title}</strong>
+                    <p className="forum-reply-meta">
+                      <span>{relay.status}</span>
+                      <span>{relay.entry_count} 条参与</span>
+                    </p>
+                  </div>
+                  <div className="forum-reply-actions">
+                    {["draft", "open", "closed"].map((status) => (
+                      <button className="ghost-button" key={status} type="button" onClick={() => void handleRelayStatusChange(relay.id, status)}>
+                        {status}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="stack-list">
-                  {relays.map((relay) => (
-                    <div className="admin-status-row" key={relay.id}>
-                      <div>
-                        <strong>{relay.title}</strong>
-                        <p className="forum-reply-meta">
-                          <span>{relay.status}</span>
-                          <span>{relay.entry_count} 条参与</span>
-                        </p>
-                      </div>
-                      <div className="forum-reply-actions">
-                        {["draft", "open", "closed"].map((status) => (
-                          <button className="ghost-button" key={status} type="button" onClick={() => void handleRelayStatusChange(relay.id, status)}>
-                            {status}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {!relays.length ? <p className="panel-empty">当前没有活动。</p> : null}
-                </div>
-                {renderPager(relayPager, (page) => setRelayPager((current) => ({ ...current, page })), "暂无活动。")}
-              </div>
-
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>征文比赛</h3>
-                  <StatusChip tone="accent">{contestPager.total} 场</StatusChip>
-                </div>
-                <div className="stack-list">
-                  {contests.map((contest) => (
-                    <div className="admin-status-row" key={contest.id}>
-                      <div>
-                        <strong>{contest.title}</strong>
-                        <p className="forum-reply-meta">
-                          <span>{contest.status}</span>
-                          <span>{contest.submission_count} 篇投稿</span>
-                        </p>
-                      </div>
-                      <div className="forum-reply-actions">
-                        {["draft", "open", "closed"].map((status) => (
-                          <button className="ghost-button" key={status} type="button" onClick={() => void handleContestStatusChange(contest.id, status)}>
-                            {status}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {!contests.length ? <p className="panel-empty">当前没有征文活动。</p> : null}
-                </div>
-                {renderPager(contestPager, (page) => setContestPager((current) => ({ ...current, page })), "暂无征文活动。")}
-              </div>
+              ))}
+              {!relays.length ? <p className="panel-empty">当前没有活动。</p> : null}
             </div>
+            {renderPager(relayPager, (page) => setRelayPager((current) => ({ ...current, page })), "暂无活动。")}
           </article>
         </section>
 
-        <section className="page-split-grid" id="admin-moderation">
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--activities"
+          id="admin-contests"
+          style={{ display: adminActivePage === "site-contests" ? undefined : "none" }}
+        >
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">Activities</p>
+                <h2>征文活动管理</h2>
+              </div>
+              <StatusChip tone="accent">Contest</StatusChip>
+            </div>
+            {adminActivityError ? <p className="panel-error">{adminActivityError}</p> : null}
+            {contestActionState.error ? <p className="panel-error">{contestActionState.error}</p> : null}
+            {contestActionState.success ? <p className="panel-empty">{contestActionState.success}</p> : null}
+            <form className="space-form" onSubmit={(event) => void handleContestSubmit(event)}>
+              <h3>发布新征文活动</h3>
+              <label>
+                <span>标题</span>
+                <input name="title" value={contestForm.title} onChange={handleContestFieldChange} required />
+              </label>
+              <label>
+                <span>描述</span>
+                <textarea name="description" rows={3} value={contestForm.description} onChange={handleContestFieldChange} />
+              </label>
+              <label>
+                <span>规则</span>
+                <textarea name="rules" rows={3} value={contestForm.rules} onChange={handleContestFieldChange} />
+              </label>
+              <label>
+                <span>开始时间</span>
+                <input name="starts_at" type="datetime-local" value={contestForm.starts_at} onChange={handleContestFieldChange} />
+              </label>
+              <label>
+                <span>结束时间</span>
+                <input name="ends_at" type="datetime-local" value={contestForm.ends_at} onChange={handleContestFieldChange} />
+              </label>
+              <label className="gallery-admin__toggle">
+                <input name="allow_article_repost" type="checkbox" checked={contestForm.allow_article_repost} onChange={handleContestFieldChange} />
+                <span>允许文章转载投稿</span>
+              </label>
+              <button className="primary-button" type="submit" disabled={contestActionState.pending}>
+                {contestActionState.pending ? "创建中..." : "创建征文活动"}
+              </button>
+            </form>
+          </article>
+
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">状态流转</p>
+                <h2>征文活动列表</h2>
+              </div>
+              <StatusChip tone="accent">{contestPager.total} 场</StatusChip>
+            </div>
+            <div className="stack-list">
+              {contests.map((contest) => (
+                <div className="admin-status-row" key={contest.id}>
+                  <div>
+                    <strong>{contest.title}</strong>
+                    <p className="forum-reply-meta">
+                      <span>{contest.status}</span>
+                      <span>{contest.submission_count} 篇投稿</span>
+                    </p>
+                  </div>
+                  <div className="forum-reply-actions">
+                    {["draft", "open", "closed"].map((status) => (
+                      <button className="ghost-button" key={status} type="button" onClick={() => void handleContestStatusChange(contest.id, status)}>
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {!contests.length ? <p className="panel-empty">当前没有征文活动。</p> : null}
+            </div>
+            {renderPager(contestPager, (page) => setContestPager((current) => ({ ...current, page })), "暂无征文活动。")}
+          </article>
+        </section>
+
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--moderation"
+          id="admin-moderation"
+          style={{ display: adminActivePage === "moderation-wall" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -3903,65 +5480,194 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             {renderPager(wallSubmissionsPager, (page) => setWallSubmissionsPager((current) => ({ ...current, page })), "暂无投稿。")}
           </article>
 
+        </section>
+
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--bangumi"
+          id="admin-bangumi"
+          style={{ display: adminActivePage === "moderation-bangumi" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">Moderation Scope</p>
-                <h2>当前已集中到后台的审批流</h2>
+                <p className="panel-kicker">Bangumi Sync Jobs</p>
+                <h2>导入任务列表</h2>
               </div>
+              <StatusChip tone="accent">{adminBangumiJobsPager.total} 条</StatusChip>
+            </div>
+            {adminBangumiJobsError ? <p className="panel-error">{adminBangumiJobsError}</p> : null}
+            <p className="panel-empty">导入任务由系统自动执行并回写状态，无需人工审批。</p>
+            <div className="stack-list">
+              {adminBangumiJobs.map((job) => (
+                <div className="content-card" key={job.job_id}>
+                  <div className="content-card__header">
+                    <div>
+                      <h3>任务 #{job.job_id}</h3>
+                      <p className="forum-reply-meta">
+                        <span>{job.username || "unknown user"}</span>
+                        <span>{job.job_type || "collection_sync"}</span>
+                        {job.created_at ? <span>{formatDateTime(job.created_at)}</span> : null}
+                      </p>
+                    </div>
+                    <StatusChip
+                      tone={
+                        job.status === "succeeded"
+                          ? "success"
+                          : job.status === "failed" || job.status === "cancelled"
+                            ? "warn"
+                            : "accent"
+                      }
+                    >
+                      {job.status}
+                    </StatusChip>
+                  </div>
+                  {job.request_payload ? (
+                    <div className="meta-row">
+                      {"sync_mode" in job.request_payload ? (
+                        <span>模式: {String(job.request_payload.sync_mode || "subject_ids")}</span>
+                      ) : null}
+                      {"bangumi_username" in job.request_payload ? (
+                        <span>账号: {String(job.request_payload.bangumi_username || "")}</span>
+                      ) : null}
+                      {"max_items" in job.request_payload ? (
+                        <span>上限: {String(job.request_payload.max_items || "")}</span>
+                      ) : null}
+                      {"subject_ids" in job.request_payload ? (
+                        <span>subject_ids: {JSON.stringify(job.request_payload.subject_ids || [])}</span>
+                      ) : null}
+                      {"status" in (job.request_payload || {}) ? (
+                        <span>目标状态: {String(job.request_payload.status || "")}</span>
+                      ) : null}
+                      {"visibility" in (job.request_payload || {}) ? (
+                        <span>可见范围: {String(job.request_payload.visibility || "")}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {job.error_message ? <p className="panel-error">{job.error_message}</p> : null}
+                </div>
+              ))}
+              {!adminBangumiJobs.length ? <p className="panel-empty">当前没有 Bangumi 导入任务。</p> : null}
+            </div>
+            {renderPager(
+              adminBangumiJobsPager,
+              (page) => setAdminBangumiJobsPager((current) => ({ ...current, page })),
+              "暂无 Bangumi 任务。",
+            )}
+          </article>
+
+        </section>
+
+        <section className="panel-grid preview-grid" style={{ display: adminActivePage === "site-notes" ? undefined : "none" }}>
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">公告中心</p>
+                <h2>发布站点公告</h2>
+              </div>
+              <StatusChip tone="accent">portal_notice</StatusChip>
+            </div>
+            {announcementActionState.error ? <p className="panel-error">{announcementActionState.error}</p> : null}
+            {announcementActionState.success ? <p className="panel-empty">{announcementActionState.success}</p> : null}
+            <form className="space-form" onSubmit={(event) => void handleAnnouncementSubmit(event)}>
+              <label>
+                <span>公告标题</span>
+                <input
+                  name="title"
+                  value={announcementForm.title}
+                  onChange={handleAnnouncementFieldChange}
+                  placeholder="例如：下周共赏会时间调整"
+                  required
+                />
+              </label>
+              <label>
+                <span>公告摘要</span>
+                <input
+                  name="description"
+                  value={announcementForm.description}
+                  onChange={handleAnnouncementFieldChange}
+                  placeholder="一句话摘要，显示在公告列表"
+                />
+              </label>
+              <label>
+                <span>公告正文</span>
+                <textarea
+                  name="body"
+                  rows={4}
+                  value={announcementForm.body}
+                  onChange={handleAnnouncementFieldChange}
+                  placeholder="补充详细说明（可选）"
+                />
+              </label>
+              <label>
+                <span>标签</span>
+                <input
+                  name="label"
+                  value={announcementForm.label}
+                  onChange={handleAnnouncementFieldChange}
+                  placeholder="例如：置顶 / 活动 / 维护"
+                />
+              </label>
+              <label>
+                <span>排序</span>
+                <input
+                  name="sort_order"
+                  value={announcementForm.sort_order}
+                  onChange={handleAnnouncementFieldChange}
+                />
+              </label>
+              <label className="gallery-admin__toggle">
+                <input
+                  name="active"
+                  type="checkbox"
+                  checked={announcementForm.active}
+                  onChange={handleAnnouncementFieldChange}
+                />
+                <span>发布后立即展示</span>
+              </label>
+              <button className="primary-button" type="submit" disabled={announcementActionState.pending}>
+                {announcementActionState.pending ? "发布中..." : "发布公告"}
+              </button>
+            </form>
+          </article>
+
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">公告列表</p>
+                <h2>已发布公告</h2>
+              </div>
+              <StatusChip tone="neutral">{announcementBlocks.length} 条</StatusChip>
             </div>
             <div className="stack-list">
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>成员认证</h3>
-                  <StatusChip tone="accent">已集中</StatusChip>
+              {announcementBlocks.map((notice) => (
+                <div className="content-card" key={notice.id}>
+                  <div className="content-card__header">
+                    <h3>{notice.title}</h3>
+                    <StatusChip tone={notice.active ? "success" : "warn"}>
+                      {notice.active ? "active" : "inactive"}
+                    </StatusChip>
+                  </div>
+                  <p>{notice.description || notice.body || "暂无公告说明。"}</p>
+                  <div className="meta-row">
+                    <span>{notice.label || "公告"}</span>
+                    <span>sort: {notice.sort_order}</span>
+                    <span>slug: {notice.slug}</span>
+                  </div>
+                  <div className="gallery-admin__actions">
+                    <button className="ghost-button" type="button" onClick={() => handleContentBlockEditStart(notice)}>
+                      在内容块编辑器中修改
+                    </button>
+                    <button className="ghost-button gallery-admin__danger" type="button" onClick={() => void handleContentBlockDelete(notice)}>
+                      删除
+                    </button>
+                  </div>
                 </div>
-                <p>来自前台的成员认证请求统一在“成员与审核管理”处理。</p>
-              </div>
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>展示墙投稿</h3>
-                  <StatusChip tone="accent">已集中</StatusChip>
-                </div>
-                <p>展示墙投稿的通过、驳回、要求修改全部集中在这里，不再散落到前台页面。</p>
-              </div>
+              ))}
+              {!announcementBlocks.length ? <p className="panel-empty">当前还没有公告。</p> : null}
             </div>
           </article>
         </section>
-
-        <section className="panel-grid preview-grid">
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">系统设置</p>
-                <h2>当前已接入的全局能力</h2>
-              </div>
-              <StatusChip tone="neutral">System Notes</StatusChip>
-            </div>
-            <div className="stack-list">
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>基础信息配置</h3>
-                  <StatusChip tone="accent">已由内容块承接</StatusChip>
-                </div>
-                <p>社团名称、入口说明、首页内容和 Portal 模块目前通过 `site_content_blocks` 维护。</p>
-              </div>
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>展示墙资源</h3>
-                  <StatusChip tone="success">已可用</StatusChip>
-                </div>
-                <p>图片、拍立得、时间轴等展示资源继续在 `/gallery` 页面维护，管理页提供快捷入口。</p>
-              </div>
-              <div className="content-card">
-                <div className="content-card__header">
-                  <h3>FAQ / 操作日志 / 表单导出</h3>
-                  <StatusChip tone="warn">待后端支持</StatusChip>
-                </div>
-                <p>文档里提到的 FAQ 转化、审计日志和 CSV/Excel 导出，当前仓库还没有对应接口，因此这里只先明确列出来。</p>
-              </div>
-            </div>
-          </article>
+          </div>
         </section>
       </>
     );
@@ -3988,6 +5694,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
     }
   }
 
+  const isStoryDetailView = routePath === "/stories" && Boolean(selectedArticleID) && !isStoriesEditorMode;
+  const visibleNavigation = canAdmin
+    ? NAV_ITEMS
+    : NAV_ITEMS.filter((item) => item.href !== "/admin");
+
   return (
     <>
       <div className="background-stage" aria-hidden="true">
@@ -4002,25 +5713,28 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         <span className="scene-ornament scene-ornament--shard" />
       </div>
 
-      <main className="app-shell">
+      <main className={`app-shell ${isStoryDetailView ? "app-shell--story-detail" : ""}`}>
         <Header
           authHref="/space"
           authLabel={isAuthenticated ? "我的空间" : "登录"}
           currentPath={routePath}
           hidden={isHeaderHidden}
-          navigation={NAV_ITEMS}
+          navigation={visibleNavigation}
+          notifications={headerNotifications}
+          onNotificationClick={handleNotificationClick}
+          onNotificationsMarkAllRead={handleNotificationsMarkAllRead}
           onNavigate={handleNavigate}
-          summary={`${HEADER_SUMMARY_BY_ROUTE[routePath]} · ${backendReachable ? "backend online" : "backend offline"} · ${isAuthenticated ? "member" : "guest"}`}
-          utilityHref={routePath === "/portal" ? "/" : "/portal"}
-          utilityLabel={routePath === "/portal" ? "返回首页" : "社团介绍"}
+          onToggleTheme={handleToggleTheme}
+          themeMode={themeMode}
+          unreadNotificationCount={unreadNotificationCount}
+          utilityHref={routePath === "/" ? "/forum" : "/"}
+          utilityLabel={routePath === "/" ? "论坛讨论" : "返回首页"}
         />
         <div
           className={`page-shell ${
             routePath === "/"
               ? "page-shell--home"
-              : routePath === "/portal"
-                ? "page-shell--portal"
-                : routePath === "/stories"
+              : routePath === "/stories"
                 ? "page-shell--stories"
                 : routePath === "/forum"
                   ? "page-shell--forum"
@@ -4031,11 +5745,52 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     : routePath === "/space"
                       ? "page-shell--space"
                       : "page-shell--gallery"
-          }`}
+          } ${isStoryDetailView ? "page-shell--story-detail" : ""}`}
         >
           {renderCurrentPage()}
         </div>
       </main>
+      {activeHomeNotice ? (
+        <div
+          className="home-notice-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="home-notice-modal-title"
+        >
+          <button
+            className="home-notice-modal__backdrop"
+            type="button"
+            aria-label="关闭公告弹窗"
+            onClick={() => handleDismissHomeNotice(activeHomeNotice.id)}
+          />
+          <article className="home-notice-modal__panel">
+            <div className="home-notice-modal__head">
+              <p className="panel-kicker">站点公告</p>
+              <StatusChip tone="accent">{activeHomeNotice.label || "公告"}</StatusChip>
+            </div>
+            <h2 id="home-notice-modal-title">{activeHomeNotice.title}</h2>
+            {activeHomeNotice.description ? (
+              <p className="home-notice-modal__summary">{activeHomeNotice.description}</p>
+            ) : null}
+            {activeHomeNotice.body ? (
+              <div className="home-notice-modal__body">
+                {parseLines(activeHomeNotice.body).map((line, index) => (
+                  <p key={`${activeHomeNotice.id}-line-${index}`}>{line}</p>
+                ))}
+              </div>
+            ) : null}
+            <div className="home-notice-modal__actions">
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => handleDismissHomeNotice(activeHomeNotice.id)}
+              >
+                我知道了
+              </button>
+            </div>
+          </article>
+        </div>
+      ) : null}
     </>
   );
 }

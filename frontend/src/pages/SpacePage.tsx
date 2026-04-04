@@ -1,44 +1,846 @@
-import type {
-  ChangeEvent,
-  FormEvent,
-  ReactNode,
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
 } from "react";
+import {
+  createFriendRequest,
+  fetchIncomingFriendRequests,
+  fetchMyFriends,
+  fetchOutgoingFriendRequests,
+  fetchPublicProfile,
+  reviewFriendRequest,
+  updateMyBangumiCollection,
+} from "../api";
 import type {
   Article as ApiArticle,
+  BangumiCollection,
   BangumiImportJob,
   BangumiImportPayload,
+  FriendRequest as ApiFriendRequest,
+  FriendSummary as ApiFriendSummary,
   Profile as ApiProfile,
   Session,
 } from "../api";
+import PaginationBar from "../components/PaginationBar";
+import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
 import {
   SPACE_FRIENDS,
   SPACE_SHOWCASE_GROUPS,
-  SPACE_TIME_CAPSULES,
 } from "../content";
-import { excerpt, normalizeVisibilityLabel } from "../lib/text";
+import { createPagerState, type PagerState } from "../lib/pagination";
+import { excerpt, extractMarkdownPreviewImage, normalizeVisibilityLabel } from "../lib/text";
 import type {
   ArticleFormState,
   FormActionState,
 } from "../types/app";
 
-type SpaceShelfTab = (typeof SPACE_SHOWCASE_GROUPS)[number]["id"];
+type SpaceShelfTab = "anime" | "books" | "games";
+type SpaceCollectionStatus = "wish" | "doing" | "collect" | "on_hold" | "dropped";
+type SpaceFriendStatus = "在线" | "忙碌" | "离线";
+type SpaceSidebarSectionKey = "identity" | "creation" | "community";
+type SpaceSidebarPageKey =
+  | "profile"
+  | "progress"
+  | "showcase"
+  | "journal"
+  | "bangumi"
+  | "friends"
+  | "capsules";
+
+interface SpaceShelfItem {
+  id: string;
+  collectionID?: string;
+  sourceURL?: string;
+  title: string;
+  subtitle?: string;
+  note: string;
+  image: string;
+  originalTitle?: string;
+  score?: number;
+  rank?: number;
+  releaseYear?: number;
+  episodes?: number;
+  pages?: number;
+  hours?: string;
+  collectionStatus: SpaceCollectionStatus;
+  myScore?: number;
+  myComment?: string;
+}
+
+interface SpaceShowcaseGroup {
+  id: SpaceShelfTab;
+  label: string;
+  items: SpaceShelfItem[];
+}
+
+interface SpaceFriend {
+  id: string;
+  isReal: boolean;
+  name: string;
+  note: string;
+  status: SpaceFriendStatus;
+  username: string;
+}
+
+interface SpaceFriendFormState {
+  note: string;
+  status: SpaceFriendStatus;
+  username: string;
+}
+
+interface SpaceFriendActionState {
+  error: string;
+  pending: boolean;
+  success: string;
+}
+
+interface SpaceShowcaseItemEdit {
+  collectionStatus?: SpaceCollectionStatus;
+  myScore?: number;
+  myComment?: string;
+}
+
+interface SpaceShowcaseItemDraft {
+  collectionStatus: SpaceCollectionStatus;
+  myScore: number | null;
+  myComment: string;
+}
+
+interface SpaceShowcaseActionState {
+  pending: boolean;
+  error: string;
+  success: string;
+}
+
+const SPACE_FRIENDS_STORAGE_KEY = "rubedo.space.friends";
+const SPACE_SHOWCASE_EDITS_STORAGE_KEY = "rubedo.space.showcase.edits";
+const SPACE_FRIEND_STATUS_ORDER: SpaceFriendStatus[] = ["在线", "忙碌", "离线"];
+const INITIAL_SPACE_FRIEND_FORM: SpaceFriendFormState = {
+  username: "",
+  note: "",
+  status: "在线",
+};
+
+const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
+  id: SpaceSidebarSectionKey;
+  title: string;
+  kicker: string;
+  description: string;
+  children: ReadonlyArray<{
+    id: SpaceSidebarPageKey;
+    label: string;
+  }>;
+}> = [
+  {
+    id: "identity",
+    title: "空间主控",
+    kicker: "Identity",
+    description: "查看主卡资料与论坛成长进度。",
+    children: [
+      { id: "profile", label: "空间主卡" },
+      { id: "progress", label: "论坛进度" },
+    ],
+  },
+  {
+    id: "creation",
+    title: "内容创作",
+    kicker: "Creation",
+    description: "管理展示架、日志区和 Bangumi 同步。",
+    children: [
+      { id: "showcase", label: "作品展示" },
+      { id: "journal", label: "Markdown 日志" },
+      { id: "bangumi", label: "Bangumi 导入" },
+    ],
+  },
+  {
+    id: "community",
+    title: "社交归档",
+    kicker: "Community",
+    description: "维护空间好友和时间胶囊记录。",
+    children: [
+      { id: "friends", label: "空间好友" },
+      { id: "capsules", label: "时间胶囊" },
+    ],
+  },
+] as const;
+
+const SPACE_COLLECTION_STATUS_META: ReadonlyArray<{
+  id: SpaceCollectionStatus;
+  label: string;
+}> = [
+  { id: "collect", label: "看过" },
+  { id: "doing", label: "在看" },
+  { id: "wish", label: "想看" },
+  { id: "on_hold", label: "搁置" },
+  { id: "dropped", label: "抛弃" },
+];
+
+function isSpaceCollectionStatus(value: unknown): value is SpaceCollectionStatus {
+  return SPACE_COLLECTION_STATUS_META.some((item) => item.id === value);
+}
+
+function toCollectionStatusLabel(status: SpaceCollectionStatus): string {
+  return SPACE_COLLECTION_STATUS_META.find((item) => item.id === status)?.label ?? status;
+}
+
+function normalizeMyScore(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return undefined;
+  }
+
+  return value >= 1 && value <= 10 ? value : undefined;
+}
+
+function parseStoredShowcaseEdits(value: unknown): Record<string, SpaceShowcaseItemEdit> {
+  if (typeof value !== "object" || value === null) {
+    return {};
+  }
+
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, SpaceShowcaseItemEdit>>(
+    (result, [itemID, rawEdit]) => {
+      if (typeof rawEdit !== "object" || rawEdit === null) {
+        return result;
+      }
+
+      const candidate = rawEdit as Partial<SpaceShowcaseItemEdit>;
+      const normalizedStatus = isSpaceCollectionStatus(candidate.collectionStatus)
+        ? candidate.collectionStatus
+        : undefined;
+      const normalizedScore = normalizeMyScore(candidate.myScore);
+      const normalizedComment =
+        typeof candidate.myComment === "string" && candidate.myComment.trim()
+          ? candidate.myComment.trim().slice(0, 200)
+          : undefined;
+
+      if (!normalizedStatus && typeof normalizedScore !== "number" && !normalizedComment) {
+        return result;
+      }
+
+      result[itemID] = {
+        collectionStatus: normalizedStatus,
+        myScore: normalizedScore,
+        myComment: normalizedComment,
+      };
+      return result;
+    },
+    {},
+  );
+}
+
+function readStoredShowcaseEdits(): Record<string, SpaceShowcaseItemEdit> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const raw = window.localStorage.getItem(SPACE_SHOWCASE_EDITS_STORAGE_KEY);
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parseStoredShowcaseEdits(parsed);
+  } catch {
+    window.localStorage.removeItem(SPACE_SHOWCASE_EDITS_STORAGE_KEY);
+    return {};
+  }
+}
+
+function findPreferredCollectionStatus(items: readonly SpaceShelfItem[]): SpaceCollectionStatus {
+  const fallback = SPACE_COLLECTION_STATUS_META[0].id;
+  for (const meta of SPACE_COLLECTION_STATUS_META) {
+    if (items.some((item) => item.collectionStatus === meta.id)) {
+      return meta.id;
+    }
+  }
+  return fallback;
+}
+
+function toMediaTypeLabel(tab: SpaceShelfTab): string {
+  switch (tab) {
+    case "anime":
+      return "动画";
+    case "books":
+      return "书籍";
+    case "games":
+      return "游戏";
+    default:
+      return "收藏";
+  }
+}
+
+const SPACE_SHOWCASE_TAB_ORDER: readonly SpaceShelfTab[] = ["anime", "books", "games"];
+const SPACE_SHOWCASE_LABEL_BY_TAB: Record<SpaceShelfTab, string> = {
+  anime: "动画",
+  books: "书籍",
+  games: "游戏",
+};
+
+function createEmptyShowcaseGroups(): SpaceShowcaseGroup[] {
+  return SPACE_SHOWCASE_TAB_ORDER.map((id) => ({
+    id,
+    label: SPACE_SHOWCASE_LABEL_BY_TAB[id],
+    items: [],
+  }));
+}
+
+function normalizeCollectionStatus(
+  value: BangumiCollection["collection_status"] | string,
+): SpaceCollectionStatus | null {
+  switch (value) {
+    case "wish":
+    case "doing":
+    case "collect":
+    case "on_hold":
+    case "dropped":
+      return value;
+    default:
+      return null;
+  }
+}
+
+function inferShelfTabFromBangumiSubject(subjectType: number, platforms: readonly string[]): SpaceShelfTab | null {
+  switch (subjectType) {
+    case 1:
+      return "books";
+    case 2:
+      return "anime";
+    case 4:
+      return "games";
+    default:
+      break;
+  }
+
+  const normalized = platforms.join(" ").toLowerCase();
+  if (/(anime|tv|ova|web)/.test(normalized)) {
+    return "anime";
+  }
+  if (/(game|pc|ps|steam|switch|xbox|visual\s*novel|gal)/.test(normalized)) {
+    return "games";
+  }
+  if (/(book|novel|manga|comic|light\s*novel|小说|漫画)/.test(normalized)) {
+    return "books";
+  }
+
+  return null;
+}
+
+function parseReleaseYear(airDate: string | undefined): number | undefined {
+  if (!airDate) {
+    return undefined;
+  }
+
+  const year = Number.parseInt(airDate.slice(0, 4), 10);
+  return Number.isFinite(year) ? year : undefined;
+}
+
+function selectFallbackCover(seed: number): string {
+  return seed % 2 === 0 ? "/bg1.png" : "/bg2.png";
+}
+
+function createShowcaseGroupsFromBangumiCollections(collections: readonly BangumiCollection[]): SpaceShowcaseGroup[] {
+  const groups = createEmptyShowcaseGroups();
+  const byID: Record<SpaceShelfTab, Map<string, SpaceShelfItem>> = {
+    anime: new Map<string, SpaceShelfItem>(),
+    books: new Map<string, SpaceShelfItem>(),
+    games: new Map<string, SpaceShelfItem>(),
+  };
+
+  collections.forEach((entry, index) => {
+    const status = normalizeCollectionStatus(entry.collection_status);
+    if (!status) {
+      return;
+    }
+
+    const shelfTab = inferShelfTabFromBangumiSubject(entry.subject_type, entry.platforms || []);
+    if (!shelfTab) {
+      return;
+    }
+
+    const title = (entry.name_cn || entry.name || "").trim();
+    if (!title) {
+      return;
+    }
+
+    const originalTitle =
+      entry.name && entry.name_cn && entry.name.trim() !== entry.name_cn.trim() ? entry.name.trim() : undefined;
+    const note = entry.summary?.trim() ? excerpt(entry.summary, 72) : `Bangumi 条目 #${entry.bgm_subject_id}`;
+    const subtitle = entry.platforms?.length ? entry.platforms.join(" / ") : `Bangumi #${entry.bgm_subject_id}`;
+    const sourceURL = (entry.subject_url || "").trim() || `https://bgm.tv/subject/${entry.bgm_subject_id}`;
+    const mapKey = `${entry.collection_id}:${entry.bgm_subject_id}:${status}`;
+    byID[shelfTab].set(mapKey, {
+      id: `bgm-${entry.collection_id}`,
+      collectionID: entry.collection_id,
+      sourceURL,
+      title,
+      subtitle,
+      note,
+      image: (entry.cover_image_url || "").trim() || selectFallbackCover(index),
+      originalTitle,
+      score: typeof entry.rating_score === "number" ? entry.rating_score : undefined,
+      rank: typeof entry.rank_no === "number" ? entry.rank_no : undefined,
+      releaseYear: parseReleaseYear(entry.air_date),
+      collectionStatus: status,
+      myScore: typeof entry.my_score === "number" ? entry.my_score : undefined,
+      myComment: typeof entry.my_comment === "string" ? entry.my_comment.trim() : undefined,
+    });
+  });
+
+  return groups.map((group) => {
+    const items = Array.from(byID[group.id].values());
+    items.sort((left, right) => {
+      const leftRank = left.rank ?? Number.POSITIVE_INFINITY;
+      const rightRank = right.rank ?? Number.POSITIVE_INFINITY;
+      if (leftRank !== rightRank) {
+        return leftRank - rightRank;
+      }
+      return left.title.localeCompare(right.title, "zh-CN");
+    });
+    return {
+      ...group,
+      items,
+    };
+  });
+}
+
+function createShowcaseGroupsFromFallbackContent(): SpaceShowcaseGroup[] {
+  return SPACE_SHOWCASE_GROUPS.map((group) => ({
+    id: group.id as SpaceShelfTab,
+    label: group.label,
+    items: group.items.map((item) => {
+      const sourceURLValue = (item as { sourceURL?: unknown }).sourceURL;
+      return {
+        id: item.id,
+        collectionID: undefined,
+        sourceURL: typeof sourceURLValue === "string" ? sourceURLValue : undefined,
+        title: item.title,
+        subtitle: item.subtitle,
+        note: item.note,
+        image: item.image,
+        originalTitle: item.originalTitle,
+        score: item.score,
+        rank: item.rank,
+        releaseYear: item.releaseYear,
+        episodes: "episodes" in item ? item.episodes : undefined,
+        pages: "pages" in item ? item.pages : undefined,
+        hours: "hours" in item ? item.hours : undefined,
+        collectionStatus: item.collectionStatus as SpaceCollectionStatus,
+      };
+    }),
+  }));
+}
+
+function applyShowcaseEdits(
+  groups: readonly SpaceShowcaseGroup[],
+  edits: Record<string, SpaceShowcaseItemEdit>,
+): SpaceShowcaseGroup[] {
+  return groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => {
+      const itemEdit = edits[item.id];
+      if (!itemEdit) {
+        return item;
+      }
+
+      return {
+        ...item,
+        collectionStatus: itemEdit.collectionStatus ?? item.collectionStatus,
+        myScore: typeof itemEdit.myScore === "number" ? itemEdit.myScore : undefined,
+        myComment: itemEdit.myComment?.trim() || undefined,
+      };
+    }),
+  }));
+}
+
+function createShowcaseItemDraft(item: SpaceShelfItem): SpaceShowcaseItemDraft {
+  return {
+    collectionStatus: item.collectionStatus,
+    myScore: typeof item.myScore === "number" ? item.myScore : null,
+    myComment: item.myComment || "",
+  };
+}
+
+function spaceSidebarSectionFromPage(page: SpaceSidebarPageKey): SpaceSidebarSectionKey {
+  const section = SPACE_SIDEBAR_SECTIONS.find((item) =>
+    item.children.some((child) => child.id === page),
+  );
+
+  return section?.id ?? "identity";
+}
+
+function isSpaceFriendStatus(value: unknown): value is SpaceFriendStatus {
+  return (
+    typeof value === "string" &&
+    SPACE_FRIEND_STATUS_ORDER.some((status) => status === value)
+  );
+}
+
+function createDefaultSpaceFriends(): SpaceFriend[] {
+  return SPACE_FRIENDS.map((friend) => ({
+    id: friend.id,
+    isReal: Boolean(friend.isReal),
+    name: friend.name,
+    note: friend.note,
+    status: friend.status as SpaceFriendStatus,
+    username: friend.username,
+  }));
+}
+
+function parseStoredSpaceFriends(value: unknown): SpaceFriend[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.reduce<SpaceFriend[]>((result, item) => {
+    if (typeof item !== "object" || item === null) {
+      return result;
+    }
+
+    const candidate = item as Partial<SpaceFriend>;
+    if (
+      typeof candidate.id !== "string" ||
+      typeof candidate.name !== "string" ||
+      typeof candidate.username !== "string" ||
+      typeof candidate.note !== "string" ||
+      !isSpaceFriendStatus(candidate.status)
+    ) {
+      return result;
+    }
+
+    result.push({
+      id: candidate.id,
+      isReal: Boolean(candidate.isReal),
+      name: candidate.name,
+      note: candidate.note,
+      status: candidate.status,
+      username: candidate.username,
+    });
+    return result;
+  }, []);
+}
+
+function readStoredSpaceFriends(): SpaceFriend[] | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(SPACE_FRIENDS_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parseStoredSpaceFriends(parsed);
+  } catch {
+    window.localStorage.removeItem(SPACE_FRIENDS_STORAGE_KEY);
+    return null;
+  }
+}
+
+function createSpaceFriendID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `friend-${crypto.randomUUID()}`;
+  }
+
+  return `friend-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function mapFriendSummaryToSpaceFriend(friend: ApiFriendSummary): SpaceFriend {
+  const nickname = (friend.nickname || "").trim();
+  const username = (friend.username || "").trim();
+  const signature = (friend.signature || "").trim();
+
+  return {
+    id: friend.user_id,
+    isReal: true,
+    name: nickname || username || "站内好友",
+    note: signature || "互为好友",
+    status: "在线",
+    username,
+  };
+}
+
+function formatRequestTime(value: string | undefined): string {
+  if (!value) {
+    return "刚刚";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hour}:${minute}`;
+}
+
+function getSpaceFriendTone(status: SpaceFriendStatus): "success" | "accent" | "neutral" {
+  if (status === "在线") {
+    return "success";
+  }
+  if (status === "忙碌") {
+    return "accent";
+  }
+  return "neutral";
+}
+
+function getNextSpaceFriendStatus(status: SpaceFriendStatus): SpaceFriendStatus {
+  const currentIndex = SPACE_FRIEND_STATUS_ORDER.findIndex((item) => item === status);
+  const nextIndex = (currentIndex + 1) % SPACE_FRIEND_STATUS_ORDER.length;
+  return SPACE_FRIEND_STATUS_ORDER[nextIndex];
+}
+
+interface SpaceCapsule {
+  id: string;
+  title: string;
+  time: string;
+  command: string;
+  record: string;
+  body: string;
+  sortGroup: number;
+  sortOrder: number;
+  timestamp: number | null;
+}
+
+type TimedArticle = ApiArticle & {
+  created_at?: string;
+  published_at?: string;
+  updated_at?: string;
+};
+
+function parseTimestamp(value: string | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function formatCapsuleTime(value: string | undefined, fallback: string): string {
+  const timestamp = parseTimestamp(value);
+  if (timestamp === null) {
+    return fallback;
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function normalizeSubjectIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.reduce<string[]>((result, item) => {
+    if (typeof item === "number" && Number.isFinite(item)) {
+      result.push(String(item));
+      return result;
+    }
+
+    if (typeof item === "string" && item.trim()) {
+      result.push(item.trim());
+    }
+
+    return result;
+  }, []);
+}
+
+function extractAnyPreviewImage(value: string): string | null {
+  const markdownMatch = value.match(/!\[[^\]]*]\(([^)\s]+)\)/i);
+  if (markdownMatch?.[1]) {
+    return markdownMatch[1];
+  }
+
+  const htmlMatch = value.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return htmlMatch?.[1] || null;
+}
+
+function pickSpaceLogPreviewImage(article: ApiArticle, index: number): string {
+  const fromContent = extractMarkdownPreviewImage(article.content) || extractAnyPreviewImage(article.content);
+  if (fromContent) {
+    return fromContent;
+  }
+
+  const fromSummary = extractMarkdownPreviewImage(article.summary) || extractAnyPreviewImage(article.summary);
+  if (fromSummary) {
+    return fromSummary;
+  }
+
+  return index % 2 === 0 ? "/bg1.png" : "/bg2.png";
+}
+
+function pickArticleEventTime(article: TimedArticle): string | undefined {
+  return article.published_at || article.updated_at || article.created_at;
+}
+
+function pickBangumiEventTime(job: BangumiImportJob): string | undefined {
+  return job.finished_at || job.updated_at || job.created_at || job.started_at;
+}
+
+function createSpaceCapsules(spaceLogEntries: ApiArticle[], bangumiJobs: BangumiImportJob[]): SpaceCapsule[] {
+  const articleCapsules = spaceLogEntries.map((article, index) => {
+    const timedArticle = article as TimedArticle;
+    const eventTime = pickArticleEventTime(timedArticle);
+    const tags = article.tags.slice(0, 4);
+    const tagsText = tags.join(",");
+    const visibilityLabel = normalizeVisibilityLabel(article.visibility);
+
+    return {
+      id: `article-${article.id}`,
+      title: `发布日志：${article.title}`,
+      time: formatCapsuleTime(eventTime, `最近日志 #${String(index + 1).padStart(2, "0")}`),
+      command: `article.publish --id ${article.id} --visibility ${article.visibility}${
+        tagsText ? ` --tags ${tagsText}` : ""
+      }`,
+      record: `行为记录：发布日志《${article.title}》，权限 ${visibilityLabel}${tags.length ? `，标签 ${tags.length} 个` : ""}。`,
+      body: article.summary.trim() || excerpt(article.content, 120),
+      timestamp: parseTimestamp(eventTime),
+      sortGroup: 1,
+      sortOrder: index,
+    } satisfies SpaceCapsule;
+  });
+
+  const bangumiCapsules = bangumiJobs.map((job, index) => {
+    const eventTime = pickBangumiEventTime(job);
+    const requestPayload = (job.request_payload as Record<string, unknown> | undefined) ?? {};
+    const subjectIds = normalizeSubjectIds(
+      (requestPayload as { subject_ids?: unknown }).subject_ids,
+    );
+    const syncMode =
+      typeof requestPayload.sync_mode === "string" && requestPayload.sync_mode.trim()
+        ? requestPayload.sync_mode.trim()
+        : "subject_ids";
+    const bangumiUsername =
+      typeof requestPayload.bangumi_username === "string" ? requestPayload.bangumi_username.trim() : "";
+    const statusLabel =
+      job.status === "succeeded"
+        ? "同步完成"
+        : job.status === "failed"
+          ? "同步失败"
+          : job.status === "cancelled"
+            ? "任务取消"
+            : "同步处理中";
+    const commandParts = [
+      `bangumi.import --job ${job.job_id}`,
+      `--status ${job.status}`,
+      syncMode === "account" ? "--mode account" : "--mode subject_ids",
+      job.channel ? `--channel ${job.channel}` : "",
+      bangumiUsername ? `--username ${bangumiUsername}` : "",
+      subjectIds.length ? `--subject ${subjectIds.join(",")}` : "",
+    ].filter(Boolean);
+
+    return {
+      id: `bangumi-${job.job_id}`,
+      title: `Bangumi 导入任务 #${job.job_id}`,
+      time: formatCapsuleTime(eventTime, `任务队列 #${String(index + 1).padStart(2, "0")}`),
+      command: commandParts.join(" "),
+      record: `行为记录：发起 ${job.job_type || "collection_sync"} 导入，状态 ${statusLabel}。`,
+      body: job.error_message
+        ? `任务回执：${job.error_message}`
+        : subjectIds.length
+          ? `同步条目：${subjectIds.join("、")}`
+          : bangumiUsername
+            ? `同步账号：${bangumiUsername}`
+            : "同步条目：本次任务未附带 subject_ids。",
+      timestamp: parseTimestamp(eventTime),
+      sortGroup: 0,
+      sortOrder: index,
+    } satisfies SpaceCapsule;
+  });
+
+  return [...bangumiCapsules, ...articleCapsules].sort((left, right) => {
+    if (left.timestamp !== null && right.timestamp !== null) {
+      return right.timestamp - left.timestamp;
+    }
+
+    if (left.timestamp !== null) {
+      return -1;
+    }
+    if (right.timestamp !== null) {
+      return 1;
+    }
+
+    if (left.sortGroup !== right.sortGroup) {
+      return left.sortGroup - right.sortGroup;
+    }
+
+    return left.sortOrder - right.sortOrder;
+  });
+}
 
 interface SpacePageProps {
   articleActionState: FormActionState<ApiArticle>;
   articleForm: ArticleFormState;
-  authPanel: ReactNode;
+  authForm: {
+    account: string;
+    password: string;
+  };
+  forumProgressPanel: ReactNode;
   bangumiActionState: FormActionState<BangumiImportJob>;
-  bangumiForm: BangumiImportPayload & { subjectIdsText: string };
+  bangumiCollections: BangumiCollection[];
+  bangumiCollectionsError: string;
+  bangumiForm: BangumiImportPayload & {
+    subjectIdsText: string;
+    sync_mode: "subject_ids" | "account";
+    bangumi_username: string;
+    status: string;
+    visibility: string;
+    maxItemsText: string;
+  };
+  bangumiJobs: BangumiImportJob[];
+  bangumiJobsError: string;
+  bangumiJobsPager: PagerState;
+  canEditProfile: boolean;
+  canEditShowcase: boolean;
+  canUseBangumiImport: boolean;
   collectionTotal: number;
   displayProfile: ApiProfile | null;
   hasVerifiedSpaceAccess: boolean;
   isAuthenticated: boolean;
+  loginState: {
+    pending: boolean;
+    error: string;
+  };
+  profileActionState: FormActionState<ApiProfile>;
   profileError: string;
+  profileForm: {
+    username: string;
+    nickname: string;
+    signature: string;
+    bio: string;
+    avatar_url: string;
+  };
+  registerForm: {
+    student_id: string;
+    username: string;
+    password: string;
+  };
+  registerState: {
+    pending: boolean;
+    error: string;
+    success: string;
+  };
   session: Session | null;
-  spaceAccessBlocked: boolean;
   spaceLogEntries: ApiArticle[];
   spaceShelfTab: SpaceShelfTab;
+  viewingPublicProfileUsername: string | null;
+  onAuthFieldChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onArticleFieldChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => void;
@@ -47,7 +849,14 @@ interface SpacePageProps {
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
   onBangumiImportSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onBangumiJobsPageChange: (page: number) => void;
   onNavigate: (href: string) => void;
+  onLogout: () => void;
+  onLoginSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onProfileFieldChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onProfileSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onRegisterFieldChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onRegisterSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onSpaceShelfTabChange: (tab: SpaceShelfTab) => void;
 }
 
@@ -62,86 +871,1024 @@ function getAvatarFallback(profile: Pick<ApiProfile, "nickname" | "username"> | 
 export default function SpacePage({
   articleActionState,
   articleForm,
-  authPanel,
+  authForm,
+  forumProgressPanel,
   bangumiActionState,
+  bangumiCollections,
+  bangumiCollectionsError,
   bangumiForm,
+  bangumiJobs,
+  bangumiJobsError,
+  bangumiJobsPager,
+  canEditProfile,
+  canEditShowcase,
+  canUseBangumiImport,
   collectionTotal,
   displayProfile,
   hasVerifiedSpaceAccess,
   isAuthenticated,
+  loginState,
+  profileActionState,
   profileError,
+  profileForm,
+  registerForm,
+  registerState,
   session,
-  spaceAccessBlocked,
   spaceLogEntries,
   spaceShelfTab,
+  viewingPublicProfileUsername,
+  onAuthFieldChange,
   onArticleFieldChange,
   onArticleSubmit,
   onBangumiFieldChange,
   onBangumiImportSubmit,
+  onBangumiJobsPageChange,
   onNavigate,
+  onLogout,
+  onLoginSubmit,
+  onProfileFieldChange,
+  onProfileSubmit,
+  onRegisterFieldChange,
+  onRegisterSubmit,
   onSpaceShelfTabChange,
 }: SpacePageProps) {
+  const terminalSpaceID = (displayProfile?.username || "guest").trim();
+  const [showcaseEdits, setShowcaseEdits] = useState<Record<string, SpaceShowcaseItemEdit>>(() =>
+    readStoredShowcaseEdits(),
+  );
+  const [expandedShowcaseItemIDs, setExpandedShowcaseItemIDs] = useState<Record<string, boolean>>({});
+  const [showcaseDrafts, setShowcaseDrafts] = useState<Record<string, SpaceShowcaseItemDraft>>({});
+  const [showcaseActionStates, setShowcaseActionStates] =
+    useState<Record<string, SpaceShowcaseActionState>>({});
+  const baseShowcaseGroups = useMemo<SpaceShowcaseGroup[]>(
+    () => createShowcaseGroupsFromBangumiCollections(bangumiCollections),
+    [bangumiCollections],
+  );
+  const showcaseGroups = useMemo<SpaceShowcaseGroup[]>(
+    () => applyShowcaseEdits(baseShowcaseGroups, showcaseEdits),
+    [baseShowcaseGroups, showcaseEdits],
+  );
   const activeSpaceShelf =
-    SPACE_SHOWCASE_GROUPS.find((group) => group.id === spaceShelfTab) ?? SPACE_SHOWCASE_GROUPS[0];
+    showcaseGroups.find((group) => group.id === spaceShelfTab) ??
+    showcaseGroups[0] ?? {
+      id: "games",
+      label: "游戏",
+      items: [],
+    };
+  const [spaceCollectionStatus, setSpaceCollectionStatus] = useState<SpaceCollectionStatus>(() =>
+    findPreferredCollectionStatus(activeSpaceShelf.items),
+  );
+  const [showcasePager, setShowcasePager] = useState<PagerState>(() => createPagerState(20));
+  const [spaceActivePage, setSpaceActivePage] = useState<SpaceSidebarPageKey>("profile");
+  const activeSidebarSection = spaceSidebarSectionFromPage(spaceActivePage);
+  const spaceIDEditable = displayProfile?.space_id_editable !== false;
+  const [spaceFriends, setSpaceFriends] = useState<SpaceFriend[]>(() => {
+    const storedFriends = readStoredSpaceFriends();
+    return storedFriends ?? createDefaultSpaceFriends();
+  });
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState<ApiFriendRequest[]>([]);
+  const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<ApiFriendRequest[]>([]);
+  const [spaceFriendsLoading, setSpaceFriendsLoading] = useState(false);
+  const [spaceFriendForm, setSpaceFriendForm] = useState<SpaceFriendFormState>(INITIAL_SPACE_FRIEND_FORM);
+  const [spaceFriendActionState, setSpaceFriendActionState] = useState<SpaceFriendActionState>({
+    pending: false,
+    error: "",
+    success: "",
+  });
+  const spaceCapsules = createSpaceCapsules(spaceLogEntries, bangumiJobs);
+  const spaceCollectionStatusCounts = SPACE_COLLECTION_STATUS_META.map((meta) => ({
+    ...meta,
+    count: activeSpaceShelf.items.filter((item) => item.collectionStatus === meta.id).length,
+  }));
+  const filteredSpaceShelfItems = useMemo(
+    () => activeSpaceShelf.items.filter((item) => item.collectionStatus === spaceCollectionStatus),
+    [activeSpaceShelf.items, spaceCollectionStatus],
+  );
+  const pagedSpaceShelfItems = useMemo(() => {
+    const start = Math.max(showcasePager.page - 1, 0) * showcasePager.pageSize;
+    return filteredSpaceShelfItems.slice(start, start + showcasePager.pageSize);
+  }, [filteredSpaceShelfItems, showcasePager.page, showcasePager.pageSize]);
+  const expandedShowcaseItem = useMemo(
+    () => filteredSpaceShelfItems.find((item) => Boolean(expandedShowcaseItemIDs[item.id])) ?? null,
+    [expandedShowcaseItemIDs, filteredSpaceShelfItems],
+  );
+  const expandedShowcaseDraft = useMemo<SpaceShowcaseItemDraft | null>(() => {
+    if (!expandedShowcaseItem) {
+      return null;
+    }
+    return showcaseDrafts[expandedShowcaseItem.id] || createShowcaseItemDraft(expandedShowcaseItem);
+  }, [expandedShowcaseItem, showcaseDrafts]);
+  const expandedShowcaseActionState = expandedShowcaseItem
+    ? showcaseActionStates[expandedShowcaseItem.id]
+    : undefined;
+
+  useEffect(() => {
+    setSpaceCollectionStatus((current) => {
+      if (activeSpaceShelf.items.some((item) => item.collectionStatus === current)) {
+        return current;
+      }
+
+      return findPreferredCollectionStatus(activeSpaceShelf.items);
+    });
+  }, [activeSpaceShelf]);
+
+  useEffect(() => {
+    setShowcasePager((current) => {
+      const total = filteredSpaceShelfItems.length;
+      const totalPages = total > 0 ? Math.ceil(total / current.pageSize) : 0;
+      const nextPage = totalPages > 0 ? Math.min(current.page, totalPages) : 1;
+      if (current.total === total && current.totalPages === totalPages && current.page === nextPage) {
+        return current;
+      }
+      return {
+        ...current,
+        page: nextPage,
+        total,
+        totalPages,
+      };
+    });
+  }, [filteredSpaceShelfItems.length]);
+
+  useEffect(() => {
+    setShowcasePager((current) => {
+      if (current.page === 1) {
+        return current;
+      }
+      return {
+        ...current,
+        page: 1,
+      };
+    });
+  }, [spaceShelfTab, spaceCollectionStatus]);
+
+  useEffect(() => {
+    setExpandedShowcaseItemIDs((current) => {
+      const expandedID = Object.entries(current).find(([, expanded]) => expanded)?.[0];
+      if (!expandedID) {
+        return current;
+      }
+      if (filteredSpaceShelfItems.some((item) => item.id === expandedID)) {
+        return current;
+      }
+      return {};
+    });
+  }, [filteredSpaceShelfItems]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (session) {
+      window.localStorage.removeItem(SPACE_SHOWCASE_EDITS_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(SPACE_SHOWCASE_EDITS_STORAGE_KEY, JSON.stringify(showcaseEdits));
+  }, [session, showcaseEdits]);
+
+  useEffect(() => {
+    if (session) {
+      setShowcaseEdits({});
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (session) {
+      window.localStorage.removeItem(SPACE_FRIENDS_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(SPACE_FRIENDS_STORAGE_KEY, JSON.stringify(spaceFriends));
+  }, [session, spaceFriends]);
+
+  async function refreshFriendWorkspace(accessToken: string): Promise<void> {
+    const [friendsResult, incomingResult, outgoingResult] = await Promise.all([
+      fetchMyFriends(accessToken, { page: 1, pageSize: 200 }),
+      fetchIncomingFriendRequests(accessToken, { page: 1, pageSize: 200 }),
+      fetchOutgoingFriendRequests(accessToken, { page: 1, pageSize: 200 }),
+    ]);
+
+    setSpaceFriends(
+      friendsResult.items.map((item) => mapFriendSummaryToSpaceFriend(item)),
+    );
+    setIncomingFriendRequests(incomingResult.items);
+    setOutgoingFriendRequests(outgoingResult.items);
+  }
+
+  useEffect(() => {
+    let active = true;
+
+    if (!session?.accessToken) {
+      setSpaceFriends(() => {
+        const storedFriends = readStoredSpaceFriends();
+        return storedFriends ?? createDefaultSpaceFriends();
+      });
+      setIncomingFriendRequests([]);
+      setOutgoingFriendRequests([]);
+      setSpaceFriendsLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setSpaceFriendsLoading(true);
+    void refreshFriendWorkspace(session.accessToken)
+      .then(() => {
+        if (!active) {
+          return;
+        }
+        setSpaceFriendsLoading(false);
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+        setSpaceFriendsLoading(false);
+        setSpaceFriendActionState({
+          pending: false,
+          error: error instanceof Error ? error.message : "加载好友信息失败，请稍后重试。",
+          success: "",
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
+  function handleSpaceFriendFieldChange(
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ): void {
+    const { name, value } = event.target;
+
+    setSpaceFriendForm((current) => {
+      if (name === "status" && isSpaceFriendStatus(value)) {
+        return {
+          ...current,
+          status: value,
+        };
+      }
+
+      if (name === "username" || name === "note") {
+        return {
+          ...current,
+          [name]: value,
+        };
+      }
+
+      return current;
+    });
+  }
+
+  async function handleSpaceFriendSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+
+    const username = spaceFriendForm.username.trim();
+    const note = spaceFriendForm.note.trim();
+    if (!username) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: "请先输入好友用户名。",
+        success: "",
+      });
+      return;
+    }
+
+    if (spaceFriends.some((friend) => friend.username.toLowerCase() === username.toLowerCase())) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: `@${username} 已在好友列表中。`,
+        success: "",
+      });
+      return;
+    }
+
+    if (
+      outgoingFriendRequests.some(
+        (request) => request.receiver_username.toLowerCase() === username.toLowerCase(),
+      )
+    ) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: `已向 @${username} 发送过好友申请，请等待对方审核。`,
+        success: "",
+      });
+      return;
+    }
+
+    setSpaceFriendActionState({
+      pending: true,
+      error: "",
+      success: "",
+    });
+
+    if (session?.accessToken) {
+      try {
+        const request = await createFriendRequest(session.accessToken, {
+          username,
+          message: note || undefined,
+        });
+
+        await refreshFriendWorkspace(session.accessToken);
+        setSpaceFriendForm(INITIAL_SPACE_FRIEND_FORM);
+        setSpaceFriendActionState({
+          pending: false,
+          error: "",
+          success: `已向 @${request.receiver_username} 发送好友申请，等待对方审核。`,
+        });
+      } catch (error) {
+        setSpaceFriendActionState({
+          pending: false,
+          error: error instanceof Error ? error.message : "发送好友申请失败，请稍后再试。",
+          success: "",
+        });
+      }
+      return;
+    }
+
+    try {
+      const profile = await fetchPublicProfile(username);
+      const normalizedUsername = profile.username.trim();
+      const normalizedName = (profile.nickname || profile.username).trim() || profile.username;
+      const nextFriend: SpaceFriend = {
+        id: createSpaceFriendID(),
+        isReal: true,
+        name: normalizedName,
+        note: note || `真实账号好友，已校验 /users/${normalizedUsername}。`,
+        status: spaceFriendForm.status,
+        username: normalizedUsername,
+      };
+
+      setSpaceFriends((current) => {
+        const deduped = current.filter(
+          (friend) => friend.username.toLowerCase() !== normalizedUsername.toLowerCase(),
+        );
+        return [nextFriend, ...deduped];
+      });
+      setSpaceFriendForm(INITIAL_SPACE_FRIEND_FORM);
+      setSpaceFriendActionState({
+        pending: false,
+        error: "",
+        success: `已添加真实好友 @${normalizedUsername}（游客本地模式）。`,
+      });
+    } catch (error) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: `未找到用户 @${username}，请检查用户名是否正确。`,
+        success: "",
+      });
+      console.error(error);
+    }
+  }
+
+  function handleRotateSpaceFriendStatus(friendID: string): void {
+    if (session?.accessToken) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: "",
+        success: "真实好友状态由对方在线状态决定，当前版本暂不支持手动改状态。",
+      });
+      return;
+    }
+
+    setSpaceFriends((current) =>
+      current.map((friend) =>
+        friend.id === friendID
+          ? {
+              ...friend,
+              status: getNextSpaceFriendStatus(friend.status),
+            }
+          : friend,
+      ),
+    );
+    setSpaceFriendActionState((current) => ({
+      ...current,
+      error: "",
+      success: "",
+    }));
+  }
+
+  function handleRemoveSpaceFriend(friendID: string): void {
+    if (session?.accessToken) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: "当前版本暂不支持直接删除真实好友关系。",
+        success: "",
+      });
+      return;
+    }
+
+    setSpaceFriends((current) => current.filter((friend) => friend.id !== friendID));
+    setSpaceFriendActionState({
+      pending: false,
+      error: "",
+      success: "已从空间好友中移除。",
+    });
+  }
+
+  async function handleViewSpaceFriendProfile(friend: SpaceFriend): Promise<void> {
+    const username = friend.username.trim();
+    if (!username) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: "该好友缺少用户名，无法打开主页。",
+        success: "",
+      });
+      return;
+    }
+
+    setSpaceFriendActionState({
+      pending: true,
+      error: "",
+      success: "",
+    });
+
+    try {
+      const profile = await fetchPublicProfile(username);
+      const normalizedUsername = profile.username.trim();
+      const normalizedName = (profile.nickname || profile.username).trim() || profile.username;
+
+      setSpaceFriends((current) =>
+        current.map((item) =>
+          item.id === friend.id
+            ? {
+                ...item,
+                isReal: true,
+                name: normalizedName,
+                username: normalizedUsername,
+              }
+            : item,
+        ),
+      );
+      setSpaceFriendActionState({
+        pending: false,
+        error: "",
+        success: `已打开 @${normalizedUsername} 的主页。`,
+      });
+      onNavigate(`/users/${encodeURIComponent(normalizedUsername)}`);
+    } catch (error) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: `未找到 @${username} 的主页，请先确认用户名是否真实存在。`,
+        success: "",
+      });
+      console.error(error);
+    }
+  }
+
+  async function handleReviewIncomingFriendRequest(
+    request: ApiFriendRequest,
+    action: "approve" | "reject",
+  ): Promise<void> {
+    if (!session?.accessToken) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: "请先登录后再处理好友申请。",
+        success: "",
+      });
+      return;
+    }
+
+    setSpaceFriendActionState({
+      pending: true,
+      error: "",
+      success: "",
+    });
+
+    try {
+      await reviewFriendRequest(session.accessToken, request.request_id, { action });
+      await refreshFriendWorkspace(session.accessToken);
+      setSpaceFriendActionState({
+        pending: false,
+        error: "",
+        success:
+          action === "approve"
+            ? `已通过 @${request.requester_username} 的好友申请。`
+            : `已拒绝 @${request.requester_username} 的好友申请。`,
+      });
+    } catch (error) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: error instanceof Error ? error.message : "处理好友申请失败，请稍后再试。",
+        success: "",
+      });
+    }
+  }
+
+  function handleResetSpaceFriends(): void {
+    if (session?.accessToken) {
+      setSpaceFriendActionState({
+        pending: true,
+        error: "",
+        success: "",
+      });
+      void refreshFriendWorkspace(session.accessToken)
+        .then(() => {
+          setSpaceFriendActionState({
+            pending: false,
+            error: "",
+            success: "已刷新好友关系与申请列表。",
+          });
+        })
+        .catch((error) => {
+          setSpaceFriendActionState({
+            pending: false,
+            error: error instanceof Error ? error.message : "刷新失败，请稍后重试。",
+            success: "",
+          });
+        });
+      return;
+    }
+
+    setSpaceFriends(createDefaultSpaceFriends());
+    setSpaceFriendActionState({
+      pending: false,
+      error: "",
+      success: "已恢复默认好友列表。",
+    });
+  }
+
+  function updateShowcaseItemEdit(
+    itemID: string,
+    patch: Partial<SpaceShowcaseItemEdit>,
+  ): void {
+    setShowcaseEdits((current) => {
+      const currentEdit = current[itemID] || {};
+      const merged: SpaceShowcaseItemEdit = {
+        ...currentEdit,
+        ...patch,
+      };
+
+      const normalizedStatus = isSpaceCollectionStatus(merged.collectionStatus)
+        ? merged.collectionStatus
+        : undefined;
+      const normalizedScore = normalizeMyScore(merged.myScore);
+      const normalizedComment =
+        typeof merged.myComment === "string" && merged.myComment.trim()
+          ? merged.myComment.trim().slice(0, 200)
+          : undefined;
+
+      if (!normalizedStatus && typeof normalizedScore !== "number" && !normalizedComment) {
+        const { [itemID]: _removed, ...rest } = current;
+        return rest;
+      }
+
+      return {
+        ...current,
+        [itemID]: {
+          collectionStatus: normalizedStatus,
+          myScore: normalizedScore,
+          myComment: normalizedComment,
+        },
+      };
+    });
+  }
+
+  function handleShowcaseEditorToggle(item: SpaceShelfItem): void {
+    setExpandedShowcaseItemIDs((current) => (current[item.id] ? {} : { [item.id]: true }));
+    setShowcaseDrafts((current) => ({
+      ...current,
+      [item.id]: current[item.id] || createShowcaseItemDraft(item),
+    }));
+  }
+
+  function setShowcaseActionState(itemID: string, next: SpaceShowcaseActionState): void {
+    setShowcaseActionStates((current) => ({
+      ...current,
+      [itemID]: next,
+    }));
+  }
+
+  function handleShowcaseDraftStatusChange(item: SpaceShelfItem, status: SpaceCollectionStatus): void {
+    setShowcaseDrafts((current) => ({
+      ...current,
+      [item.id]: {
+        ...(current[item.id] || createShowcaseItemDraft(item)),
+        collectionStatus: status,
+      },
+    }));
+    setShowcaseActionState(item.id, { pending: false, error: "", success: "" });
+  }
+
+  function handleShowcaseDraftScoreChange(item: SpaceShelfItem, value: string): void {
+    const parsed = Number.parseInt(value, 10);
+    setShowcaseDrafts((current) => ({
+      ...current,
+      [item.id]: {
+        ...(current[item.id] || createShowcaseItemDraft(item)),
+        myScore: Number.isInteger(parsed) ? parsed : null,
+      },
+    }));
+    setShowcaseActionState(item.id, { pending: false, error: "", success: "" });
+  }
+
+  function handleShowcaseDraftCommentChange(item: SpaceShelfItem, value: string): void {
+    setShowcaseDrafts((current) => ({
+      ...current,
+      [item.id]: {
+        ...(current[item.id] || createShowcaseItemDraft(item)),
+        myComment: value.slice(0, 200),
+      },
+    }));
+    setShowcaseActionState(item.id, { pending: false, error: "", success: "" });
+  }
+
+  function handleShowcaseDraftReset(item: SpaceShelfItem): void {
+    setShowcaseDrafts((current) => ({
+      ...current,
+      [item.id]: createShowcaseItemDraft(item),
+    }));
+    setShowcaseActionState(item.id, { pending: false, error: "", success: "" });
+  }
+
+  async function handleShowcaseDraftSave(item: SpaceShelfItem): Promise<void> {
+    const currentDraft = showcaseDrafts[item.id] || createShowcaseItemDraft(item);
+    const normalizedComment = currentDraft.myComment.trim().slice(0, 200);
+
+    setShowcaseActionState(item.id, {
+      pending: true,
+      error: "",
+      success: "",
+    });
+
+    if (session && item.collectionID) {
+      try {
+        const updated = await updateMyBangumiCollection(session.accessToken, item.collectionID, {
+          collection_status: currentDraft.collectionStatus,
+          my_score: currentDraft.myScore,
+          my_comment: normalizedComment,
+        });
+        const nextStatus = isSpaceCollectionStatus(updated.collection_status)
+          ? updated.collection_status
+          : currentDraft.collectionStatus;
+        const nextScore = typeof updated.my_score === "number" ? updated.my_score : undefined;
+        const nextComment = typeof updated.my_comment === "string" ? updated.my_comment.trim() : "";
+
+        updateShowcaseItemEdit(item.id, {
+          collectionStatus: nextStatus,
+          myScore: nextScore,
+          myComment: nextComment || undefined,
+        });
+        setShowcaseDrafts((current) => ({
+          ...current,
+          [item.id]: {
+            collectionStatus: nextStatus,
+            myScore: typeof nextScore === "number" ? nextScore : null,
+            myComment: nextComment,
+          },
+        }));
+        setShowcaseActionState(item.id, {
+          pending: false,
+          error: "",
+          success: "已保存到后端。",
+        });
+        return;
+      } catch (error) {
+        setShowcaseActionState(item.id, {
+          pending: false,
+          error: error instanceof Error ? error.message : "保存失败，请稍后重试。",
+          success: "",
+        });
+        return;
+      }
+    }
+
+    updateShowcaseItemEdit(item.id, {
+      collectionStatus: currentDraft.collectionStatus,
+      myScore: currentDraft.myScore ?? undefined,
+      myComment: normalizedComment || undefined,
+    });
+    setShowcaseDrafts((current) => ({
+      ...current,
+      [item.id]: {
+        ...currentDraft,
+        myComment: normalizedComment,
+      },
+    }));
+    setShowcaseActionState(item.id, {
+      pending: false,
+      error: "",
+      success: "已保存。",
+    });
+  }
 
   return (
-    <>
-      <section className="panel space-master-panel">
-        {displayProfile ? (
-          <>
-            <div className="space-master-panel__identity">
-              {displayProfile.avatar_url ? (
-                <img
-                  alt={displayProfile.nickname}
-                  className="profile-stage__avatar"
-                  src={displayProfile.avatar_url}
-                />
-              ) : (
-                <div className="profile-stage__avatar profile-stage__avatar--fallback">
-                  {getAvatarFallback(displayProfile)}
+    <section className="admin-shell space-shell">
+      <aside className="panel admin-sidebar space-sidebar">
+        <div className="panel-heading">
+          <div>
+            <p className="panel-kicker">Space Sidebar</p>
+            <h2>个人空间工作台</h2>
+          </div>
+          <StatusChip tone="accent">/space</StatusChip>
+        </div>
+        <div className="stack-list">
+          {SPACE_SIDEBAR_SECTIONS.map((section) => {
+            const active = section.id === activeSidebarSection;
+            return (
+              <section
+                className={`admin-sidebar__section ${active ? "admin-sidebar__section--active" : ""}`}
+                key={section.id}
+              >
+                <button
+                  className="admin-sidebar__button"
+                  type="button"
+                  onClick={() => setSpaceActivePage(section.children[0].id)}
+                >
+                  <span>{section.kicker}</span>
+                  <strong>{section.title}</strong>
+                  <p>{section.description}</p>
+                </button>
+                <div className="admin-sidebar__children">
+                  {section.children.map((child) => (
+                    <button
+                      className={`admin-sidebar__child ${
+                        child.id === spaceActivePage ? "admin-sidebar__child--active" : ""
+                      }`}
+                      key={child.id}
+                      type="button"
+                      onClick={() => setSpaceActivePage(child.id)}
+                    >
+                      {child.label}
+                    </button>
+                  ))}
                 </div>
-              )}
-              <div className="space-master-panel__copy">
-                <p className="panel-kicker">空间主卡</p>
-                <h2 className="space-master-panel__title">{displayProfile.nickname}</h2>
-                <p className="profile-meta">
-                  @{displayProfile.username} · {displayProfile.signature}
-                </p>
-                <p className="profile-bio">{displayProfile.bio}</p>
-                <div className="space-master-panel__status-row">
-                  <StatusChip tone={hasVerifiedSpaceAccess ? "success" : isAuthenticated ? "warn" : "neutral"}>
-                    {hasVerifiedSpaceAccess ? "已认证成员空间" : isAuthenticated ? "待认证空间" : "游客预览"}
-                  </StatusChip>
-                  <StatusChip tone="accent">{collectionTotal} 项收藏</StatusChip>
-                </div>
-              </div>
-            </div>
-            <div className="space-master-panel__stats">
-              {Object.entries(displayProfile.collections).map(([label, count]) => (
-                <div className="space-master-panel__stat" key={label}>
-                  <span>{label}</span>
-                  <strong>{count}</strong>
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="panel-empty">{profileError || "空间资料加载中。"}</p>
-        )}
-      </section>
+              </section>
+            );
+          })}
+        </div>
+      </aside>
 
-      <section className="space-layout-grid">
-        <div className="space-layout-grid__main">
+      <div className="admin-content space-content">
+        <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
+          <article className="panel space-master-panel">
+            {viewingPublicProfileUsername ? (
+              <div className="space-visitor-banner">
+                <div>
+                  <p className="panel-kicker">访客模式</p>
+                  <strong>正在查看 @{viewingPublicProfileUsername} 的主页</strong>
+                </div>
+                <button className="ghost-button" type="button" onClick={() => onNavigate("/space")}>
+                  返回我的空间
+                </button>
+              </div>
+            ) : null}
+            {displayProfile ? (
+              <>
+                <div className="space-master-panel__bootlog" aria-hidden="true">
+                  <p className="space-master-panel__bootline space-master-panel__bootline--title">
+                    <span className="space-master-panel__prompt">^ .</span> // Space Master Card
+                  </p>
+                  <p className="space-master-panel__bootline">
+                    <span className="space-master-panel__prompt">.$</span> boot.profile --user {terminalSpaceID}
+                  </p>
+                  <p className="space-master-panel__bootline space-master-panel__bootline--ok">SYSTEM READY.</p>
+                  <p className="space-master-panel__bootline">
+                    <span className="space-master-panel__prompt">{terminalSpaceID}@redgal:~$</span> cat ./space.bio
+                    <span className="space-master-panel__cursor" />
+                  </p>
+                </div>
+                <div className="space-master-panel__identity">
+                  {displayProfile.avatar_url ? (
+                    <img
+                      alt={displayProfile.nickname}
+                      className="profile-stage__avatar"
+                      src={displayProfile.avatar_url}
+                    />
+                  ) : (
+                    <div className="profile-stage__avatar profile-stage__avatar--fallback">
+                      {getAvatarFallback(displayProfile)}
+                    </div>
+                  )}
+                  <div className="space-master-panel__copy">
+                    <p className="panel-kicker">空间主卡</p>
+                    <h2 className="space-master-panel__title">{displayProfile.nickname}</h2>
+                    <p className="profile-meta">
+                      @{displayProfile.username} · {displayProfile.signature}
+                    </p>
+                    <p className="profile-bio">{displayProfile.bio}</p>
+                    <div className="space-master-panel__status-row">
+                      <StatusChip tone={hasVerifiedSpaceAccess ? "success" : isAuthenticated ? "warn" : "neutral"}>
+                        {hasVerifiedSpaceAccess ? "已认证成员空间" : isAuthenticated ? "待认证空间" : "游客预览"}
+                      </StatusChip>
+                      <StatusChip tone="accent">{collectionTotal} 项收藏</StatusChip>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-master-panel__stats">
+                  {Object.entries(displayProfile.collections).map(([label, count]) => (
+                    <div className="space-master-panel__stat" key={label}>
+                      <span>{label}</span>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+                </div>
+                {canEditProfile ? (
+                  <form className="space-form space-profile-editor" onSubmit={(event) => void onProfileSubmit(event)}>
+                    <div className="panel-heading">
+                      <div>
+                        <p className="panel-kicker">资料编辑</p>
+                        <h3>空间身份设置</h3>
+                      </div>
+                      <button className="primary-button" type="submit" disabled={profileActionState.pending}>
+                        {profileActionState.pending ? "保存中..." : "保存资料"}
+                      </button>
+                    </div>
+                    <div className="space-profile-editor__grid">
+                      <label>
+                        <span>空间 ID</span>
+                        <input
+                          name="username"
+                          type="text"
+                          value={profileForm.username}
+                          onChange={onProfileFieldChange}
+                          placeholder="例如：demo_super_admin"
+                          disabled={!spaceIDEditable}
+                          required
+                        />
+                      </label>
+                      <label>
+                        <span>个性签名</span>
+                        <input
+                          name="signature"
+                          type="text"
+                          value={profileForm.signature}
+                          onChange={onProfileFieldChange}
+                          placeholder="写一句固定展示在空间主卡上的签名"
+                        />
+                      </label>
+                      <label>
+                        <span>头像地址</span>
+                        <input
+                          name="avatar_url"
+                          type="url"
+                          value={profileForm.avatar_url}
+                          onChange={onProfileFieldChange}
+                          placeholder="https://example.com/avatar.png"
+                        />
+                      </label>
+                      <label>
+                        <span>显示昵称</span>
+                        <input
+                          name="nickname"
+                          type="text"
+                          value={profileForm.nickname}
+                          onChange={onProfileFieldChange}
+                          placeholder="用于主卡标题展示"
+                        />
+                      </label>
+                    </div>
+                    <label>
+                      <span>个人简介</span>
+                      <textarea
+                        name="bio"
+                        rows={3}
+                        value={profileForm.bio}
+                        onChange={onProfileFieldChange}
+                        placeholder="写一段空间简介"
+                      />
+                    </label>
+                    <div className="space-profile-editor__preview">
+                      {profileForm.avatar_url.trim() ? (
+                        <img alt="头像预览" className="profile-stage__avatar" src={profileForm.avatar_url} />
+                      ) : (
+                        <div className="profile-stage__avatar profile-stage__avatar--fallback">
+                          {getAvatarFallback(displayProfile)}
+                        </div>
+                      )}
+                      <p className="panel-empty">
+                        预览：@{profileForm.username || displayProfile.username}
+                        {profileForm.signature.trim() ? ` · ${profileForm.signature.trim()}` : ""}
+                      </p>
+                    </div>
+                    {!spaceIDEditable ? (
+                      <p className="panel-empty">空间 ID 仅允许修改一次，当前账号已用完修改次数。</p>
+                    ) : null}
+                    {profileActionState.error ? <p className="panel-error">{profileActionState.error}</p> : null}
+                    {profileActionState.success ? <p className="panel-empty">{profileActionState.success}</p> : null}
+                  </form>
+                ) : isAuthenticated ? (
+                  <p className="panel-empty">当前处于公开主页浏览模式，只有自己的 `/space` 可以编辑资料。</p>
+                ) : null}
+              </>
+            ) : (
+              <p className="panel-empty">{profileError || "空间资料加载中。"}</p>
+            )}
+          </article>
+          <article className="panel space-auth-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">账号会话</p>
+                <h2>{session ? "当前已登录" : "登录 / 注册"}</h2>
+              </div>
+              <StatusChip tone={session ? "success" : "neutral"}>
+                {session ? "已认证会话" : "游客状态"}
+              </StatusChip>
+            </div>
+
+            {session ? (
+              <div className="session-box">
+                <p className="panel-empty">当前账号会话已生效，空间、收藏导入与投稿能力按账号权限开放。</p>
+                {profileError ? <p className="panel-error">{profileError}</p> : null}
+                <button className="ghost-button" type="button" onClick={onLogout}>
+                  退出当前会话
+                </button>
+              </div>
+            ) : (
+              <div className="space-auth-grid">
+                <form className="auth-form" onSubmit={(event) => void onLoginSubmit(event)}>
+                  <p className="panel-empty">登录后会同步到后端 `/auth/login` 与当前空间会话。</p>
+                  <label>
+                    <span>账号</span>
+                    <input
+                      autoComplete="username"
+                      name="account"
+                      onChange={onAuthFieldChange}
+                      placeholder="用户名 / 学号 / 邮箱"
+                      value={authForm.account}
+                    />
+                  </label>
+                  <label>
+                    <span>密码</span>
+                    <input
+                      autoComplete="current-password"
+                      name="password"
+                      onChange={onAuthFieldChange}
+                      placeholder="输入账号密码"
+                      type="password"
+                      value={authForm.password}
+                    />
+                  </label>
+                  {loginState.error ? <p className="panel-error">{loginState.error}</p> : null}
+                  <button className="primary-button" disabled={loginState.pending} type="submit">
+                    {loginState.pending ? "登录中..." : "登录"}
+                  </button>
+                </form>
+
+                <form className="auth-form" onSubmit={(event) => void onRegisterSubmit(event)}>
+                  <p className="panel-empty">注册会走后端 `/auth/register`，完成后可直接用账号登录。</p>
+                  <label>
+                    <span>学号</span>
+                    <input
+                      autoComplete="off"
+                      name="student_id"
+                      onChange={onRegisterFieldChange}
+                      placeholder="例如：20260001"
+                      value={registerForm.student_id}
+                    />
+                  </label>
+                  <label>
+                    <span>用户名</span>
+                    <input
+                      autoComplete="username"
+                      name="username"
+                      onChange={onRegisterFieldChange}
+                      placeholder="3-32 位字母/数字/下划线"
+                      value={registerForm.username}
+                    />
+                  </label>
+                  <label>
+                    <span>密码</span>
+                    <input
+                      autoComplete="new-password"
+                      name="password"
+                      onChange={onRegisterFieldChange}
+                      placeholder="设置登录密码"
+                      type="password"
+                      value={registerForm.password}
+                    />
+                  </label>
+                  {registerState.error ? <p className="panel-error">{registerState.error}</p> : null}
+                  {registerState.success ? <p className="panel-empty">{registerState.success}</p> : null}
+                  <button className="ghost-button" disabled={registerState.pending} type="submit">
+                    {registerState.pending ? "注册中..." : "注册"}
+                  </button>
+                </form>
+              </div>
+            )}
+          </article>
+        </section>
+
+        <section style={{ display: spaceActivePage === "progress" ? undefined : "none" }}>
+          {forumProgressPanel}
+        </section>
+
+        <section style={{ display: spaceActivePage === "showcase" ? undefined : "none" }}>
           <article className="panel space-showcase-panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">作品展示</p>
-                <h2>动画 / 书籍 / 游戏</h2>
+                <h2>Bangumi 风格收藏页</h2>
               </div>
               <StatusChip tone="accent">{activeSpaceShelf.label}</StatusChip>
             </div>
-            <div className="space-shelf-tabs">
-              {SPACE_SHOWCASE_GROUPS.map((group) => (
+            <div className="space-shelf-tabs space-bgm-media-tabs">
+              {showcaseGroups.map((group) => (
                 <button
                   className={`space-shelf-tab ${group.id === activeSpaceShelf.id ? "space-shelf-tab--active" : ""}`}
                   key={group.id}
@@ -152,23 +1899,164 @@ export default function SpacePage({
                 </button>
               ))}
             </div>
-            <div className="space-shelf-grid">
-              {activeSpaceShelf.items.map((item, index) => (
-                <article className="space-shelf-item" key={item.id}>
-                  <div className="space-shelf-item__cover">
-                    <img alt={item.title} src={item.image} />
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                  </div>
-                  <div className="space-shelf-item__copy">
-                    <strong>{item.title}</strong>
-                    <p>{item.subtitle}</p>
-                    <small>{item.note}</small>
-                  </div>
-                </article>
+            {bangumiCollectionsError ? <p className="panel-error">{bangumiCollectionsError}</p> : null}
+            <div className="space-bgm-status-tabs">
+              {spaceCollectionStatusCounts.map((statusItem) => (
+                <button
+                  className={`space-bgm-status-tab ${
+                    spaceCollectionStatus === statusItem.id ? "space-bgm-status-tab--active" : ""
+                  }`}
+                  key={statusItem.id}
+                  type="button"
+                  onClick={() => setSpaceCollectionStatus(statusItem.id)}
+                >
+                  <span>{statusItem.label}</span>
+                  <strong>{statusItem.count}</strong>
+                </button>
               ))}
             </div>
+            <div className="space-bgm-collection-grid">
+              {pagedSpaceShelfItems.map((item, index) => {
+                const isEditorExpanded = Boolean(expandedShowcaseItemIDs[item.id]);
+                const startIndex = Math.max(showcasePager.page - 1, 0) * showcasePager.pageSize;
+                return (
+                  <article className="space-bgm-item" key={item.id}>
+                    <div className="space-bgm-item__cover">
+                      <img alt={item.title} src={item.image} />
+                      <span>{String(startIndex + index + 1).padStart(2, "0")}</span>
+                    </div>
+                    <div className="space-bgm-item__copy">
+                      <strong>{item.title}</strong>
+                      {item.originalTitle ? <p>{item.originalTitle}</p> : null}
+                      <div className="space-bgm-item__meta">
+                        <span>
+                          Bangumi: {item.score ? `★${item.score.toFixed(1)}` : "★--"}
+                          {typeof item.rank === "number" ? ` · Rank #${item.rank}` : ""}
+                        </span>
+                        <span>
+                          {item.releaseYear || "--"} · {toMediaTypeLabel(activeSpaceShelf.id)}
+                          {"episodes" in item && typeof item.episodes === "number" ? ` · ${item.episodes}话` : ""}
+                          {"pages" in item && typeof item.pages === "number" ? ` · ${item.pages}页` : ""}
+                          {"hours" in item && typeof item.hours === "string" && item.hours ? ` · ${item.hours}` : ""}
+                        </span>
+                        <span>我的状态：{toCollectionStatusLabel(item.collectionStatus)}</span>
+                        <span>我的评分：{typeof item.myScore === "number" ? `${item.myScore} / 10` : "--"}</span>
+                      </div>
+                      <small>{item.note}</small>
+                      {item.sourceURL ? (
+                        <a
+                          className="space-bgm-item__source-link"
+                          href={item.sourceURL}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          查看 Bangumi 原链接
+                        </a>
+                      ) : null}
+                      {item.myComment ? <p className="space-bgm-item__comment">短评：{item.myComment}</p> : null}
+                    </div>
+                    {canEditShowcase ? (
+                      <div className="space-bgm-item__toolbar">
+                        <button
+                          className="ghost-button space-bgm-item__toggle-button"
+                          type="button"
+                          onClick={() => handleShowcaseEditorToggle(item)}
+                        >
+                          {isEditorExpanded ? "收起操作" : "展开操作"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+              {!filteredSpaceShelfItems.length ? (
+                <p className="panel-empty">
+                  {canEditShowcase ? "这个分类下还没有同步条目，可先去 Bangumi 导入页提交任务。" : "这个用户在该分类还没有公开条目。"}
+                </p>
+              ) : null}
+            </div>
+            {canEditShowcase && expandedShowcaseItem && expandedShowcaseDraft ? (
+              <div className="space-bgm-item__editor space-bgm-item__editor-panel">
+                <p className="space-bgm-item__editor-title">正在编辑：{expandedShowcaseItem.title}</p>
+                <div className="space-bgm-item__editor-status">
+                  {SPACE_COLLECTION_STATUS_META.map((statusItem) => (
+                    <button
+                      className={`space-bgm-item__status-chip ${
+                        expandedShowcaseDraft.collectionStatus === statusItem.id ? "space-bgm-item__status-chip--active" : ""
+                      }`}
+                      key={`${expandedShowcaseItem.id}-${statusItem.id}`}
+                      type="button"
+                      onClick={() => handleShowcaseDraftStatusChange(expandedShowcaseItem, statusItem.id)}
+                    >
+                      {statusItem.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-bgm-item__editor-fields">
+                  <label className="space-bgm-item__editor-field">
+                    <span>评分</span>
+                    <select
+                      value={typeof expandedShowcaseDraft.myScore === "number" ? String(expandedShowcaseDraft.myScore) : ""}
+                      onChange={(event) => handleShowcaseDraftScoreChange(expandedShowcaseItem, event.target.value)}
+                    >
+                      <option value="">--</option>
+                      {Array.from({ length: 10 }, (_, value) => {
+                        const score = value + 1;
+                        return (
+                          <option key={`${expandedShowcaseItem.id}-score-${score}`} value={score}>
+                            {score}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                  <label className="space-bgm-item__editor-field space-bgm-item__editor-field--comment">
+                    <span>短评</span>
+                    <input
+                      type="text"
+                      value={expandedShowcaseDraft.myComment}
+                      onChange={(event) => handleShowcaseDraftCommentChange(expandedShowcaseItem, event.target.value)}
+                      placeholder="写一句短评（最多 200 字）"
+                      maxLength={200}
+                    />
+                  </label>
+                </div>
+                <div className="space-bgm-item__editor-actions">
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    onClick={() => handleShowcaseDraftReset(expandedShowcaseItem)}
+                    disabled={Boolean(expandedShowcaseActionState?.pending)}
+                  >
+                    重置
+                  </button>
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={() => void handleShowcaseDraftSave(expandedShowcaseItem)}
+                    disabled={Boolean(expandedShowcaseActionState?.pending)}
+                  >
+                    {expandedShowcaseActionState?.pending ? "保存中..." : "保存"}
+                  </button>
+                </div>
+                {expandedShowcaseActionState?.error ? <p className="panel-error">{expandedShowcaseActionState.error}</p> : null}
+                {expandedShowcaseActionState?.success ? <p className="panel-empty">{expandedShowcaseActionState.success}</p> : null}
+              </div>
+            ) : null}
+            <PaginationBar
+              pager={showcasePager}
+              onPageChange={(page) =>
+                setShowcasePager((current) => ({
+                  ...current,
+                  page,
+                }))
+              }
+              emptyText={canEditShowcase ? "暂无作品条目。" : "该用户暂无公开作品。"}
+            />
           </article>
+        </section>
 
+        <section style={{ display: spaceActivePage === "journal" ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -184,7 +2072,20 @@ export default function SpacePage({
             ) : !hasVerifiedSpaceAccess ? (
               <p className="panel-empty">当前账号还没有日志发布权限，需要通过认证后才能写日志。</p>
             ) : (
-              <form className="space-form" onSubmit={(event) => void onArticleSubmit(event)}>
+              <form className="space-form stories-editor" onSubmit={(event) => void onArticleSubmit(event)}>
+                <div className="stories-editor__toolbar">
+                  <div>
+                    <p className="panel-kicker">Space Editor</p>
+                    <h2>Markdown 日志编辑器</h2>
+                  </div>
+                  <div className="stories-editor__toolbar-actions">
+                    {articleActionState.success ? <span className="panel-empty">{articleActionState.success}</span> : null}
+                    <button className="primary-button" type="submit" disabled={articleActionState.pending}>
+                      {articleActionState.pending ? "发布中..." : "发布日志"}
+                    </button>
+                  </div>
+                </div>
+
                 <label>
                   <span>日志标题</span>
                   <input
@@ -196,53 +2097,66 @@ export default function SpacePage({
                     required
                   />
                 </label>
-                <label>
-                  <span>可见范围</span>
-                  <select name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
-                    <option value="public">公开</option>
-                    <option value="member">成员</option>
-                    <option value="private">仅自己可见</option>
-                  </select>
-                </label>
-                <label>
-                  <span>摘要</span>
-                  <input
-                    name="summary"
-                    type="text"
-                    value={articleForm.summary}
-                    onChange={onArticleFieldChange}
-                    placeholder="一句话概括日志内容"
-                  />
-                </label>
-                <label>
-                  <span>Markdown 正文</span>
-                  <textarea
-                    name="content"
-                    rows={8}
-                    value={articleForm.content}
-                    onChange={onArticleFieldChange}
-                    placeholder={"支持 Markdown\n例如：\n![](https://example.com/image.png)"}
-                    required
-                  />
-                </label>
-                <label>
-                  <span>标签</span>
-                  <input
-                    name="tagsText"
-                    type="text"
-                    value={articleForm.tagsText}
-                    onChange={onArticleFieldChange}
-                    placeholder="用逗号分隔，例如：日志，收藏，感想"
-                  />
-                </label>
+
+                <div className="stories-editor__meta-grid">
+                  <label>
+                    <span>可见范围</span>
+                    <select name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
+                      <option value="public">公开</option>
+                      <option value="member">成员</option>
+                      <option value="private">仅自己可见</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>摘要</span>
+                    <input
+                      name="summary"
+                      type="text"
+                      value={articleForm.summary}
+                      onChange={onArticleFieldChange}
+                      placeholder="一句话概括日志内容"
+                    />
+                  </label>
+                  <label>
+                    <span>标签</span>
+                    <input
+                      name="tagsText"
+                      type="text"
+                      value={articleForm.tagsText}
+                      onChange={onArticleFieldChange}
+                      placeholder="用逗号分隔，例如：日志，收藏，感想"
+                    />
+                  </label>
+                </div>
+
+                <div className="stories-editor__split">
+                  <section className="stories-editor__pane">
+                    <div className="stories-editor__pane-head">Markdown Source</div>
+                    <textarea
+                      name="content"
+                      rows={14}
+                      value={articleForm.content}
+                      onChange={onArticleFieldChange}
+                      placeholder={"支持 Markdown 与 LaTeX\n例如：\n![](https://example.com/image.png)\n行内 $E=mc^2$\n块级 $$\\int_0^1 x^2\\,dx$$"}
+                      required
+                    />
+                  </section>
+                  <section className="stories-editor__pane stories-editor__pane--preview">
+                    <div className="stories-editor__pane-head">Live Preview</div>
+                    <div className="stories-editor__preview">
+                      {articleForm.content.trim() ? (
+                        <RichContent content={articleForm.content} />
+                      ) : (
+                        <p className="panel-empty">预览区：输入 Markdown 后会实时显示。</p>
+                      )}
+                    </div>
+                  </section>
+                </div>
+
                 <p className="panel-empty">
                   当前后端还没有独立图片上传接口，所以日志里的图片先通过 Markdown 图片链接插入。
                 </p>
                 {articleActionState.error ? <p className="panel-error">{articleActionState.error}</p> : null}
-                {articleActionState.success ? <p className="panel-empty">{articleActionState.success}</p> : null}
-                <button className="primary-button" type="submit" disabled={articleActionState.pending}>
-                  {articleActionState.pending ? "发布中..." : "发布日志"}
-                </button>
               </form>
             )}
             <div className="space-log-list">
@@ -252,85 +2166,110 @@ export default function SpacePage({
               </div>
               <div className="stack-list">
                 {spaceLogEntries.length ? (
-                  spaceLogEntries.slice(0, 4).map((article) => (
-                    <button
-                      className="content-card thread-card-button"
-                      key={article.id}
-                      type="button"
-                      onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
-                    >
-                      <div className="content-card__header">
-                        <h3>{article.title}</h3>
-                        <StatusChip tone="accent">
-                          {normalizeVisibilityLabel(article.visibility)}
-                        </StatusChip>
-                      </div>
-                      <p>{excerpt(article.summary || article.content, 120)}</p>
-                    </button>
-                  ))
+                  spaceLogEntries.slice(0, 4).map((article, index) => {
+                    const previewImage = pickSpaceLogPreviewImage(article, index);
+                    return (
+                      <button
+                        className="content-card thread-card-button space-log-card"
+                        key={article.id}
+                        type="button"
+                        onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
+                      >
+                        <div className="space-log-card__copy">
+                          <div className="content-card__header">
+                            <h3>{article.title}</h3>
+                            <StatusChip tone="accent">
+                              {normalizeVisibilityLabel(article.visibility)}
+                            </StatusChip>
+                          </div>
+                          <p>{excerpt(article.summary || article.content, 120)}</p>
+                        </div>
+                        <div className="space-log-card__thumb" aria-hidden="true">
+                          <img alt="" loading="lazy" src={previewImage} />
+                        </div>
+                      </button>
+                    );
+                  })
                 ) : (
                   <p className="panel-empty">还没有匹配到这个空间的日志内容。</p>
                 )}
               </div>
             </div>
           </article>
-        </div>
+        </section>
 
-        <aside className="space-layout-grid__side">
-          <article className="panel">
-            <div className="panel-heading">
-              <div>
-                <p className="panel-kicker">身份联调</p>
-                <h2>登录与空间同步</h2>
-              </div>
-              <StatusChip tone={isAuthenticated ? "success" : "neutral"}>
-                {isAuthenticated ? "已连接" : "等待登录"}
-              </StatusChip>
-            </div>
-            {authPanel}
-          </article>
-
+        <section style={{ display: spaceActivePage === "bangumi" ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">Bangumi 导入</p>
-                <h2>作品同步</h2>
+                <h2>作品与帐号同步</h2>
               </div>
-              <StatusChip tone={hasVerifiedSpaceAccess ? "accent" : "warn"}>
-                {hasVerifiedSpaceAccess ? "POST /users/me/bangumi/import" : "需要已认证账号"}
+              <StatusChip tone={canUseBangumiImport ? "accent" : "warn"}>
+                {canUseBangumiImport ? "POST /users/me/bangumi/import" : "需要登录账号"}
               </StatusChip>
             </div>
-            {spaceAccessBlocked ? (
-              <p className="panel-error">
-                当前账号已登录，但后端返回 `verified user required`。未认证用户还不能打开个人空间能力。
-              </p>
-            ) : null}
             {!session ? (
-              <p className="panel-empty">登录后可按作品 ID 发起 Bangumi 导入任务。</p>
-            ) : !hasVerifiedSpaceAccess ? (
-              <p className="panel-empty">当前账号还没有导入权限，认证通过后才能调用该接口。</p>
+              <p className="panel-empty">登录后可按作品 ID 导入，或按 Bangumi 登录帐号批量同步收藏。</p>
+            ) : !canUseBangumiImport ? (
+              <p className="panel-empty">当前账号无法发起导入，请重新登录后重试。</p>
             ) : (
               <form className="space-form" onSubmit={(event) => void onBangumiImportSubmit(event)}>
                 <label>
-                  <span>作品 ID</span>
-                  <input
-                    name="subjectIdsText"
-                    type="text"
-                    value={bangumiForm.subjectIdsText}
-                    onChange={onBangumiFieldChange}
-                    placeholder="例如：12345, 67890"
-                  />
-                </label>
-                <label>
-                  <span>收藏状态</span>
-                  <select name="status" value={bangumiForm.status} onChange={onBangumiFieldChange}>
-                    <option value="wish">wish</option>
-                    <option value="doing">doing</option>
-                    <option value="collect">collect</option>
-                    <option value="on_hold">on_hold</option>
-                    <option value="dropped">dropped</option>
+                  <span>同步模式</span>
+                  <select name="sync_mode" value={bangumiForm.sync_mode} onChange={onBangumiFieldChange}>
+                    <option value="subject_ids">条目 ID 导入</option>
+                    <option value="account">登录帐号批量同步</option>
                   </select>
                 </label>
+                {bangumiForm.sync_mode === "account" ? (
+                  <label>
+                    <span>Bangumi 用户名</span>
+                    <input
+                      name="bangumi_username"
+                      type="text"
+                      value={bangumiForm.bangumi_username}
+                      onChange={onBangumiFieldChange}
+                      placeholder="例如：shiori_1"
+                    />
+                  </label>
+                ) : (
+                  <label>
+                    <span>作品 ID</span>
+                    <input
+                      name="subjectIdsText"
+                      type="text"
+                      value={bangumiForm.subjectIdsText}
+                      onChange={onBangumiFieldChange}
+                      placeholder="例如：12345, 67890"
+                    />
+                  </label>
+                )}
+                {bangumiForm.sync_mode === "account" ? (
+                  <label>
+                    <span>最大同步数</span>
+                    <input
+                      name="maxItemsText"
+                      type="number"
+                      min={1}
+                      max={240}
+                      value={bangumiForm.maxItemsText}
+                      onChange={onBangumiFieldChange}
+                      placeholder="120"
+                    />
+                  </label>
+                ) : (
+                  <label>
+                    <span>收藏状态</span>
+                    <select name="status" value={bangumiForm.status} onChange={onBangumiFieldChange}>
+                      <option value="wish">wish</option>
+                      <option value="doing">doing</option>
+                      <option value="collect">collect</option>
+                      <option value="on_hold">on_hold</option>
+                      <option value="dropped">dropped</option>
+                    </select>
+                  </label>
+                )}
                 <label>
                   <span>可见范围</span>
                   <select name="visibility" value={bangumiForm.visibility} onChange={onBangumiFieldChange}>
@@ -350,63 +2289,281 @@ export default function SpacePage({
                   </div>
                 ) : null}
                 <button className="primary-button" type="submit" disabled={bangumiActionState.pending}>
-                  {bangumiActionState.pending ? "提交中..." : "提交导入任务"}
+                  {bangumiActionState.pending
+                    ? "提交中..."
+                    : bangumiForm.sync_mode === "account"
+                      ? "提交帐号批量同步"
+                      : "提交导入任务"}
                 </button>
               </form>
             )}
+            {canUseBangumiImport ? (
+              <div className="space-job-list">
+                <div className="space-log-list__header">
+                  <strong>我的导入任务</strong>
+                  <span>{bangumiJobsPager.total} 条</span>
+                </div>
+                {bangumiJobsError ? <p className="panel-error">{bangumiJobsError}</p> : null}
+                <div className="stack-list">
+                  {bangumiJobs.map((job) => (
+                    <div className="content-card" key={job.job_id}>
+                      <div className="content-card__header">
+                        <h3>任务 #{job.job_id}</h3>
+                        <StatusChip
+                          tone={
+                            job.status === "succeeded"
+                              ? "success"
+                              : job.status === "failed" || job.status === "cancelled"
+                                ? "warn"
+                                : "accent"
+                          }
+                        >
+                          {job.status}
+                        </StatusChip>
+                      </div>
+                      <div className="meta-row">
+                        <span>{job.job_type || "collection_sync"}</span>
+                        {job.created_at ? <span>{job.created_at}</span> : null}
+                      </div>
+                      {job.request_payload ? (
+                        <p className="panel-empty">
+                          {String(job.request_payload.sync_mode || "subject_ids") === "account"
+                            ? `account: ${String(job.request_payload.bangumi_username || "")} / max_items: ${String(
+                                job.request_payload.max_items || "",
+                              )}`
+                            : `subject_ids: ${JSON.stringify(job.request_payload.subject_ids || [])}`}
+                        </p>
+                      ) : null}
+                      {job.error_message ? <p className="panel-error">{job.error_message}</p> : null}
+                    </div>
+                  ))}
+                  {!bangumiJobs.length ? <p className="panel-empty">当前还没有导入任务记录。</p> : null}
+                </div>
+                <PaginationBar
+                  pager={bangumiJobsPager}
+                  onPageChange={onBangumiJobsPageChange}
+                  emptyText="暂无导入任务。"
+                />
+              </div>
+            ) : null}
           </article>
+        </section>
 
+        <section style={{ display: spaceActivePage === "friends" ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">好友模块</p>
                 <h2>空间好友</h2>
               </div>
+              <StatusChip tone="accent">{spaceFriends.length} 位</StatusChip>
             </div>
+            <p className="panel-empty">
+              {session
+                ? "好友申请需要对方审核通过，审核前不会加入好友列表。"
+                : "游客模式仅本地维护好友列表；登录后可使用真实好友审核流程。"}
+            </p>
+            <form className="space-form space-friend-form" onSubmit={(event) => void handleSpaceFriendSubmit(event)}>
+              <div className="space-friend-form__row">
+                <label>
+                  <span>好友用户名</span>
+                  <input
+                    name="username"
+                    type="text"
+                    value={spaceFriendForm.username}
+                    onChange={handleSpaceFriendFieldChange}
+                    placeholder="例如：rubedo_room"
+                    required
+                  />
+                </label>
+                {!session ? (
+                  <label>
+                    <span>初始状态</span>
+                    <select name="status" value={spaceFriendForm.status} onChange={handleSpaceFriendFieldChange}>
+                      <option value="在线">在线</option>
+                      <option value="忙碌">忙碌</option>
+                      <option value="离线">离线</option>
+                    </select>
+                  </label>
+                ) : null}
+              </div>
+              <label>
+                <span>{session ? "申请备注" : "备注"}</span>
+                <input
+                  name="note"
+                  type="text"
+                  value={spaceFriendForm.note}
+                  onChange={handleSpaceFriendFieldChange}
+                  placeholder={session ? "可选：给对方留一句话" : "可选：给好友写一句介绍"}
+                />
+              </label>
+              {spaceFriendActionState.error ? <p className="panel-error">{spaceFriendActionState.error}</p> : null}
+              {spaceFriendActionState.success ? <p className="panel-empty">{spaceFriendActionState.success}</p> : null}
+              <div className="space-friend-form__actions">
+                <button className="primary-button" type="submit" disabled={spaceFriendActionState.pending}>
+                  {spaceFriendActionState.pending
+                    ? session ? "发送中..." : "添加中..."
+                    : session ? "发送好友申请" : "添加真实好友"}
+                </button>
+                <button className="ghost-button" type="button" onClick={handleResetSpaceFriends}>
+                  {session ? "刷新列表" : "恢复默认"}
+                </button>
+              </div>
+            </form>
+            {session ? (
+              <div className="space-friend-request-panels">
+                <div className="space-side-card">
+                  <div className="space-side-card__header">
+                    <strong>收到的好友申请</strong>
+                    <StatusChip tone="warn">{incomingFriendRequests.length} 条</StatusChip>
+                  </div>
+                  {incomingFriendRequests.length ? (
+                    <div className="space-side-list">
+                      {incomingFriendRequests.map((request) => (
+                        <div className="space-side-card" key={`incoming-${request.request_id}`}>
+                          <div className="space-side-card__header">
+                            <strong>@{request.requester_username}</strong>
+                            <StatusChip tone="accent">待审核</StatusChip>
+                          </div>
+                          <p>{request.message || "对方没有填写申请备注。"}</p>
+                          <div className="space-friend-card__meta">
+                            <span>{formatRequestTime(request.created_at)}</span>
+                          </div>
+                          <div className="space-friend-card__actions">
+                            <button
+                              className="primary-button"
+                              type="button"
+                              disabled={spaceFriendActionState.pending}
+                              onClick={() => void handleReviewIncomingFriendRequest(request, "approve")}
+                            >
+                              同意
+                            </button>
+                            <button
+                              className="ghost-button"
+                              type="button"
+                              disabled={spaceFriendActionState.pending}
+                              onClick={() => void handleReviewIncomingFriendRequest(request, "reject")}
+                            >
+                              拒绝
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="panel-empty">暂无待审核申请。</p>
+                  )}
+                </div>
+                <div className="space-side-card">
+                  <div className="space-side-card__header">
+                    <strong>我发出的申请</strong>
+                    <StatusChip tone="neutral">{outgoingFriendRequests.length} 条</StatusChip>
+                  </div>
+                  {outgoingFriendRequests.length ? (
+                    <div className="space-side-list">
+                      {outgoingFriendRequests.map((request) => (
+                        <div className="space-side-card" key={`outgoing-${request.request_id}`}>
+                          <div className="space-side-card__header">
+                            <strong>@{request.receiver_username}</strong>
+                            <StatusChip tone="neutral">等待审核</StatusChip>
+                          </div>
+                          <p>{request.message || "你没有填写申请备注。"}</p>
+                          <div className="space-friend-card__meta">
+                            <span>{formatRequestTime(request.created_at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="panel-empty">暂无发出的申请。</p>
+                  )}
+                </div>
+              </div>
+            ) : null}
             <div className="space-side-list">
-              {SPACE_FRIENDS.map((friend) => (
+              {spaceFriends.map((friend) => (
                 <div className="space-side-card" key={friend.id}>
                   <div className="space-side-card__header">
                     <strong>{friend.name}</strong>
-                    <StatusChip
-                      tone={
-                        friend.status === "在线"
-                          ? "success"
-                          : friend.status === "忙碌"
-                            ? "accent"
-                            : "neutral"
-                      }
-                    >
-                      {friend.status}
-                    </StatusChip>
+                    <StatusChip tone={getSpaceFriendTone(friend.status)}>{friend.status}</StatusChip>
                   </div>
                   <p>{friend.note}</p>
+                  <div className="space-friend-card__meta">
+                    <span>@{friend.username}</span>
+                    <StatusChip tone={friend.isReal ? "success" : "neutral"}>
+                      {friend.isReal ? "真实账号" : "本地好友"}
+                    </StatusChip>
+                  </div>
+                  <div className="space-friend-card__actions">
+                    {!session ? (
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => handleRotateSpaceFriendStatus(friend.id)}
+                      >
+                        切换状态
+                      </button>
+                    ) : null}
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => void handleViewSpaceFriendProfile(friend)}
+                      disabled={spaceFriendActionState.pending}
+                    >
+                      查看主页
+                    </button>
+                    {!session ? (
+                      <button className="ghost-button" type="button" onClick={() => handleRemoveSpaceFriend(friend.id)}>
+                        移除好友
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
+              {spaceFriendsLoading ? <p className="panel-empty">好友关系同步中...</p> : null}
+              {!spaceFriendsLoading && !spaceFriends.length ? (
+                <p className="panel-empty">好友列表为空，先添加一个真实好友吧。</p>
+              ) : null}
             </div>
           </article>
+        </section>
 
+        <section style={{ display: spaceActivePage === "capsules" ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">时间胶囊</p>
-                <h2>记忆模块</h2>
+                <h2>用户行为记录</h2>
               </div>
             </div>
-            <div className="space-side-list">
-              {SPACE_TIME_CAPSULES.map((capsule) => (
-                <div className="space-side-card" key={capsule.id}>
-                  <div className="space-side-card__header">
+            <div className="space-capsule-list">
+              {spaceCapsules.map((capsule) => (
+                <article className="space-capsule-card" key={capsule.id}>
+                  <div className="space-capsule-card__bar" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <div className="space-capsule-card__header">
                     <strong>{capsule.title}</strong>
                     <span>{capsule.time}</span>
                   </div>
-                  <p>{capsule.body}</p>
-                </div>
+                  <p className="space-capsule-card__command">
+                    <span className="space-capsule-card__prompt">{terminalSpaceID}@redgal:~$</span> {capsule.command}
+                  </p>
+                  <p className="space-capsule-card__record">{capsule.record}</p>
+                  <p className="space-capsule-card__detail">{capsule.body}</p>
+                </article>
               ))}
+              {!spaceCapsules.length ? (
+                <p className="panel-empty">
+                  还没有行为记录。先发布日志或发起一次 Bangumi 导入，时间胶囊会自动生成。
+                </p>
+              ) : null}
             </div>
           </article>
-        </aside>
-      </section>
-    </>
+        </section>
+      </div>
+    </section>
   );
 }
