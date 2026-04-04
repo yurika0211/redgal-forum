@@ -3,6 +3,7 @@ package article
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"example.com/rubedo/backend/internal/http/response"
 	"example.com/rubedo/backend/internal/pagination"
@@ -20,7 +21,12 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	articles, err := h.service.List(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
+	articles, err := h.service.List(
+		c.Request.Context(),
+		security.FromContext(c),
+		pagination.FromGin(c),
+		strings.TrimSpace(c.Query("q")),
+	)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return

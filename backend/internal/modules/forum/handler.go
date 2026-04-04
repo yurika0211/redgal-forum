@@ -3,6 +3,7 @@ package forum
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"example.com/rubedo/backend/internal/http/response"
 	"example.com/rubedo/backend/internal/pagination"
@@ -20,7 +21,11 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) ListThreads(c *gin.Context) {
-	threads, err := h.service.ListThreads(c.Request.Context(), pagination.FromGin(c))
+	threads, err := h.service.ListThreads(
+		c.Request.Context(),
+		pagination.FromGin(c),
+		strings.TrimSpace(c.Query("q")),
+	)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -30,7 +35,11 @@ func (h *Handler) ListThreads(c *gin.Context) {
 }
 
 func (h *Handler) ListAnonymousThreads(c *gin.Context) {
-	threads, err := h.service.ListAnonymousThreads(c.Request.Context(), pagination.FromGin(c))
+	threads, err := h.service.ListAnonymousThreads(
+		c.Request.Context(),
+		pagination.FromGin(c),
+		strings.TrimSpace(c.Query("q")),
+	)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -85,6 +94,10 @@ func (h *Handler) CreateThread(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	if input.Anonymous {
+		response.Error(c, http.StatusBadRequest, "论坛版块已关闭匿名发帖，请使用实名发帖。")
+		return
+	}
 
 	thread, err := h.service.CreateThread(c.Request.Context(), security.FromContext(c), input)
 	if err != nil {
@@ -125,6 +138,10 @@ func (h *Handler) CreateReply(c *gin.Context) {
 	var input CreateReplyRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if input.Anonymous {
+		response.Error(c, http.StatusBadRequest, "论坛版块已关闭匿名回复，请使用实名回复。")
 		return
 	}
 

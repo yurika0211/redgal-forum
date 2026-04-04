@@ -1,5 +1,7 @@
 package article
 
+import "time"
+
 type Visibility string
 
 const (
@@ -9,13 +11,17 @@ const (
 )
 
 type Article struct {
-	ID         string     `json:"id"`
-	Title      string     `json:"title"`
-	Summary    string     `json:"summary"`
-	Content    string     `json:"content"`
-	Visibility Visibility `json:"visibility"`
-	Author     string     `json:"author"`
-	Tags       []string   `json:"tags"`
+	ID           string     `json:"id"`
+	Title        string     `json:"title"`
+	Summary      string     `json:"summary"`
+	Content      string     `json:"content"`
+	Visibility   Visibility `json:"visibility"`
+	Author       string     `json:"author"`
+	Tags         []string   `json:"tags"`
+	CommentCount int        `json:"comment_count"`
+	LikeCount    int        `json:"like_count"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type CreateArticleRequest struct {

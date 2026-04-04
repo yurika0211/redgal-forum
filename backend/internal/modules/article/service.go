@@ -15,8 +15,13 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) List(ctx context.Context, viewer security.Principal, params pagination.Params) (pagination.Result[Article], error) {
-	return s.repo.ListArticles(ctx, viewer, params)
+func (s *Service) List(
+	ctx context.Context,
+	viewer security.Principal,
+	params pagination.Params,
+	query string,
+) (pagination.Result[Article], error) {
+	return s.repo.ListArticles(ctx, viewer, params, query)
 }
 
 func (s *Service) Get(ctx context.Context, viewer security.Principal, articleID string) (Article, error) {

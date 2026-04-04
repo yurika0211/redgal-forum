@@ -16,7 +16,7 @@ import (
 )
 
 type Repository interface {
-	ListArticles(ctx context.Context, viewer security.Principal, params pagination.Params) (pagination.Result[Article], error)
+	ListArticles(ctx context.Context, viewer security.Principal, params pagination.Params, query string) (pagination.Result[Article], error)
 	GetArticle(ctx context.Context, viewer security.Principal, articleID string) (Article, error)
 	CreateArticle(ctx context.Context, principal security.Principal, input CreateArticleRequest) (Article, error)
 	UpdateArticle(ctx context.Context, principal security.Principal, articleID string, input UpdateArticleRequest) (Article, error)
@@ -31,10 +31,17 @@ func NewRepository(platform *platform.Platform) Repository {
 	return &repository{platform: platform}
 }
 
-func (r *repository) ListArticles(ctx context.Context, viewer security.Principal, params pagination.Params) (pagination.Result[Article], error) {
+func (r *repository) ListArticles(
+	ctx context.Context,
+	viewer security.Principal,
+	params pagination.Params,
+	query string,
+) (pagination.Result[Article], error) {
 	if !r.hasDatabase() {
 		return pagination.Result[Article]{}, fmt.Errorf("postgres unavailable for article listing")
 	}
+
+	searchPattern := searchLikePattern(query)
 
 	var total int
 	if err := r.platform.Postgres.QueryRowContext(
@@ -48,9 +55,25 @@ func (r *repository) ListArticles(ctx context.Context, viewer security.Principal
 		     a.visibility = 'public'
 		     or ($1 and a.visibility = 'members')
 		     or ($2 <> '' and lower(u.username) = lower($2))
+		   )
+		   and (
+		     $3 = ''
+		     or lower(a.title) like lower($3)
+		     or lower(coalesce(a.summary, '')) like lower($3)
+		     or lower(a.content_md) like lower($3)
+		     or lower(coalesce(nullif(u.nickname, ''), '')) like lower($3)
+		     or lower(u.username) like lower($3)
+		     or exists (
+		         select 1
+		         from article_tag_relations atr
+		         join article_tags t on t.id = atr.tag_id
+		         where atr.article_id = a.id
+		           and lower(t.name) like lower($3)
+		     )
 		   )`,
 		viewer.Authenticated(),
 		viewer.Username,
+		searchPattern,
 	).Scan(&total); err != nil {
 		return pagination.Result[Article]{}, err
 	}
@@ -64,6 +87,16 @@ func (r *repository) ListArticles(ctx context.Context, viewer security.Principal
 			a.content_md,
 			a.visibility::text,
 			coalesce(nullif(u.nickname, ''), u.username) as author_name,
+			a.created_at,
+			a.updated_at,
+			coalesce((
+				select count(*)::int
+				from article_comments ac
+				where ac.article_id = a.id
+				  and ac.deleted_at is null
+				  and ac.status = 'visible'
+			), 0) as comment_count,
+			0::int as like_count,
 			coalesce(string_agg(distinct t.name, E'\n') filter (where t.name is not null), '') as tags
 		from articles a
 		join users u on u.id = a.author_id
@@ -76,11 +109,27 @@ func (r *repository) ListArticles(ctx context.Context, viewer security.Principal
 		    or ($1 and a.visibility = 'members')
 		    or ($2 <> '' and lower(u.username) = lower($2))
 		  )
+		  and (
+		    $3 = ''
+		    or lower(a.title) like lower($3)
+		    or lower(coalesce(a.summary, '')) like lower($3)
+		    or lower(a.content_md) like lower($3)
+		    or lower(coalesce(nullif(u.nickname, ''), '')) like lower($3)
+		    or lower(u.username) like lower($3)
+		    or exists (
+		        select 1
+		        from article_tag_relations atr2
+		        join article_tags t2 on t2.id = atr2.tag_id
+		        where atr2.article_id = a.id
+		          and lower(t2.name) like lower($3)
+		    )
+		  )
 		group by a.id, u.nickname, u.username
 		order by coalesce(a.published_at, a.created_at) desc, a.id desc
-		limit $3 offset $4`,
+		limit $4 offset $5`,
 		viewer.Authenticated(),
 		viewer.Username,
+		searchPattern,
 		params.PageSize,
 		params.Offset(),
 	)
@@ -120,6 +169,16 @@ func (r *repository) GetArticle(ctx context.Context, viewer security.Principal, 
 			a.content_md,
 			a.visibility::text,
 			coalesce(nullif(u.nickname, ''), u.username) as author_name,
+			a.created_at,
+			a.updated_at,
+			coalesce((
+				select count(*)::int
+				from article_comments ac
+				where ac.article_id = a.id
+				  and ac.deleted_at is null
+				  and ac.status = 'visible'
+			), 0) as comment_count,
+			0::int as like_count,
 			coalesce(string_agg(distinct t.name, E'\n') filter (where t.name is not null), '') as tags
 		from articles a
 		join users u on u.id = a.author_id
@@ -326,27 +385,47 @@ type articleScanner interface {
 
 func scanArticleRow(scanner articleScanner) (Article, error) {
 	var (
-		id         int64
-		title      string
-		summary    string
-		content    string
-		visibility string
-		author     string
-		tagsRaw    string
+		id           int64
+		title        string
+		summary      string
+		content      string
+		visibility   string
+		author       string
+		createdAt    time.Time
+		updatedAt    time.Time
+		commentCount int
+		likeCount    int
+		tagsRaw      string
 	)
 
-	if err := scanner.Scan(&id, &title, &summary, &content, &visibility, &author, &tagsRaw); err != nil {
+	if err := scanner.Scan(
+		&id,
+		&title,
+		&summary,
+		&content,
+		&visibility,
+		&author,
+		&createdAt,
+		&updatedAt,
+		&commentCount,
+		&likeCount,
+		&tagsRaw,
+	); err != nil {
 		return Article{}, err
 	}
 
 	return Article{
-		ID:         strconv.FormatInt(id, 10),
-		Title:      title,
-		Summary:    summary,
-		Content:    content,
-		Visibility: fromDBVisibility(visibility),
-		Author:     author,
-		Tags:       splitAggregatedText(tagsRaw),
+		ID:           strconv.FormatInt(id, 10),
+		Title:        title,
+		Summary:      summary,
+		Content:      content,
+		Visibility:   fromDBVisibility(visibility),
+		Author:       author,
+		Tags:         splitAggregatedText(tagsRaw),
+		CommentCount: commentCount,
+		LikeCount:    likeCount,
+		CreatedAt:    createdAt,
+		UpdatedAt:    updatedAt,
 	}, nil
 }
 
@@ -368,6 +447,15 @@ func splitAggregatedText(raw string) []string {
 	}
 
 	return result
+}
+
+func searchLikePattern(query string) string {
+	normalized := strings.TrimSpace(query)
+	if normalized == "" {
+		return ""
+	}
+
+	return "%" + normalized + "%"
 }
 
 func ensureArticleSlug(ctx context.Context, tx *sql.Tx, title string) (string, error) {
@@ -483,25 +571,33 @@ func fromDBVisibility(value string) Visibility {
 func scaffoldArticles(viewer security.Principal) []Article {
 	articles := []Article{
 		{
-			ID:         "article-001",
-			Title:      "公开区示例感想",
-			Summary:    "公开可见文章占位数据",
-			Content:    "This is a scaffolded public article.",
-			Visibility: VisibilityPublic,
-			Author:     "rubedo-member",
-			Tags:       []string{"galgame", "public"},
+			ID:           "article-001",
+			Title:        "公开区示例感想",
+			Summary:      "公开可见文章占位数据",
+			Content:      "This is a scaffolded public article.",
+			Visibility:   VisibilityPublic,
+			Author:       "rubedo-member",
+			Tags:         []string{"galgame", "public"},
+			CommentCount: 0,
+			LikeCount:    0,
+			CreatedAt:    time.Now().Add(-4 * time.Hour),
+			UpdatedAt:    time.Now().Add(-2 * time.Hour),
 		},
 	}
 
 	if viewer.Authenticated() {
 		articles = append(articles, Article{
-			ID:         "article-002",
-			Title:      "登录可见示例感想",
-			Summary:    "成员可见文章占位数据",
-			Content:    "This is a scaffolded members-only article.",
-			Visibility: VisibilityMember,
-			Author:     "rubedo-member",
-			Tags:       []string{"member"},
+			ID:           "article-002",
+			Title:        "登录可见示例感想",
+			Summary:      "成员可见文章占位数据",
+			Content:      "This is a scaffolded members-only article.",
+			Visibility:   VisibilityMember,
+			Author:       "rubedo-member",
+			Tags:         []string{"member"},
+			CommentCount: 0,
+			LikeCount:    0,
+			CreatedAt:    time.Now().Add(-3 * time.Hour),
+			UpdatedAt:    time.Now().Add(-90 * time.Minute),
 		})
 	}
 
@@ -510,12 +606,16 @@ func scaffoldArticles(viewer security.Principal) []Article {
 
 func scaffoldArticleDetail(articleID string) Article {
 	return Article{
-		ID:         articleID,
-		Title:      "Scaffolded article detail",
-		Summary:    "Reserved for public/member/private visibility logic.",
-		Content:    "Full article content will be backed by PostgreSQL later.",
-		Visibility: VisibilityPublic,
-		Author:     "rubedo-member",
-		Tags:       []string{"scaffold"},
+		ID:           articleID,
+		Title:        "Scaffolded article detail",
+		Summary:      "Reserved for public/member/private visibility logic.",
+		Content:      "Full article content will be backed by PostgreSQL later.",
+		Visibility:   VisibilityPublic,
+		Author:       "rubedo-member",
+		Tags:         []string{"scaffold"},
+		CommentCount: 0,
+		LikeCount:    0,
+		CreatedAt:    time.Now().Add(-6 * time.Hour),
+		UpdatedAt:    time.Now().Add(-2 * time.Hour),
 	}
 }

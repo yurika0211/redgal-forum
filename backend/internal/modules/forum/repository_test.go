@@ -29,7 +29,7 @@ func TestTripcodeDisplayIsStableAndMasked(t *testing.T) {
 func TestListAnonymousThreadsFallsBackToScaffoldData(t *testing.T) {
 	repo := NewRepository(nil)
 
-	result, err := repo.ListAnonymousThreads(context.Background(), pagination.Params{Page: 1, PageSize: 20})
+	result, err := repo.ListAnonymousThreads(context.Background(), pagination.Params{Page: 1, PageSize: 20}, "")
 	if err != nil {
 		t.Fatalf("expected scaffold anonymous thread listing to succeed, got %v", err)
 	}

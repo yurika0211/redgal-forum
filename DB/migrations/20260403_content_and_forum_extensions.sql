@@ -8,6 +8,7 @@ begin
             'portal_page',
             'portal_highlight',
             'portal_pillar',
+            'portal_notice',
             'portal_activity',
             'portal_join_step'
         );
@@ -360,6 +361,7 @@ insert into site_content_blocks (
     ('portal_pillar', 'reading', null, null, null, '作品赏析', '围绕 Galgame、AVG 和相关叙事作品做主题讨论、慢热作品导读与角色分析。', null, 10),
     ('portal_pillar', 'co-create', null, null, null, '内容共创', '支持成员写短札、做展板、整理专题页，把零散灵感做成能被看见的社团成果。', null, 20),
     ('portal_pillar', 'showcase', null, null, null, '活动陈列', '把相册、拍立得、旧纸、时间轴和留声机这类展示方式融入社团活动发布与归档。', null, 30),
+    ('portal_notice', 'welcome-announcement', null, '公告', '置顶', '站点公告与活动提醒开始接入后台发布', '管理员可在管理界面直接发布公告，前台会按公告流展示。', '后续会继续补充置顶、定时与归档规则。', 10),
     ('portal_activity', 'night-reading', null, null, '每周', '夜读与共赏会', '围绕某一部作品的章节、路线或主题做小范围共读，再把讨论整理成社团札记。', null, 10),
     ('portal_activity', 'workshop', null, null, '专题', '剧情拆解工作坊', '从开场、冲突、转折和结尾几条线去拆一部作品，看它如何建立情绪和节奏。', null, 20),
     ('portal_activity', 'gallery-show', null, null, '展示', '展墙与图像策展', '把截图、封面、短句、场景构图和音乐卡片排成一面真正有叙述感的展示墙。', null, 30),

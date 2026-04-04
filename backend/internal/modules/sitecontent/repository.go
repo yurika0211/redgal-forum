@@ -43,6 +43,7 @@ func (r *repository) GetContent(ctx context.Context) (SiteContent, error) {
 		ContentBlockPortalPage:      &content.PortalPages,
 		ContentBlockPortalHighlight: &content.PortalHighlights,
 		ContentBlockPortalPillar:    &content.PortalPillars,
+		ContentBlockPortalNotice:    &content.PortalNotices,
 		ContentBlockPortalActivity:  &content.PortalActivities,
 		ContentBlockPortalJoinStep:  &content.PortalJoinSteps,
 	}

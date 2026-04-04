@@ -68,14 +68,25 @@ func registerAuthRoutes(api *gin.RouterGroup, deps Dependencies) {
 
 func registerUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group := api.Group("/users")
+	group.GET("/:username/bangumi/collections", deps.UserHandler.ListUserBangumiCollections)
 	group.GET("/:username", deps.UserHandler.GetProfile)
 
-	member := group.Group("")
-	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser())
-	member.GET("/me", deps.UserHandler.GetMe)
-	member.PATCH("/me", deps.UserHandler.UpdateMe)
-	member.POST("/me/bangumi/import", deps.UserHandler.ImportBangumi)
-	member.GET("/me/bangumi/jobs", deps.UserHandler.ListMyBangumiImportJobs)
+	verified := group.Group("")
+	verified.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser())
+	verified.GET("/me", deps.UserHandler.GetMe)
+	verified.PATCH("/me", deps.UserHandler.UpdateMe)
+
+	authenticated := group.Group("")
+	authenticated.Use(middleware.RequireAuthenticated())
+	authenticated.GET("/me/friends", deps.UserHandler.ListFriends)
+	authenticated.GET("/me/friend-requests/incoming", deps.UserHandler.ListIncomingFriendRequests)
+	authenticated.GET("/me/friend-requests/outgoing", deps.UserHandler.ListOutgoingFriendRequests)
+	authenticated.POST("/me/friend-requests", deps.UserHandler.CreateFriendRequest)
+	authenticated.POST("/me/friend-requests/:requestID/review", deps.UserHandler.ReviewFriendRequest)
+	authenticated.POST("/me/bangumi/import", deps.UserHandler.ImportBangumi)
+	authenticated.GET("/me/bangumi/jobs", deps.UserHandler.ListMyBangumiImportJobs)
+	authenticated.GET("/me/bangumi/collections", deps.UserHandler.ListMyBangumiCollections)
+	authenticated.PATCH("/me/bangumi/collections/:collectionID", deps.UserHandler.UpdateMyBangumiCollection)
 }
 
 func registerAdminUserRoutes(api *gin.RouterGroup, deps Dependencies) {
@@ -84,8 +95,8 @@ func registerAdminUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 	admin.GET("/dashboard", deps.UserHandler.GetAdminDashboard)
 	admin.GET("/users", deps.UserHandler.ListAdminUsers)
 	admin.GET("/bangumi/jobs", deps.UserHandler.ListBangumiImportJobs)
-	admin.PATCH("/bangumi/jobs/:jobID/status", deps.UserHandler.UpdateBangumiImportJobStatus)
 	admin.PATCH("/users/:userID/status", deps.UserHandler.UpdateUserStatus)
+	admin.POST("/users/:userID/moderation", deps.UserHandler.ModerateUser)
 	admin.POST("/users/:userID/verification/reviews", deps.UserHandler.ReviewVerification)
 
 	superAdmin := api.Group("/super-admin")

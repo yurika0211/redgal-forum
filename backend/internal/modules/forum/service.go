@@ -15,12 +15,20 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) ListThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error) {
-	return s.repo.ListThreads(ctx, params)
+func (s *Service) ListThreads(
+	ctx context.Context,
+	params pagination.Params,
+	query string,
+) (pagination.Result[Thread], error) {
+	return s.repo.ListThreads(ctx, params, query)
 }
 
-func (s *Service) ListAnonymousThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error) {
-	return s.repo.ListAnonymousThreads(ctx, params)
+func (s *Service) ListAnonymousThreads(
+	ctx context.Context,
+	params pagination.Params,
+	query string,
+) (pagination.Result[Thread], error) {
+	return s.repo.ListAnonymousThreads(ctx, params, query)
 }
 
 func (s *Service) GetThread(ctx context.Context, threadID string) (ThreadDetail, error) {

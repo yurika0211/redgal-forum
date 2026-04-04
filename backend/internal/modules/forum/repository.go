@@ -29,8 +29,8 @@ const (
 )
 
 type Repository interface {
-	ListThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error)
-	ListAnonymousThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error)
+	ListThreads(ctx context.Context, params pagination.Params, query string) (pagination.Result[Thread], error)
+	ListAnonymousThreads(ctx context.Context, params pagination.Params, query string) (pagination.Result[Thread], error)
 	GetThread(ctx context.Context, threadID string) (ThreadDetail, error)
 	GetAnonymousThread(ctx context.Context, threadID string) (ThreadDetail, error)
 	GetProgress(ctx context.Context, principal security.Principal) (Progress, error)
@@ -51,33 +51,65 @@ func NewRepository(platform *platform.Platform) Repository {
 	return &repository{platform: platform}
 }
 
-func (r *repository) ListThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error) {
+func (r *repository) ListThreads(
+	ctx context.Context,
+	params pagination.Params,
+	query string,
+) (pagination.Result[Thread], error) {
 	if !r.hasDatabase() {
 		return pagination.Result[Thread]{}, fmt.Errorf("postgres unavailable for forum thread listing")
 	}
 
-	return r.listThreadsByMode(ctx, params, "normal")
+	return r.listThreadsByMode(ctx, params, "normal", query)
 }
 
-func (r *repository) ListAnonymousThreads(ctx context.Context, params pagination.Params) (pagination.Result[Thread], error) {
+func (r *repository) ListAnonymousThreads(
+	ctx context.Context,
+	params pagination.Params,
+	query string,
+) (pagination.Result[Thread], error) {
 	if !r.hasDatabase() {
 		return pagination.NewResult(scaffoldAnonymousThreads(), len(scaffoldAnonymousThreads()), params), nil
 	}
 
-	return r.listThreadsByMode(ctx, params, "anonymous")
+	return r.listThreadsByMode(ctx, params, "anonymous", query)
 }
 
-func (r *repository) listThreadsByMode(ctx context.Context, params pagination.Params, mode string) (pagination.Result[Thread], error) {
+func (r *repository) listThreadsByMode(
+	ctx context.Context,
+	params pagination.Params,
+	mode string,
+	query string,
+) (pagination.Result[Thread], error) {
+	searchPattern := searchLikePattern(query)
+
 	var total int
 	if err := r.platform.Postgres.QueryRowContext(
 		ctx,
 		`select count(*)::int
 		 from forum_threads ft
 		 join forum_boards fb on fb.id = ft.board_id
+		 join users u on u.id = ft.author_id
 		 where ft.deleted_at is null
 		   and ft.status in ('active', 'locked')
-		   and fb.board_mode = $1`,
+		   and fb.board_mode = $1
+		   and (
+		     $2 = ''
+		     or lower(ft.title) like lower($2)
+		     or lower(ft.content_md) like lower($2)
+		     or lower(fb.name) like lower($2)
+		     or lower(coalesce(nullif(u.nickname, ''), '')) like lower($2)
+		     or lower(u.username) like lower($2)
+		     or exists (
+		         select 1
+		         from forum_thread_tag_relations fttr
+		         join forum_tags tg on tg.id = fttr.tag_id
+		         where fttr.thread_id = ft.id
+		           and lower(tg.name) like lower($2)
+		     )
+		   )`,
 		mode,
+		searchPattern,
 	).Scan(&total); err != nil {
 		return pagination.Result[Thread]{}, err
 	}
@@ -96,10 +128,10 @@ func (r *repository) listThreadsByMode(ctx context.Context, params pagination.Pa
 				when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
 				else coalesce(nullif(u.nickname, ''), u.username)
 			end as author_name,
-			case
-				when fb.board_mode = 'anonymous' then '◆' || substr(md5($3 || ':' || lower(u.username)), 1, 10)
-				else ''
-			end as tripcode,
+				case
+					when fb.board_mode = 'anonymous' then '◆' || substr(md5($4 || ':' || lower(u.username)), 1, 10)
+					else ''
+				end as tripcode,
 			ft.reply_count,
 			coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
 			ft.view_count,
@@ -115,10 +147,26 @@ func (r *repository) listThreadsByMode(ctx context.Context, params pagination.Pa
 		where ft.deleted_at is null
 		  and ft.status in ('active', 'locked')
 		  and fb.board_mode = $1
+		  and (
+		    $2 = ''
+		    or lower(ft.title) like lower($2)
+		    or lower(ft.content_md) like lower($2)
+		    or lower(fb.name) like lower($2)
+		    or lower(coalesce(nullif(u.nickname, ''), '')) like lower($2)
+		    or lower(u.username) like lower($2)
+		    or exists (
+		        select 1
+		        from forum_thread_tag_relations fttr2
+		        join forum_tags tg2 on tg2.id = fttr2.tag_id
+		        where fttr2.thread_id = ft.id
+		          and lower(tg2.name) like lower($2)
+		    )
+		  )
 		group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username
 		order by ft.is_pinned desc, ft.last_post_at desc, ft.id desc
-		limit $2 offset $4`,
+		limit $3 offset $5`,
 		mode,
+		searchPattern,
 		params.PageSize,
 		anonymousTripcodeSecret,
 		params.Offset(),
@@ -1067,6 +1115,15 @@ func splitAggregatedTags(raw string) []string {
 	}
 
 	return result
+}
+
+func searchLikePattern(query string) string {
+	normalized := strings.TrimSpace(query)
+	if normalized == "" {
+		return ""
+	}
+
+	return "%" + normalized + "%"
 }
 
 func parseThreadIdentifier(value string) (int64, error) {

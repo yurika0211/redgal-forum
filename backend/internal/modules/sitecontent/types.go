@@ -7,6 +7,7 @@ const (
 	ContentBlockPortalPage      ContentBlockType = "portal_page"
 	ContentBlockPortalHighlight ContentBlockType = "portal_highlight"
 	ContentBlockPortalPillar    ContentBlockType = "portal_pillar"
+	ContentBlockPortalNotice    ContentBlockType = "portal_notice"
 	ContentBlockPortalActivity  ContentBlockType = "portal_activity"
 	ContentBlockPortalJoinStep  ContentBlockType = "portal_join_step"
 )
@@ -52,6 +53,7 @@ type SiteContent struct {
 	PortalPages      []ContentBlock `json:"portal_pages"`
 	PortalHighlights []ContentBlock `json:"portal_highlights"`
 	PortalPillars    []ContentBlock `json:"portal_pillars"`
+	PortalNotices    []ContentBlock `json:"portal_notices"`
 	PortalActivities []ContentBlock `json:"portal_activities"`
 	PortalJoinSteps  []ContentBlock `json:"portal_join_steps"`
 	GalleryEntries   []GalleryEntry `json:"gallery_entries"`
