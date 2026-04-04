@@ -28,7 +28,7 @@
 | 未认证用户 | 7 | `demo_unverified` | `RubedoUnverified#2026` | `demo.unverified@rubedo.local` | `RG2026U001` | `pending_verification` | `unverified_user` |
 | 认证普通用户 | 8 | `demo_member` | `RubedoMember#2026` | `demo.member@rubedo.local` | `RG2026M001` | `active` | `member` |
 | 版主 | 13 | `demo_moderator` | `RubedoModerator#2026` | `demo.moderator@rubedo.local` | `RG2026R001` | `active` | `member, moderator` |
-| 管理员 | 9 | `demo_admin` | `RubedoAdmin#2026` | `demo.admin@rubedo.local` | `RG2026A001` | `active` | `member, admin` |
+  | 管理员 | 9 | `demo_admin` | `RubedoAdmin#2026` | `demo.admin@rubedo.local` | `RG2026A001` | `active` | `member, admin` |
 | 超级管理员 | 10 | `demo_super_admin` | `RubedoSuperAdmin#2026` | `demo.superadmin@rubedo.local` | `RG2026S001` | `active` | `member, super_admin` |
 
 ## 额外校验
