@@ -75,6 +75,7 @@ func registerUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 	member.GET("/me", deps.UserHandler.GetMe)
 	member.PATCH("/me", deps.UserHandler.UpdateMe)
 	member.POST("/me/bangumi/import", deps.UserHandler.ImportBangumi)
+	member.GET("/me/bangumi/jobs", deps.UserHandler.ListMyBangumiImportJobs)
 }
 
 func registerAdminUserRoutes(api *gin.RouterGroup, deps Dependencies) {
@@ -82,6 +83,8 @@ func registerAdminUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
 	admin.GET("/dashboard", deps.UserHandler.GetAdminDashboard)
 	admin.GET("/users", deps.UserHandler.ListAdminUsers)
+	admin.GET("/bangumi/jobs", deps.UserHandler.ListBangumiImportJobs)
+	admin.PATCH("/bangumi/jobs/:jobID/status", deps.UserHandler.UpdateBangumiImportJobStatus)
 	admin.PATCH("/users/:userID/status", deps.UserHandler.UpdateUserStatus)
 	admin.POST("/users/:userID/verification/reviews", deps.UserHandler.ReviewVerification)
 
@@ -182,6 +185,7 @@ func registerWallRoutes(api *gin.RouterGroup, deps Dependencies) {
 		middleware.RequireAuthenticated(),
 		middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin),
 	)
+	moderation.GET("/submissions", deps.WallHandler.ListSubmissions)
 	moderation.POST("/submissions/:submissionID/review", deps.WallHandler.ReviewSubmission)
 }
 

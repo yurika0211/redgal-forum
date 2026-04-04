@@ -16,6 +16,7 @@ import (
 
 type Repository interface {
 	ListEntries(ctx context.Context, params pagination.Params) (pagination.Result[WallEntry], error)
+	ListSubmissions(ctx context.Context, params pagination.Params) (pagination.Result[WallEntry], error)
 	CreateSubmission(ctx context.Context, principal security.Principal, input CreateSubmissionRequest) (WallEntry, error)
 	ReviewSubmission(ctx context.Context, principal security.Principal, submissionID string, input ReviewSubmissionRequest) (ReviewResult, error)
 }
@@ -53,7 +54,9 @@ func (r *repository) ListEntries(ctx context.Context, params pagination.Params) 
 			coalesce(we.content_md, ''),
 			coalesce(string_agg(wem.media_url, E'\n' order by wem.sort_order, wem.id), '') as media_urls,
 			(we.status = 'approved') as approved,
-			coalesce(nullif(u.nickname, ''), u.username) as contributor
+			coalesce(nullif(u.nickname, ''), u.username) as contributor,
+			we.status::text,
+			we.created_at
 		from wall_entries we
 		join users u on u.id = we.submitter_id
 		left join wall_entry_media wem on wem.entry_id = we.id
@@ -156,7 +159,66 @@ func (r *repository) CreateSubmission(ctx context.Context, principal security.Pr
 		Images:      cleanedImages(input.Images),
 		Approved:    false,
 		Contributor: principal.Username,
+		Status:      "pending_review",
+		CreatedAt:   time.Now(),
 	}, nil
+}
+
+func (r *repository) ListSubmissions(ctx context.Context, params pagination.Params) (pagination.Result[WallEntry], error) {
+	if !r.hasDatabase() {
+		return pagination.Result[WallEntry]{}, fmt.Errorf("postgres unavailable for wall moderation listing")
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from wall_entries
+		 where deleted_at is null`,
+	).Scan(&total); err != nil {
+		return pagination.Result[WallEntry]{}, err
+	}
+
+	rows, err := r.platform.Postgres.QueryContext(
+		ctx,
+		`select
+			we.id,
+			we.title,
+			coalesce(we.content_md, ''),
+			coalesce(string_agg(wem.media_url, E'\n' order by wem.sort_order, wem.id), '') as media_urls,
+			(we.status = 'approved') as approved,
+			coalesce(nullif(u.nickname, ''), u.username) as contributor,
+			we.status::text,
+			we.created_at
+		from wall_entries we
+		join users u on u.id = we.submitter_id
+		left join wall_entry_media wem on wem.entry_id = we.id
+		where we.deleted_at is null
+		group by we.id, u.nickname, u.username
+		order by we.created_at desc, we.id desc
+		limit $1 offset $2`,
+		params.PageSize,
+		params.Offset(),
+	)
+	if err != nil {
+		return pagination.Result[WallEntry]{}, err
+	}
+	defer rows.Close()
+
+	entries := make([]WallEntry, 0)
+	for rows.Next() {
+		entry, scanErr := scanWallEntry(rows)
+		if scanErr != nil {
+			return pagination.Result[WallEntry]{}, scanErr
+		}
+		entries = append(entries, entry)
+	}
+
+	if err := rows.Err(); err != nil {
+		return pagination.Result[WallEntry]{}, err
+	}
+
+	return pagination.NewResult(entries, total, params), nil
 }
 
 func (r *repository) ReviewSubmission(ctx context.Context, principal security.Principal, submissionID string, input ReviewSubmissionRequest) (ReviewResult, error) {
@@ -254,9 +316,11 @@ func scanWallEntry(scanner wallScanner) (WallEntry, error) {
 		imagesRaw   string
 		approved    bool
 		contributor string
+		status      string
+		createdAt   time.Time
 	)
 
-	if err := scanner.Scan(&id, &title, &content, &imagesRaw, &approved, &contributor); err != nil {
+	if err := scanner.Scan(&id, &title, &content, &imagesRaw, &approved, &contributor, &status, &createdAt); err != nil {
 		return WallEntry{}, err
 	}
 
@@ -267,6 +331,8 @@ func scanWallEntry(scanner wallScanner) (WallEntry, error) {
 		Images:      splitImages(imagesRaw),
 		Approved:    approved,
 		Contributor: contributor,
+		Status:      status,
+		CreatedAt:   createdAt,
 	}, nil
 }
 

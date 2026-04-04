@@ -1,5 +1,7 @@
 package wall
 
+import "time"
+
 type WallEntry struct {
 	ID          string   `json:"id"`
 	Title       string   `json:"title"`
@@ -7,6 +9,8 @@ type WallEntry struct {
 	Images      []string `json:"images"`
 	Approved    bool     `json:"approved"`
 	Contributor string   `json:"contributor"`
+	Status      string   `json:"status,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type CreateSubmissionRequest struct {

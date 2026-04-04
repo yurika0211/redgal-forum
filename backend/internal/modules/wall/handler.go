@@ -29,6 +29,16 @@ func (h *Handler) List(c *gin.Context) {
 	response.OK(c, entries)
 }
 
+func (h *Handler) ListSubmissions(c *gin.Context) {
+	entries, err := h.service.ListSubmissions(c.Request.Context(), pagination.FromGin(c))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, entries)
+}
+
 func (h *Handler) CreateSubmission(c *gin.Context) {
 	var input CreateSubmissionRequest
 	if err := c.ShouldBindJSON(&input); err != nil {

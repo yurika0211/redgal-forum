@@ -19,6 +19,10 @@ func (s *Service) List(ctx context.Context, params pagination.Params) (paginatio
 	return s.repo.ListEntries(ctx, params)
 }
 
+func (s *Service) ListSubmissions(ctx context.Context, params pagination.Params) (pagination.Result[WallEntry], error) {
+	return s.repo.ListSubmissions(ctx, params)
+}
+
 func (s *Service) CreateSubmission(ctx context.Context, principal security.Principal, input CreateSubmissionRequest) (WallEntry, error) {
 	return s.repo.CreateSubmission(ctx, principal, input)
 }
