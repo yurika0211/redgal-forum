@@ -2,9 +2,8 @@ name: rubedo
 
 services:
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${FRONTEND_IMAGE:-shiokou/redgal-frontend:latest}
+    pull_policy: always
     container_name: rubedo-frontend
     depends_on:
       backend:
@@ -20,9 +19,8 @@ services:
       start_period: 10s
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-shiokou/redgal-backend:latest}
+    pull_policy: always
     container_name: rubedo-backend
     depends_on:
       postgres:

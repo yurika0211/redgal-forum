@@ -948,12 +948,56 @@ where not exists (
       and users.deleted_at is null
 );
 
+insert into users (
+    username,
+    password_hash,
+    school_email,
+    nickname,
+    signature,
+    bio,
+    status,
+    email_verified_at,
+    profile_visibility
+)
+select
+    'shiokou',
+    'scaffold:shiokou0408',
+    'shiokou@example.local',
+    'shiokou',
+    'System Super Admin',
+    '默认超级管理员账号',
+    'active'::user_status,
+    now(),
+    'public'::visibility_level
+where not exists (
+    select 1
+    from users
+    where lower(users.username) = lower('shiokou')
+      and users.deleted_at is null
+);
+
 insert into user_roles (user_id, role_id)
 select u.id, r.id
 from users u
 cross join roles r
 where r.code = 'member'
   and u.username in ('rubedo_room', 'night_editor', 'archive_keeper', 'observer_zero', 'paper_window', 'blank_observer')
+on conflict do nothing;
+
+insert into user_roles (user_id, role_id)
+select u.id, r.id
+from users u
+join roles r on r.code in ('member', 'admin', 'super_admin')
+where lower(u.username) = lower('shiokou')
+  and u.deleted_at is null
+on conflict do nothing;
+
+insert into user_roles (user_id, role_id)
+select u.id, r.id
+from users u
+join roles r on r.code in ('admin', 'super_admin')
+where lower(u.username) = lower('rubedo_room')
+  and u.deleted_at is null
 on conflict do nothing;
 
 insert into forum_boards (
