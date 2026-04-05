@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,6 +32,7 @@ const (
 	maxBangumiSyncItems      = 240
 	defaultBangumiSyncItems  = 120
 	bangumiCollectionPage    = 30
+	bangumiHTTPMaxAttempts   = 4
 	friendRequestMsgMaxChars = 280
 	friendStatusPending      = "pending"
 	friendStatusApproved     = "approved"
@@ -1107,25 +1109,12 @@ func (r *repository) fetchBangumiCollectionPage(
 	query.Set("offset", strconv.Itoa(offset))
 	parsed.RawQuery = query.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
+	rawBody, statusCode, err := r.fetchBangumiJSON(ctx, parsed.String(), 4<<20)
 	if err != nil {
 		return nil, 0, err
 	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", r.bangumiAPIUserAgent)
-
-	resp, err := r.bangumiHTTPClient.Do(req)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer resp.Body.Close()
-
-	rawBody, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
-	if err != nil {
-		return nil, 0, err
-	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, 0, fmt.Errorf("bangumi collections api %d: %s", resp.StatusCode, compactErrorBody(rawBody))
+	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+		return nil, 0, fmt.Errorf("bangumi collections api %d: %s", statusCode, compactErrorBody(rawBody))
 	}
 
 	var page bangumiUserCollectionPage
@@ -1169,29 +1158,122 @@ func (r *repository) fetchBangumiSubject(ctx context.Context, subjectID int64) (
 		return bangumiSubjectResponse{}, nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return bangumiSubjectResponse{}, nil, err
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", r.bangumiAPIUserAgent)
-
-	resp, err := r.bangumiHTTPClient.Do(req)
-	if err != nil {
-		return bangumiSubjectResponse{}, nil, err
-	}
-	defer resp.Body.Close()
-
-	rawBody, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	rawBody, statusCode, err := r.fetchBangumiJSON(ctx, endpoint, 2<<20)
 	if err != nil {
 		return bangumiSubjectResponse{}, nil, err
 	}
 
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return bangumiSubjectResponse{}, nil, fmt.Errorf("bangumi api %d: %s", resp.StatusCode, compactErrorBody(rawBody))
+	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+		return bangumiSubjectResponse{}, nil, fmt.Errorf("bangumi api %d: %s", statusCode, compactErrorBody(rawBody))
 	}
 
 	return parseBangumiSubjectPayload(rawBody, subjectID)
+}
+
+func (r *repository) fetchBangumiJSON(ctx context.Context, endpoint string, bodyLimit int64) ([]byte, int, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= bangumiHTTPMaxAttempts; attempt++ {
+		if attempt > 1 {
+			if err := waitForBangumiRetry(ctx, bangumiRetryDelay(attempt-1)); err != nil {
+				return nil, 0, err
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return nil, 0, err
+		}
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", r.bangumiAPIUserAgent)
+
+		resp, err := r.bangumiHTTPClient.Do(req)
+		if err != nil {
+			if shouldRetryBangumiTransportError(err) && attempt < bangumiHTTPMaxAttempts {
+				lastErr = err
+				continue
+			}
+			return nil, 0, err
+		}
+
+		rawBody, readErr := io.ReadAll(io.LimitReader(resp.Body, bodyLimit))
+		_ = resp.Body.Close()
+		if readErr != nil {
+			if shouldRetryBangumiTransportError(readErr) && attempt < bangumiHTTPMaxAttempts {
+				lastErr = readErr
+				continue
+			}
+			return nil, resp.StatusCode, readErr
+		}
+
+		if shouldRetryBangumiStatus(resp.StatusCode) && attempt < bangumiHTTPMaxAttempts {
+			lastErr = fmt.Errorf("bangumi api %d: %s", resp.StatusCode, compactErrorBody(rawBody))
+			continue
+		}
+
+		return rawBody, resp.StatusCode, nil
+	}
+
+	if lastErr != nil {
+		return nil, 0, lastErr
+	}
+
+	return nil, 0, fmt.Errorf("bangumi request failed: %s", endpoint)
+}
+
+func shouldRetryBangumiTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+
+	text := strings.ToLower(err.Error())
+	return strings.Contains(text, "server misbehaving") ||
+		strings.Contains(text, "no such host") ||
+		strings.Contains(text, "i/o timeout") ||
+		strings.Contains(text, "tls handshake timeout") ||
+		strings.Contains(text, "connection reset")
+}
+
+func shouldRetryBangumiStatus(statusCode int) bool {
+	return statusCode == http.StatusRequestTimeout ||
+		statusCode == http.StatusTooManyRequests ||
+		statusCode >= http.StatusInternalServerError
+}
+
+func bangumiRetryDelay(attempt int) time.Duration {
+	switch attempt {
+	case 1:
+		return 350 * time.Millisecond
+	case 2:
+		return 1200 * time.Millisecond
+	default:
+		return 2500 * time.Millisecond
+	}
+}
+
+func waitForBangumiRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func parseBangumiSubjectPayload(rawBody []byte, fallbackSubjectID int64) (bangumiSubjectResponse, map[string]any, error) {

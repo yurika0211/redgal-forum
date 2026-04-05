@@ -45,6 +45,10 @@ services:
       RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/"
       MEILISEARCH_URL: "http://meilisearch:7700"
       MEILISEARCH_API_KEY: "${MEILISEARCH_MASTER_KEY:-masterKey}"
+    dns:
+      - "223.5.5.5"
+      - "119.29.29.29"
+      - "1.1.1.1"
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     restart: unless-stopped
