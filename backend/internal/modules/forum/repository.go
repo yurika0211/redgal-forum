@@ -22,7 +22,7 @@ const (
 	anonymousBoardName       = "匿名板"
 	anonymousTripcodeSecret  = "shiokou"
 	anonymousThreadHardLimit = 1000
-	anonymousBoardThreadCap  = 100
+	anonymousBoardThreadCap  = 250
 	signInExpDelta           = 5
 	postThreadExpDelta       = 10
 	replyExpDelta            = 3
@@ -34,6 +34,7 @@ type Repository interface {
 	GetThread(ctx context.Context, threadID string) (ThreadDetail, error)
 	GetAnonymousThread(ctx context.Context, threadID string) (ThreadDetail, error)
 	GetProgress(ctx context.Context, principal security.Principal) (Progress, error)
+	ListMyThreadReplySnapshots(ctx context.Context, principal security.Principal, params pagination.Params) (pagination.Result[ThreadReplySnapshot], error)
 	SignIn(ctx context.Context, principal security.Principal) (SignInResult, error)
 	CreateThread(ctx context.Context, principal security.Principal, input CreateThreadRequest) (Thread, error)
 	CreateAnonymousThread(ctx context.Context, principal security.Principal, input CreateThreadRequest) (Thread, error)
@@ -220,6 +221,84 @@ func (r *repository) GetProgress(ctx context.Context, principal security.Princip
 	}
 
 	return r.loadProgress(ctx, r.platform.Postgres, userID)
+}
+
+func (r *repository) ListMyThreadReplySnapshots(
+	ctx context.Context,
+	principal security.Principal,
+	params pagination.Params,
+) (pagination.Result[ThreadReplySnapshot], error) {
+	if !r.hasDatabase() {
+		items := make([]ThreadReplySnapshot, 0, len(scaffoldThreads()))
+		for _, thread := range scaffoldThreads() {
+			items = append(items, ThreadReplySnapshot{
+				ThreadID:   thread.ID,
+				Title:      thread.Title,
+				ReplyCount: thread.ReplyCount,
+				LastPostAt: thread.LastPostAt,
+			})
+		}
+		return pagination.Slice(items, params), nil
+	}
+
+	userID, err := platformdb.EnsureUser(ctx, r.platform.Postgres, principal.Username)
+	if err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from forum_threads ft
+		 join forum_boards fb on fb.id = ft.board_id
+		 where ft.author_id = $1
+		   and ft.deleted_at is null
+		   and ft.status in ('active', 'locked')
+		   and fb.board_mode = 'normal'`,
+		userID,
+	).Scan(&total); err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	rows, err := r.platform.Postgres.QueryContext(
+		ctx,
+		`select
+			ft.id,
+			ft.title,
+			ft.reply_count,
+			ft.last_post_at
+		from forum_threads ft
+		join forum_boards fb on fb.id = ft.board_id
+		where ft.author_id = $1
+		  and ft.deleted_at is null
+		  and ft.status in ('active', 'locked')
+		  and fb.board_mode = 'normal'
+		order by ft.last_post_at desc, ft.id desc
+		limit $2 offset $3`,
+		userID,
+		params.PageSize,
+		params.Offset(),
+	)
+	if err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+	defer rows.Close()
+
+	items := make([]ThreadReplySnapshot, 0, params.PageSize)
+	for rows.Next() {
+		item, scanErr := scanThreadReplySnapshot(rows)
+		if scanErr != nil {
+			return pagination.Result[ThreadReplySnapshot]{}, scanErr
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	return pagination.NewResult(items, total, params), nil
 }
 
 func (r *repository) SignIn(ctx context.Context, principal security.Principal) (SignInResult, error) {
@@ -890,6 +969,26 @@ func scanThreadRow(scanner threadScanner) (Thread, error) {
 	}, nil
 }
 
+func scanThreadReplySnapshot(scanner threadScanner) (ThreadReplySnapshot, error) {
+	var (
+		id         int64
+		title      string
+		replyCount int
+		lastPostAt time.Time
+	)
+
+	if err := scanner.Scan(&id, &title, &replyCount, &lastPostAt); err != nil {
+		return ThreadReplySnapshot{}, err
+	}
+
+	return ThreadReplySnapshot{
+		ThreadID:   strconv.FormatInt(id, 10),
+		Title:      title,
+		ReplyCount: replyCount,
+		LastPostAt: lastPostAt,
+	}, nil
+}
+
 func scanReplyRow(scanner threadScanner) (Reply, error) {
 	var (
 		id            int64
@@ -1152,9 +1251,7 @@ func tripcodeDisplay(enabled bool, username string) string {
 func archiveOverflowAnonymousThreads(ctx context.Context, tx *sql.Tx, boardID int64) error {
 	_, err := tx.ExecContext(
 		ctx,
-		`update forum_threads
-		 set status = 'hidden',
-		     updated_at = now()
+		`delete from forum_threads
 		 where id in (
 		     select id
 		     from forum_threads

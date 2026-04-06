@@ -37,20 +37,17 @@ func (h *Handler) Get(c *gin.Context) {
 	var (
 		postgresClient servicePinger
 		redisClient    servicePinger
-		rabbitMQClient servicePinger
 		searchClient   servicePinger
 	)
 	if h.platform != nil {
 		postgresClient = h.platform.Postgres
 		redisClient = h.platform.Redis
-		rabbitMQClient = h.platform.RabbitMQ
 		searchClient = h.platform.Search
 	}
 
 	details := map[string]serviceDetail{
 		"postgres":    probeService(ctx, postgresClient),
 		"redis":       probeService(ctx, redisClient),
-		"rabbitmq":    probeService(ctx, rabbitMQClient),
 		"meilisearch": probeService(ctx, searchClient),
 	}
 

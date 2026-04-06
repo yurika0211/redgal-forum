@@ -6,14 +6,12 @@ import (
 	"example.com/rubedo/backend/internal/config"
 	"example.com/rubedo/backend/internal/platform/cache"
 	"example.com/rubedo/backend/internal/platform/database"
-	"example.com/rubedo/backend/internal/platform/mq"
 	"example.com/rubedo/backend/internal/platform/search"
 )
 
 type Platform struct {
 	Postgres *database.Client
 	Redis    *cache.Client
-	RabbitMQ *mq.Client
 	Search   *search.Client
 }
 
@@ -28,11 +26,6 @@ func New(cfg config.Config) (*Platform, error) {
 		return nil, err
 	}
 
-	rabbitMQ, err := mq.New(cfg.RabbitMQ)
-	if err != nil {
-		return nil, err
-	}
-
 	searchClient, err := search.New(cfg.Meilisearch)
 	if err != nil {
 		return nil, err
@@ -41,7 +34,6 @@ func New(cfg config.Config) (*Platform, error) {
 	return &Platform{
 		Postgres: postgres,
 		Redis:    redisClient,
-		RabbitMQ: rabbitMQ,
 		Search:   searchClient,
 	}, nil
 }
@@ -58,9 +50,6 @@ func (p *Platform) Close() error {
 	}
 	if p.Redis != nil {
 		errs = append(errs, p.Redis.Close())
-	}
-	if p.RabbitMQ != nil {
-		errs = append(errs, p.RabbitMQ.Close())
 	}
 	if p.Search != nil {
 		errs = append(errs, p.Search.Close())

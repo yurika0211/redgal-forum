@@ -5,6 +5,12 @@ interface NavigationItem {
   label: string;
 }
 
+export interface NavigationGroup {
+  id: string;
+  label: string;
+  items: readonly NavigationItem[];
+}
+
 export interface HeaderNotificationItem {
   id: string;
   title: string;
@@ -19,6 +25,7 @@ interface HeaderProps {
   authLabel: string;
   currentPath: string;
   hidden: boolean;
+  navigationGroups?: readonly NavigationGroup[];
   navigation: readonly NavigationItem[];
   notifications: readonly HeaderNotificationItem[];
   onNotificationClick: (notificationID: string, href?: string) => void;
@@ -36,6 +43,7 @@ function Header({
   authLabel,
   currentPath,
   hidden,
+  navigationGroups,
   navigation,
   notifications,
   onNotificationClick,
@@ -97,6 +105,9 @@ function Header({
     onNotificationClick(notificationID, href);
   }
 
+  const groupedNavigation = navigationGroups?.filter((group) => group.items.length > 0) ?? [];
+  const hasGroupedNavigation = groupedNavigation.length > 0;
+
   return (
     <header className={`site-header ${hidden ? "site-header--hidden" : ""}`}>
       <div className="site-header__line" aria-hidden="true" />
@@ -125,9 +136,11 @@ function Header({
           setMenuOpen((current) => !current);
         }}
       >
-        <span className="site-header__menu-line" />
-        <span className="site-header__menu-line" />
-        <span className="site-header__menu-line" />
+        <svg className="site-header__menu-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path className="site-header__menu-path site-header__menu-path--top" d="M5 7h14" />
+          <path className="site-header__menu-path site-header__menu-path--middle" d="M4 12h16" />
+          <path className="site-header__menu-path site-header__menu-path--bottom" d="M5 17h14" />
+        </svg>
       </button>
 
       <div
@@ -136,19 +149,42 @@ function Header({
       >
         <div className="site-header__panel-inner">
           <nav className="site-header__nav" aria-label="Primary">
-            {navigation.map((link) => (
-              <a
-                className={`site-header__link ${
-                  currentPath === link.href ? "site-header__link--active" : ""
-                }`}
-                href={link.href}
-                key={link.href}
-                onClick={(event) => handleNavigate(event, link.href)}
-              >
-                <span className="site-header__link-dot" aria-hidden="true" />
-                {link.label}
-              </a>
-            ))}
+            {hasGroupedNavigation
+              ? groupedNavigation.map((group) => (
+                  <div className="site-header__nav-group" key={group.id}>
+                    <span className="site-header__nav-group-label">{group.label}</span>
+                    <div className="site-header__nav-group-items">
+                      {group.items.map((link) => (
+                        <a
+                          aria-current={currentPath === link.href ? "page" : undefined}
+                          className={`site-header__link ${
+                            currentPath === link.href ? "site-header__link--active" : ""
+                          }`}
+                          href={link.href}
+                          key={link.href}
+                          onClick={(event) => handleNavigate(event, link.href)}
+                        >
+                          <span className="site-header__link-dot" aria-hidden="true" />
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              : navigation.map((link) => (
+                  <a
+                    aria-current={currentPath === link.href ? "page" : undefined}
+                    className={`site-header__link ${
+                      currentPath === link.href ? "site-header__link--active" : ""
+                    }`}
+                    href={link.href}
+                    key={link.href}
+                    onClick={(event) => handleNavigate(event, link.href)}
+                  >
+                    <span className="site-header__link-dot" aria-hidden="true" />
+                    {link.label}
+                  </a>
+                ))}
           </nav>
 
           <div className="site-header__actions">
@@ -224,12 +260,12 @@ function Header({
                 {authLabel}
               </button>
               <button
-                aria-label={themeMode === "night" ? "切换到白天模式" : "切换到夜间模式"}
+                aria-label={themeMode === "night" ? "切换到浅色模式" : "切换到深色模式"}
                 className="site-header__action"
                 type="button"
                 onClick={handleThemeToggle}
               >
-                {themeMode === "night" ? "白天模式" : "夜间模式"}
+                {themeMode === "night" ? "浅色模式" : "深色模式"}
               </button>
               <button
                 className="site-header__action site-header__refresh"

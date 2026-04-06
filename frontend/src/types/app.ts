@@ -97,9 +97,12 @@ export interface DisplayPillar {
 
 export interface DisplayActivity {
   id: string;
+  blockID?: string;
   label: string;
   title: string;
   description: string;
+  sortOrder?: number;
+  active?: boolean;
 }
 
 export interface DisplayNotice {

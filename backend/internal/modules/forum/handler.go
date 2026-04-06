@@ -78,6 +78,20 @@ func (h *Handler) GetProgress(c *gin.Context) {
 	response.OK(c, progress)
 }
 
+func (h *Handler) ListMyThreadReplySnapshots(c *gin.Context) {
+	result, err := h.service.ListMyThreadReplySnapshots(
+		c.Request.Context(),
+		security.FromContext(c),
+		pagination.FromGin(c),
+	)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, result)
+}
+
 func (h *Handler) SignIn(c *gin.Context) {
 	result, err := h.service.SignIn(c.Request.Context(), security.FromContext(c))
 	if err != nil {

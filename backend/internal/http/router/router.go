@@ -68,6 +68,7 @@ func registerAuthRoutes(api *gin.RouterGroup, deps Dependencies) {
 
 func registerUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group := api.Group("/users")
+	group.GET("/:username/friends", deps.UserHandler.ListUserFriends)
 	group.GET("/:username/bangumi/collections", deps.UserHandler.ListUserBangumiCollections)
 	group.GET("/:username", deps.UserHandler.GetProfile)
 
@@ -152,6 +153,7 @@ func registerForumRoutes(api *gin.RouterGroup, deps Dependencies) {
 	member := group.Group("")
 	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("forum-write"))
 	member.GET("/me/progression", deps.ForumHandler.GetProgress)
+	member.GET("/me/thread-reply-snapshots", deps.ForumHandler.ListMyThreadReplySnapshots)
 	member.POST("/sign-in", deps.ForumHandler.SignIn)
 	member.POST("/threads", deps.ForumHandler.CreateThread)
 	member.POST("/threads/:threadID/replies", deps.ForumHandler.CreateReply)

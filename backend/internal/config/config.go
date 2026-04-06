@@ -11,9 +11,9 @@ type Config struct {
 	App         AppConfig
 	HTTP        HTTPConfig
 	Auth        AuthConfig
+	Cache       CacheConfig
 	Postgres    PostgresConfig
 	Redis       RedisConfig
-	RabbitMQ    RabbitMQConfig
 	Meilisearch MeilisearchConfig
 }
 
@@ -34,6 +34,13 @@ type AuthConfig struct {
 	ScaffoldLoginPassword string
 }
 
+type CacheConfig struct {
+	ForumSnapshotEnabled    bool
+	ForumSnapshotTTLSeconds int
+	SiteContentEnabled      bool
+	SiteContentTTLSeconds   int
+}
+
 type PostgresConfig struct {
 	DSN string
 }
@@ -42,10 +49,6 @@ type RedisConfig struct {
 	Addr     string
 	Password string
 	DB       int
-}
-
-type RabbitMQConfig struct {
-	URL string
 }
 
 type MeilisearchConfig struct {
@@ -71,6 +74,12 @@ func Load() Config {
 			AllowScaffoldLogin:    getEnvBool("AUTH_ALLOW_SCAFFOLD_LOGIN", appEnv == "development"),
 			ScaffoldLoginPassword: getEnv("AUTH_SCAFFOLD_LOGIN_PASSWORD", "dev-password-change-me"),
 		},
+		Cache: CacheConfig{
+			ForumSnapshotEnabled:    getEnvBool("CACHE_FORUM_SNAPSHOT_ENABLED", true),
+			ForumSnapshotTTLSeconds: getEnvInt("CACHE_FORUM_SNAPSHOT_TTL_SECONDS", 20),
+			SiteContentEnabled:      getEnvBool("CACHE_SITE_CONTENT_ENABLED", true),
+			SiteContentTTLSeconds:   getEnvInt("CACHE_SITE_CONTENT_TTL_SECONDS", 45),
+		},
 		Postgres: PostgresConfig{
 			DSN: strings.TrimSpace(os.Getenv("POSTGRES_DSN")),
 		},
@@ -78,9 +87,6 @@ func Load() Config {
 			Addr:     getEnv("REDIS_ADDR", ""),
 			Password: os.Getenv("REDIS_PASSWORD"),
 			DB:       getEnvInt("REDIS_DB", 0),
-		},
-		RabbitMQ: RabbitMQConfig{
-			URL: strings.TrimSpace(os.Getenv("RABBITMQ_URL")),
 		},
 		Meilisearch: MeilisearchConfig{
 			URL:    getEnv("MEILISEARCH_URL", ""),

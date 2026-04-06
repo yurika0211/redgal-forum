@@ -29,7 +29,7 @@ export default function AuthPanel({
   if (isAuthenticated && session) {
     return (
       <div className="session-box">
-        <p className="panel-empty">当前已连上后端会话，个人空间将直接读取 `/users/me`。</p>
+        <p className="panel-empty">当前会话已建立，个人空间会自动同步账号信息。</p>
         <span className="token-preview">{session.accessToken}</span>
         {profileError ? <p className="panel-error">{profileError}</p> : null}
         <button className="ghost-button" type="button" onClick={onLogout}>
@@ -41,10 +41,7 @@ export default function AuthPanel({
 
   return (
     <form className="auth-form" onSubmit={(event) => void onLoginSubmit(event)}>
-      <p className="panel-empty">
-        登录会直接走后端 `/auth/login`。当前脚手架登录只在开发环境且
-        `AUTH_ALLOW_SCAFFOLD_LOGIN=true` 时可用。
-      </p>
+      <p className="panel-empty">登录后将同步当前账号会话。</p>
       <label>
         <span>账号</span>
         <input
@@ -61,7 +58,7 @@ export default function AuthPanel({
           autoComplete="current-password"
           name="password"
           onChange={onAuthFieldChange}
-          placeholder="输入脚手架登录密码"
+          placeholder="输入账号密码"
           type="password"
           value={authForm.password}
         />

@@ -6,6 +6,7 @@ import type {
   RefObject,
 } from "react";
 import type {
+  DeleteForumThreadResult,
   ForumReply as ApiForumReply,
   ForumThread as ApiForumThread,
   ForumThreadDetail as ApiForumThreadDetail,
@@ -31,6 +32,7 @@ interface ForumPageProps {
   activeForumThread: ApiForumThread | null;
   boardFilterOptions: string[];
   boardOptions: string[];
+  canDeleteThread: boolean;
   expandedReplyIDs: string[];
   featuredThread: ApiForumThread | null;
   forumReplyTextareaRef: RefObject<HTMLTextAreaElement | null>;
@@ -44,6 +46,7 @@ interface ForumPageProps {
   selectedForumThreadID: string | null;
   session: Session | null;
   threadActionState: FormActionState<ApiForumThread>;
+  threadManageActionState: FormActionState<ApiForumThread | DeleteForumThreadResult>;
   threadDetail: ApiForumThreadDetail | null;
   threadDetailError: string;
   threadForm: ThreadFormState;
@@ -63,6 +66,7 @@ interface ForumPageProps {
   onReplyToFloor: (reply: ApiForumReply) => void;
   onSelectedForumBoardChange: (board: string) => void;
   onShareThread: () => Promise<void>;
+  onThreadDelete: (threadID: string) => Promise<boolean>;
   onThreadFieldChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
@@ -76,6 +80,7 @@ export default function ForumPage({
   activeForumThread,
   boardFilterOptions,
   boardOptions,
+  canDeleteThread,
   expandedReplyIDs,
   featuredThread,
   forumReplyTextareaRef,
@@ -89,6 +94,7 @@ export default function ForumPage({
   selectedForumThreadID,
   session,
   threadActionState,
+  threadManageActionState,
   threadDetail,
   threadDetailError,
   threadForm,
@@ -106,6 +112,7 @@ export default function ForumPage({
   onReplyToFloor,
   onSelectedForumBoardChange,
   onShareThread,
+  onThreadDelete,
   onThreadFieldChange,
   onThreadPageChange,
   onThreadSearchKeywordChange,
@@ -128,6 +135,21 @@ export default function ForumPage({
     event.preventDefault();
     event.stopPropagation();
     onCollapseNestedReplies();
+  }
+
+  async function handleDeleteThread(): Promise<void> {
+    if (!activeForumThread) {
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(`确认删除帖子《${activeForumThread.title}》？该操作不可撤销。`);
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    await onThreadDelete(activeForumThread.id);
   }
 
   if (selectedForumThreadID) {
@@ -171,7 +193,7 @@ export default function ForumPage({
                 type="checkbox"
                 onChange={onReplyFieldChange}
               />
-              <span>sage，不顶帖</span>
+              <span>不顶帖 (Sage)</span>
             </label>
             <button className="primary-button" type="submit" disabled={replyActionState.pending}>
               {replyActionState.pending ? "提交中..." : "提交回复"}
@@ -261,8 +283,20 @@ export default function ForumPage({
                 <button className="ghost-button" type="button" onClick={() => void onShareThread()}>
                   分享主题
                 </button>
+                {canDeleteThread ? (
+                  <button
+                    className="ghost-button story-reading-delete-button"
+                    type="button"
+                    onClick={() => void handleDeleteThread()}
+                    disabled={threadManageActionState.pending}
+                  >
+                    {threadManageActionState.pending ? "删除中..." : "删除帖子"}
+                  </button>
+                ) : null}
               </div>
             </div>
+            {threadManageActionState.error ? <p className="panel-error">{threadManageActionState.error}</p> : null}
+            {threadManageActionState.success ? <p className="panel-empty">{threadManageActionState.success}</p> : null}
             <p className="eyebrow">主题详情</p>
             <h1 className="detail-hero__title">{activeForumThread?.title || "论坛主题详情"}</h1>
             <p className="detail-hero__lede">
@@ -305,7 +339,7 @@ export default function ForumPage({
           <section className="panel detail-main detail-main--thread forum-thread-reading">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">主楼正文</p>
+                <p className="panel-kicker">正文</p>
                 <h2>{activeForumThread?.title || "讨论主题"}</h2>
               </div>
               {activeForumThread ? (
@@ -457,7 +491,7 @@ export default function ForumPage({
             <div className="forum-sticky-reply__header">
               <div>
                 <p className="panel-kicker">底部互动区</p>
-                <h2>{replyTarget ? `回复 ${formatForumFloor(replyTarget.floor_no)}` : "快速回复主楼"}</h2>
+                <h2>{replyTarget ? `回复 ${formatForumFloor(replyTarget.floor_no)}` : "快捷回复"}</h2>
               </div>
               <div className="forum-reply-actions">
                 <button className="ghost-button" type="button" onClick={() => onInsertReplySnippet("\n![](https://)")}>
@@ -469,8 +503,8 @@ export default function ForumPage({
                 <button className="ghost-button" type="button" onClick={() => void onShareThread()}>
                   分享
                 </button>
-                <StatusChip tone="neutral">收藏待接入</StatusChip>
-                <StatusChip tone="neutral">点赞待接入</StatusChip>
+                <StatusChip tone="neutral">收藏</StatusChip>
+                <StatusChip tone="neutral">点赞</StatusChip>
               </div>
             </div>
 
@@ -532,7 +566,7 @@ export default function ForumPage({
           <form className="panel stories-editor" onSubmit={(event) => void onThreadSubmit(event)}>
             <div className="stories-editor__toolbar">
               <div>
-                <p className="panel-kicker">Editor</p>
+                <p className="panel-kicker">编辑器</p>
                 <h2>主题编辑器</h2>
               </div>
               <div className="stories-editor__toolbar-actions">
@@ -587,7 +621,7 @@ export default function ForumPage({
 
             <div className="stories-editor__split">
               <section className="stories-editor__pane">
-                <div className="stories-editor__pane-head">Markdown Source</div>
+                <div className="stories-editor__pane-head">Markdown 源文本</div>
                 <textarea
                   name="content"
                   rows={14}
@@ -598,7 +632,7 @@ export default function ForumPage({
                 />
               </section>
               <section className="stories-editor__pane stories-editor__pane--preview">
-                <div className="stories-editor__pane-head">Live Preview</div>
+                <div className="stories-editor__pane-head">实时预览</div>
                 <div className="stories-editor__preview">
                   {threadForm.content.trim() ? (
                     <RichContent content={threadForm.content} />
@@ -675,9 +709,6 @@ export default function ForumPage({
               </button>
             ))}
           </div>
-          <p className="panel-empty">
-            列表页主打浏览；真正的回复、楼中楼和只看楼主都集中在详情页中完成。
-          </p>
           <div className="forum-thread-text-list">
             {filteredThreadFeed.map((thread) => {
               return (

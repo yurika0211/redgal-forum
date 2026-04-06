@@ -1,6 +1,5 @@
 export type RoutePath =
   | "/"
-  | "/portal"
   | "/stories"
   | "/forum"
   | "/anonymous"
@@ -10,21 +9,19 @@ export type RoutePath =
 
 export const TITLE_BY_ROUTE: Record<RoutePath, string> = {
   "/": "首页总览 | Rubedo Forum",
-  "/portal": "首页总览 | Rubedo Forum",
-  "/stories": "文章札记 | Rubedo Forum",
-  "/forum": "论坛聊天室 | Rubedo Forum",
-  "/anonymous": "匿名板 | Rubedo Forum",
-  "/admin": "管理界面 | Rubedo Forum",
+  "/stories": "专栏 | Rubedo Forum",
+  "/forum": "讨论板 | Rubedo Forum",
+  "/anonymous": "树洞 | Rubedo Forum",
+  "/admin": "管理后台 | Rubedo Forum",
   "/space": "个人空间 | Rubedo Forum",
   "/gallery": "展示墙 | Rubedo Forum",
 };
 
 export const HEADER_SUMMARY_BY_ROUTE: Record<RoutePath, string> = {
   "/": "首页导览",
-  "/portal": "首页导览",
-  "/stories": "文章与随想",
-  "/forum": "讨论与留言",
-  "/anonymous": "匿名版",
+  "/stories": "专栏内容",
+  "/forum": "讨论板",
+  "/anonymous": "匿名频道",
   "/admin": "后台管理",
   "/space": "收藏与空间",
   "/gallery": "展示与归档",

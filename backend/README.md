@@ -8,7 +8,6 @@ This directory contains a compileable backend scaffold derived from `docs/requir
 - Gin for HTTP routing
 - PostgreSQL for primary data storage
 - Redis for cache and rate limiting
-- RabbitMQ for async jobs
 - Meilisearch for search indexing
 
 ## Current Scope
@@ -19,7 +18,7 @@ The scaffold intentionally focuses on structure instead of full business logic:
 - HTTP bootstrap and graceful shutdown
 - request ID, auth, and rate-limit middleware placeholders
 - domain modules for auth, user, article, forum, wall, and Luckybot
-- infrastructure placeholders for PostgreSQL, Redis, RabbitMQ, and Meilisearch
+- infrastructure placeholders for PostgreSQL, Redis, and Meilisearch
 
 ## Routes Reserved
 

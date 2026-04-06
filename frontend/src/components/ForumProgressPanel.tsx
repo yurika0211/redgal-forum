@@ -89,7 +89,7 @@ export default function ForumProgressPanel({
       {mode === "full" && forumProgress?.recent_logs?.length ? (
         <div className="content-card forum-level-log-card">
           <div className="content-card__header">
-            <h3>经验流水</h3>
+            <h3>经验值明细</h3>
             <StatusChip tone="neutral">{forumProgress.recent_logs.length} 条</StatusChip>
           </div>
           <div className="forum-level-log-list">

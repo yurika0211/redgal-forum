@@ -36,7 +36,7 @@ describe("text helpers", () => {
   });
 
   it("localizes visibility and gallery labels", () => {
-    expect(normalizeVisibilityLabel("members")).toBe("成员");
+    expect(normalizeVisibilityLabel("members")).toBe("仅成员可见");
     expect(galleryEntryTypeLabel("timeline")).toBe("时间轴");
   });
 });

@@ -38,6 +38,13 @@ type ThreadDetail struct {
 	Replies []Reply `json:"replies"`
 }
 
+type ThreadReplySnapshot struct {
+	ThreadID   string    `json:"thread_id"`
+	Title      string    `json:"title"`
+	ReplyCount int       `json:"reply_count"`
+	LastPostAt time.Time `json:"last_post_at"`
+}
+
 type LevelConfig struct {
 	Level      int            `json:"level"`
 	MinExp     int            `json:"min_exp"`

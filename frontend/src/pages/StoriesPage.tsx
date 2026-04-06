@@ -158,7 +158,7 @@ export default function StoriesPage({
 
         {!session ? (
           <article className="panel">
-            <p className="panel-empty">登录并通过认证后，这里可以直接发布新的文章札记。</p>
+            <p className="panel-empty">登录并通过认证后，这里可以直接发布新的专栏文章。</p>
           </article>
         ) : !hasVerifiedSpaceAccess ? (
           <article className="panel">
@@ -168,7 +168,7 @@ export default function StoriesPage({
           <form className="panel stories-editor" onSubmit={(event) => void onArticleSubmit(event)}>
             <div className="stories-editor__toolbar">
               <div>
-                <p className="panel-kicker">Editor</p>
+                <p className="panel-kicker">编辑器</p>
                 <h2>Markdown 编辑器</h2>
               </div>
               <div className="stories-editor__toolbar-actions">
@@ -221,15 +221,15 @@ export default function StoriesPage({
                 <span>可见范围</span>
                 <select name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
                   <option value="public">公开</option>
-                  <option value="member">成员</option>
-                  <option value="private">私有</option>
+                  <option value="member">仅成员可见</option>
+                  <option value="private">仅自己可见</option>
                 </select>
               </label>
             </div>
 
             <div className="stories-editor__split">
               <section className="stories-editor__pane">
-                <div className="stories-editor__pane-head">Markdown Source</div>
+                <div className="stories-editor__pane-head">Markdown 源文本</div>
                 <textarea
                   name="content"
                   rows={14}
@@ -240,7 +240,7 @@ export default function StoriesPage({
                 />
               </section>
               <section className="stories-editor__pane stories-editor__pane--preview">
-                <div className="stories-editor__pane-head">Live Preview</div>
+                <div className="stories-editor__pane-head">实时预览</div>
                 <div className="stories-editor__preview">
                   {articleForm.content.trim() ? (
                     <RichContent content={articleForm.content} />
@@ -284,13 +284,13 @@ export default function StoriesPage({
         >
           <div className="story-article-hero__inner">
             <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/stories")}>
-              ← Back to list
+              ← 返回列表
             </button>
             <h1>{activeArticle?.title || "文章详情"}</h1>
-            <p className="story-article-hero__line">Created: {articleCreatedAt}</p>
-            <p className="story-article-hero__line">Updated: {articleUpdatedAt}</p>
+            <p className="story-article-hero__line">创建时间：{articleCreatedAt}</p>
+            <p className="story-article-hero__line">更新时间：{articleUpdatedAt}</p>
             <p className="story-article-hero__line">
-              {readMinutes} min read · {commentCount} comments · {likeCount} likes
+              {readMinutes} 分钟阅读 · {commentCount} 条评论 · {likeCount} 次点赞
             </p>
             {activeArticle?.tags.length ? (
               <div className="story-article-hero__tags">
@@ -308,7 +308,7 @@ export default function StoriesPage({
                     onClick={() => onStartArticleEdit(activeArticle)}
                     disabled={articleManageActionState.pending || articleActionState.pending}
                   >
-                    Edit article
+                    编辑文章
                   </button>
                 ) : null}
                 {canDeleteArticle ? (
@@ -318,7 +318,7 @@ export default function StoriesPage({
                     onClick={() => void handleDeleteArticle()}
                     disabled={articleManageActionState.pending}
                   >
-                    Delete article
+                    删除文章
                   </button>
                 ) : null}
               </div>
@@ -344,7 +344,7 @@ export default function StoriesPage({
             </article>
 
             <aside className="story-article-toc">
-              <p className="story-article-toc__title">Table of Contents</p>
+              <p className="story-article-toc__title">目录</p>
               {articleHeadings.length ? (
                 <ul className="story-article-toc__list">
                   {articleHeadings.map((heading, index) => (
@@ -352,7 +352,7 @@ export default function StoriesPage({
                   ))}
                 </ul>
               ) : (
-                <p className="panel-empty">No table of contents available</p>
+                <p className="panel-empty">暂无可展示目录</p>
               )}
             </aside>
           </div>
@@ -395,8 +395,8 @@ export default function StoriesPage({
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="panel-kicker">文章流</p>
-              <h2>公开文章</h2>
+              <p className="panel-kicker">最新文章</p>
+              <h2>专栏内容</h2>
             </div>
             <div className="stories-list-toolbar">
               <StatusChip tone="accent">{articlePager.total} 篇</StatusChip>
@@ -405,7 +405,7 @@ export default function StoriesPage({
                 type="button"
                 onClick={onStartArticleCreate}
               >
-                发文章
+                发布文章
               </button>
             </div>
           </div>

@@ -39,9 +39,9 @@ export function normalizeVisibilityLabel(value: string): string {
       return "公开";
     case "member":
     case "members":
-      return "成员";
+      return "仅成员可见";
     case "private":
-      return "私有";
+      return "仅自己可见";
     default:
       return value;
   }

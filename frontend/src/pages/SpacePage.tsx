@@ -1,7 +1,9 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type CSSProperties,
   type ChangeEvent,
   type FormEvent,
   type ReactNode,
@@ -11,6 +13,7 @@ import {
   fetchIncomingFriendRequests,
   fetchMyFriends,
   fetchOutgoingFriendRequests,
+  fetchUserFriends,
   fetchPublicProfile,
   reviewFriendRequest,
   updateMyBangumiCollection,
@@ -28,10 +31,6 @@ import type {
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
-import {
-  SPACE_FRIENDS,
-  SPACE_SHOWCASE_GROUPS,
-} from "../content";
 import { createPagerState, type PagerState } from "../lib/pagination";
 import { excerpt, extractMarkdownPreviewImage, normalizeVisibilityLabel } from "../lib/text";
 import type {
@@ -140,10 +139,10 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "identity",
     title: "空间主控",
     kicker: "Identity",
-    description: "查看主卡资料与论坛成长进度。",
+    description: "查看资料卡与成长进度。",
     children: [
-      { id: "profile", label: "空间主卡" },
-      { id: "progress", label: "论坛进度" },
+      { id: "profile", label: "个人资料卡" },
+      { id: "progress", label: "成长进度" },
     ],
   },
   {
@@ -408,33 +407,6 @@ function createShowcaseGroupsFromBangumiCollections(collections: readonly Bangum
   });
 }
 
-function createShowcaseGroupsFromFallbackContent(): SpaceShowcaseGroup[] {
-  return SPACE_SHOWCASE_GROUPS.map((group) => ({
-    id: group.id as SpaceShelfTab,
-    label: group.label,
-    items: group.items.map((item) => {
-      const sourceURLValue = (item as { sourceURL?: unknown }).sourceURL;
-      return {
-        id: item.id,
-        collectionID: undefined,
-        sourceURL: typeof sourceURLValue === "string" ? sourceURLValue : undefined,
-        title: item.title,
-        subtitle: item.subtitle,
-        note: item.note,
-        image: item.image,
-        originalTitle: item.originalTitle,
-        score: item.score,
-        rank: item.rank,
-        releaseYear: item.releaseYear,
-        episodes: "episodes" in item ? item.episodes : undefined,
-        pages: "pages" in item ? item.pages : undefined,
-        hours: "hours" in item ? item.hours : undefined,
-        collectionStatus: item.collectionStatus as SpaceCollectionStatus,
-      };
-    }),
-  }));
-}
-
 function applyShowcaseEdits(
   groups: readonly SpaceShowcaseGroup[],
   edits: Record<string, SpaceShowcaseItemEdit>,
@@ -481,14 +453,7 @@ function isSpaceFriendStatus(value: unknown): value is SpaceFriendStatus {
 }
 
 function createDefaultSpaceFriends(): SpaceFriend[] {
-  return SPACE_FRIENDS.map((friend) => ({
-    id: friend.id,
-    isReal: Boolean(friend.isReal),
-    name: friend.name,
-    note: friend.note,
-    status: friend.status as SpaceFriendStatus,
-    username: friend.username,
-  }));
+  return [];
 }
 
 function parseStoredSpaceFriends(value: unknown): SpaceFriend[] {
@@ -912,11 +877,14 @@ export default function SpacePage({
   onRegisterSubmit,
   onSpaceShelfTabChange,
 }: SpacePageProps) {
-  const terminalSpaceID = (displayProfile?.username || "guest").trim();
   const [showcaseEdits, setShowcaseEdits] = useState<Record<string, SpaceShowcaseItemEdit>>(() =>
     readStoredShowcaseEdits(),
   );
   const [expandedShowcaseItemIDs, setExpandedShowcaseItemIDs] = useState<Record<string, boolean>>({});
+  const showcaseGridRef = useRef<HTMLDivElement | null>(null);
+  const showcaseCardRefs = useRef<Record<string, HTMLElement | null>>({});
+  const [showcaseEditorOffsetTop, setShowcaseEditorOffsetTop] = useState(0);
+  const [showcaseEditorFloatingStyle, setShowcaseEditorFloatingStyle] = useState<CSSProperties | null>(null);
   const [showcaseDrafts, setShowcaseDrafts] = useState<Record<string, SpaceShowcaseItemDraft>>({});
   const [showcaseActionStates, setShowcaseActionStates] =
     useState<Record<string, SpaceShowcaseActionState>>({});
@@ -940,6 +908,9 @@ export default function SpacePage({
   );
   const [showcasePager, setShowcasePager] = useState<PagerState>(() => createPagerState(20));
   const [spaceActivePage, setSpaceActivePage] = useState<SpaceSidebarPageKey>("profile");
+  const isViewingPublicProfile = Boolean(viewingPublicProfileUsername);
+  const viewingProfileLabel = viewingPublicProfileUsername ? `@${viewingPublicProfileUsername}` : "当前账号";
+  const canManageBangumiImport = canUseBangumiImport && !isViewingPublicProfile;
   const activeSidebarSection = spaceSidebarSectionFromPage(spaceActivePage);
   const spaceIDEditable = displayProfile?.space_id_editable !== false;
   const [spaceFriends, setSpaceFriends] = useState<SpaceFriend[]>(() => {
@@ -955,7 +926,7 @@ export default function SpacePage({
     error: "",
     success: "",
   });
-  const spaceCapsules = createSpaceCapsules(spaceLogEntries, bangumiJobs);
+  const spaceCapsules = createSpaceCapsules(spaceLogEntries, isViewingPublicProfile ? [] : bangumiJobs);
   const spaceCollectionStatusCounts = SPACE_COLLECTION_STATUS_META.map((meta) => ({
     ...meta,
     count: activeSpaceShelf.items.filter((item) => item.collectionStatus === meta.id).length,
@@ -981,6 +952,76 @@ export default function SpacePage({
   const expandedShowcaseActionState = expandedShowcaseItem
     ? showcaseActionStates[expandedShowcaseItem.id]
     : undefined;
+
+  function handleShowcaseEditorClose(): void {
+    setExpandedShowcaseItemIDs({});
+  }
+
+  useEffect(() => {
+    if (!expandedShowcaseItem) {
+      setShowcaseEditorOffsetTop(0);
+      setShowcaseEditorFloatingStyle(null);
+      return;
+    }
+
+    const syncEditorOffset = () => {
+      const gridElement = showcaseGridRef.current;
+      const cardElement = showcaseCardRefs.current[expandedShowcaseItem.id];
+      if (!gridElement || !cardElement) {
+        return;
+      }
+
+      const cardRect = cardElement.getBoundingClientRect();
+      const gridRect = gridElement.getBoundingClientRect();
+      const canFloatByCard = typeof window !== "undefined" && window.innerWidth > 900;
+
+      if (!canFloatByCard) {
+        const nextOffset = Math.max(Math.round(cardRect.top - gridRect.top), 0);
+        setShowcaseEditorOffsetTop((current) => (current === nextOffset ? current : nextOffset));
+        setShowcaseEditorFloatingStyle(null);
+        return;
+      }
+
+      const margin = 12;
+      const panelWidth = Math.min(360, Math.max(280, window.innerWidth - margin * 2));
+      let nextLeft = cardRect.right + 12;
+      if (nextLeft + panelWidth > window.innerWidth - margin) {
+        nextLeft = cardRect.left - panelWidth - 12;
+      }
+      nextLeft = Math.min(Math.max(nextLeft, margin), window.innerWidth - panelWidth - margin);
+      const nextTop = Math.min(Math.max(cardRect.top - 4, 78), Math.max(78, window.innerHeight - 280));
+
+      setShowcaseEditorOffsetTop((current) => (current === 0 ? current : 0));
+      setShowcaseEditorFloatingStyle((current) => {
+        if (
+          current &&
+          current.top === Math.round(nextTop) &&
+          current.left === Math.round(nextLeft) &&
+          current.width === Math.round(panelWidth)
+        ) {
+          return current;
+        }
+        return {
+          top: Math.round(nextTop),
+          left: Math.round(nextLeft),
+          width: Math.round(panelWidth),
+        };
+      });
+    };
+
+    syncEditorOffset();
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.addEventListener("resize", syncEditorOffset);
+    window.addEventListener("scroll", syncEditorOffset, true);
+    return () => {
+      window.removeEventListener("resize", syncEditorOffset);
+      window.removeEventListener("scroll", syncEditorOffset, true);
+    };
+  }, [expandedShowcaseItem?.id, pagedSpaceShelfItems]);
 
   useEffect(() => {
     setSpaceCollectionStatus((current) => {
@@ -1008,6 +1049,14 @@ export default function SpacePage({
       };
     });
   }, [filteredSpaceShelfItems.length]);
+
+  useEffect(() => {
+    if (!isViewingPublicProfile || spaceActivePage !== "bangumi") {
+      return;
+    }
+
+    setSpaceActivePage("journal");
+  }, [isViewingPublicProfile, spaceActivePage]);
 
   useEffect(() => {
     setShowcasePager((current) => {
@@ -1058,13 +1107,17 @@ export default function SpacePage({
       return;
     }
 
+    if (isViewingPublicProfile) {
+      return;
+    }
+
     if (session) {
       window.localStorage.removeItem(SPACE_FRIENDS_STORAGE_KEY);
       return;
     }
 
     window.localStorage.setItem(SPACE_FRIENDS_STORAGE_KEY, JSON.stringify(spaceFriends));
-  }, [session, spaceFriends]);
+  }, [isViewingPublicProfile, session, spaceFriends]);
 
   async function refreshFriendWorkspace(accessToken: string): Promise<void> {
     const [friendsResult, incomingResult, outgoingResult] = await Promise.all([
@@ -1082,6 +1135,51 @@ export default function SpacePage({
 
   useEffect(() => {
     let active = true;
+
+    if (isViewingPublicProfile) {
+      setIncomingFriendRequests([]);
+      setOutgoingFriendRequests([]);
+
+      const targetUsername = viewingPublicProfileUsername?.trim();
+      if (!targetUsername) {
+        setSpaceFriends([]);
+        setSpaceFriendsLoading(false);
+        return () => {
+          active = false;
+        };
+      }
+
+      setSpaceFriendsLoading(true);
+      setSpaceFriendActionState({
+        pending: false,
+        error: "",
+        success: "",
+      });
+      void fetchUserFriends(targetUsername, { page: 1, pageSize: 200 })
+        .then((result) => {
+          if (!active) {
+            return;
+          }
+          setSpaceFriends(result.items.map((item) => mapFriendSummaryToSpaceFriend(item)));
+          setSpaceFriendsLoading(false);
+        })
+        .catch((error) => {
+          if (!active) {
+            return;
+          }
+          setSpaceFriends([]);
+          setSpaceFriendsLoading(false);
+          setSpaceFriendActionState({
+            pending: false,
+            error: error instanceof Error ? error.message : "加载该用户好友列表失败，请稍后重试。",
+            success: "",
+          });
+        });
+
+      return () => {
+        active = false;
+      };
+    }
 
     if (!session?.accessToken) {
       setSpaceFriends(() => {
@@ -1119,7 +1217,7 @@ export default function SpacePage({
     return () => {
       active = false;
     };
-  }, [session]);
+  }, [isViewingPublicProfile, session, viewingPublicProfileUsername]);
 
   function handleSpaceFriendFieldChange(
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -1409,7 +1507,7 @@ export default function SpacePage({
     setSpaceFriendActionState({
       pending: false,
       error: "",
-      success: "已恢复默认好友列表。",
+      success: "已清空本地好友列表。",
     });
   }
 
@@ -1582,13 +1680,34 @@ export default function SpacePage({
       <aside className="panel admin-sidebar space-sidebar">
         <div className="panel-heading">
           <div>
-            <p className="panel-kicker">Space Sidebar</p>
-            <h2>个人空间工作台</h2>
+            <p className="panel-kicker">{isViewingPublicProfile ? `${viewingProfileLabel} 空间` : "空间侧栏"}</p>
+            <h2>{isViewingPublicProfile ? `${viewingProfileLabel} 的工作空间` : "个人空间工作台"}</h2>
           </div>
-          <StatusChip tone="accent">/space</StatusChip>
+          <StatusChip tone="accent">{isViewingPublicProfile ? viewingProfileLabel : "/space"}</StatusChip>
         </div>
         <div className="stack-list">
           {SPACE_SIDEBAR_SECTIONS.map((section) => {
+            const visibleChildren = section.children.filter(
+              (child) => !(isViewingPublicProfile && child.id === "bangumi"),
+            );
+            if (!visibleChildren.length) {
+              return null;
+            }
+            const sectionTitle = isViewingPublicProfile
+              ? section.id === "identity"
+                ? `${viewingProfileLabel} 主页`
+                : section.id === "creation"
+                  ? "内容浏览"
+                  : "社交归档"
+              : section.title;
+            const sectionDescription = isViewingPublicProfile
+              ? section.id === "identity"
+                ? `查看 ${viewingProfileLabel} 的资料卡与成长进度。`
+                : section.id === "creation"
+                  ? `查看 ${viewingProfileLabel} 的展示架与日志区。`
+                  : `查看 ${viewingProfileLabel} 的好友和时间胶囊记录。`
+              : section.description;
+
             const active = section.id === activeSidebarSection;
             return (
               <section
@@ -1598,14 +1717,14 @@ export default function SpacePage({
                 <button
                   className="admin-sidebar__button"
                   type="button"
-                  onClick={() => setSpaceActivePage(section.children[0].id)}
+                  onClick={() => setSpaceActivePage(visibleChildren[0].id)}
                 >
                   <span>{section.kicker}</span>
-                  <strong>{section.title}</strong>
-                  <p>{section.description}</p>
+                  <strong>{sectionTitle}</strong>
+                  <p>{sectionDescription}</p>
                 </button>
                 <div className="admin-sidebar__children">
-                  {section.children.map((child) => (
+                  {visibleChildren.map((child) => (
                     <button
                       className={`admin-sidebar__child ${
                         child.id === spaceActivePage ? "admin-sidebar__child--active" : ""
@@ -1614,7 +1733,11 @@ export default function SpacePage({
                       type="button"
                       onClick={() => setSpaceActivePage(child.id)}
                     >
-                      {child.label}
+                      {isViewingPublicProfile && child.id === "profile"
+                        ? `${viewingProfileLabel} 资料卡`
+                        : isViewingPublicProfile && child.id === "journal"
+                          ? `${viewingProfileLabel} 日志`
+                          : child.label}
                     </button>
                   ))}
                 </div>
@@ -1640,19 +1763,6 @@ export default function SpacePage({
             ) : null}
             {displayProfile ? (
               <>
-                <div className="space-master-panel__bootlog" aria-hidden="true">
-                  <p className="space-master-panel__bootline space-master-panel__bootline--title">
-                    <span className="space-master-panel__prompt">^ .</span> // Space Master Card
-                  </p>
-                  <p className="space-master-panel__bootline">
-                    <span className="space-master-panel__prompt">.$</span> boot.profile --user {terminalSpaceID}
-                  </p>
-                  <p className="space-master-panel__bootline space-master-panel__bootline--ok">SYSTEM READY.</p>
-                  <p className="space-master-panel__bootline">
-                    <span className="space-master-panel__prompt">{terminalSpaceID}@redgal:~$</span> cat ./space.bio
-                    <span className="space-master-panel__cursor" />
-                  </p>
-                </div>
                 <div className="space-master-panel__identity">
                   {displayProfile.avatar_url ? (
                     <img
@@ -1666,7 +1776,7 @@ export default function SpacePage({
                     </div>
                   )}
                   <div className="space-master-panel__copy">
-                    <p className="panel-kicker">空间主卡</p>
+                    <p className="panel-kicker">{isViewingPublicProfile ? `${viewingProfileLabel} 资料卡` : "个人资料卡"}</p>
                     <h2 className="space-master-panel__title">{displayProfile.nickname}</h2>
                     <p className="profile-meta">
                       @{displayProfile.username} · {displayProfile.signature}
@@ -1719,7 +1829,7 @@ export default function SpacePage({
                           type="text"
                           value={profileForm.signature}
                           onChange={onProfileFieldChange}
-                          placeholder="写一句固定展示在空间主卡上的签名"
+                          placeholder="写一句固定展示在资料卡上的签名"
                         />
                       </label>
                       <label>
@@ -1772,15 +1882,14 @@ export default function SpacePage({
                     {profileActionState.error ? <p className="panel-error">{profileActionState.error}</p> : null}
                     {profileActionState.success ? <p className="panel-empty">{profileActionState.success}</p> : null}
                   </form>
-                ) : isAuthenticated ? (
-                  <p className="panel-empty">当前处于公开主页浏览模式，只有自己的 `/space` 可以编辑资料。</p>
                 ) : null}
               </>
             ) : (
               <p className="panel-empty">{profileError || "空间资料加载中。"}</p>
             )}
           </article>
-          <article className="panel space-auth-panel">
+          {!isViewingPublicProfile ? (
+            <article className="panel space-auth-panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">账号会话</p>
@@ -1802,7 +1911,7 @@ export default function SpacePage({
             ) : (
               <div className="space-auth-grid">
                 <form className="auth-form" onSubmit={(event) => void onLoginSubmit(event)}>
-                  <p className="panel-empty">登录后会同步到后端 `/auth/login` 与当前空间会话。</p>
+                  <p className="panel-empty">登录后会同步当前空间会话。</p>
                   <label>
                     <span>账号</span>
                     <input
@@ -1831,7 +1940,7 @@ export default function SpacePage({
                 </form>
 
                 <form className="auth-form" onSubmit={(event) => void onRegisterSubmit(event)}>
-                  <p className="panel-empty">注册会走后端 `/auth/register`，完成后可直接用账号登录。</p>
+                  <p className="panel-empty">注册完成后可直接用账号登录。</p>
                   <label>
                     <span>学号</span>
                     <input
@@ -1871,7 +1980,8 @@ export default function SpacePage({
                 </form>
               </div>
             )}
-          </article>
+            </article>
+          ) : null}
         </section>
 
         <section style={{ display: spaceActivePage === "progress" ? undefined : "none" }}>
@@ -1915,134 +2025,162 @@ export default function SpacePage({
                 </button>
               ))}
             </div>
-            <div className="space-bgm-collection-grid">
-              {pagedSpaceShelfItems.map((item, index) => {
-                const isEditorExpanded = Boolean(expandedShowcaseItemIDs[item.id]);
-                const startIndex = Math.max(showcasePager.page - 1, 0) * showcasePager.pageSize;
-                return (
-                  <article className="space-bgm-item" key={item.id}>
-                    <div className="space-bgm-item__cover">
-                      <img alt={item.title} src={item.image} />
-                      <span>{String(startIndex + index + 1).padStart(2, "0")}</span>
-                    </div>
-                    <div className="space-bgm-item__copy">
-                      <strong>{item.title}</strong>
-                      {item.originalTitle ? <p>{item.originalTitle}</p> : null}
-                      <div className="space-bgm-item__meta">
-                        <span>
-                          Bangumi: {item.score ? `★${item.score.toFixed(1)}` : "★--"}
-                          {typeof item.rank === "number" ? ` · Rank #${item.rank}` : ""}
-                        </span>
-                        <span>
-                          {item.releaseYear || "--"} · {toMediaTypeLabel(activeSpaceShelf.id)}
-                          {"episodes" in item && typeof item.episodes === "number" ? ` · ${item.episodes}话` : ""}
-                          {"pages" in item && typeof item.pages === "number" ? ` · ${item.pages}页` : ""}
-                          {"hours" in item && typeof item.hours === "string" && item.hours ? ` · ${item.hours}` : ""}
-                        </span>
-                        <span>我的状态：{toCollectionStatusLabel(item.collectionStatus)}</span>
-                        <span>我的评分：{typeof item.myScore === "number" ? `${item.myScore} / 10` : "--"}</span>
+            <div
+              className={`space-bgm-collection-layout ${
+                canEditShowcase && expandedShowcaseItem && expandedShowcaseDraft
+                  ? "space-bgm-collection-layout--editor-open"
+                  : ""
+              }`}
+            >
+              <div className="space-bgm-collection-grid" ref={showcaseGridRef}>
+                {pagedSpaceShelfItems.map((item, index) => {
+                  const isEditorExpanded = Boolean(expandedShowcaseItemIDs[item.id]);
+                  const startIndex = Math.max(showcasePager.page - 1, 0) * showcasePager.pageSize;
+                  return (
+                    <article
+                      className="space-bgm-item"
+                      key={item.id}
+                      ref={(node) => {
+                        showcaseCardRefs.current[item.id] = node;
+                      }}
+                    >
+                      <div className="space-bgm-item__cover">
+                        <img alt={item.title} src={item.image} />
+                        <span>{String(startIndex + index + 1).padStart(2, "0")}</span>
                       </div>
-                      <small>{item.note}</small>
-                      {item.sourceURL ? (
-                        <a
-                          className="space-bgm-item__source-link"
-                          href={item.sourceURL}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          查看 Bangumi 原链接
-                        </a>
+                      <div className="space-bgm-item__copy">
+                        <strong>{item.title}</strong>
+                        {item.originalTitle ? <p>{item.originalTitle}</p> : null}
+                        <div className="space-bgm-item__meta">
+                          <span>
+                            Bangumi: {item.score ? `★${item.score.toFixed(1)}` : "★--"}
+                            {typeof item.rank === "number" ? ` · Rank #${item.rank}` : ""}
+                          </span>
+                          <span>
+                            {item.releaseYear || "--"} · {toMediaTypeLabel(activeSpaceShelf.id)}
+                            {"episodes" in item && typeof item.episodes === "number" ? ` · ${item.episodes}话` : ""}
+                            {"pages" in item && typeof item.pages === "number" ? ` · ${item.pages}页` : ""}
+                            {"hours" in item && typeof item.hours === "string" && item.hours ? ` · ${item.hours}` : ""}
+                          </span>
+                          <span>收藏状态：{toCollectionStatusLabel(item.collectionStatus)}</span>
+                          <span>收藏评分：{typeof item.myScore === "number" ? `${item.myScore} / 10` : "--"}</span>
+                        </div>
+                        <small>{item.note}</small>
+                        {item.sourceURL ? (
+                          <a
+                            className="space-bgm-item__source-link"
+                            href={item.sourceURL}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            查看 Bangumi 原链接
+                          </a>
+                        ) : null}
+                        {item.myComment ? <p className="space-bgm-item__comment">短评：{item.myComment}</p> : null}
+                      </div>
+                      {canEditShowcase ? (
+                        <div className="space-bgm-item__toolbar">
+                          <button
+                            className="ghost-button space-bgm-item__toggle-button"
+                            type="button"
+                            onClick={() => handleShowcaseEditorToggle(item)}
+                          >
+                            {isEditorExpanded ? "收起操作" : "展开操作"}
+                          </button>
+                        </div>
                       ) : null}
-                      {item.myComment ? <p className="space-bgm-item__comment">短评：{item.myComment}</p> : null}
+                    </article>
+                  );
+                })}
+                {!filteredSpaceShelfItems.length ? (
+                  <p className="panel-empty">
+                    {canEditShowcase ? "这个分类下还没有同步条目，可先去 Bangumi 导入页提交任务。" : "这个用户在该分类还没有公开条目。"}
+                  </p>
+                ) : null}
+              </div>
+              {canEditShowcase && expandedShowcaseItem && expandedShowcaseDraft ? (
+                <div
+                  className={`space-bgm-item__editor-dock ${showcaseEditorFloatingStyle ? "space-bgm-item__editor-dock--floating" : ""}`}
+                  style={showcaseEditorFloatingStyle ?? (showcaseEditorOffsetTop > 0 ? { marginTop: showcaseEditorOffsetTop } : undefined)}
+                >
+                  <div className="space-bgm-item__editor space-bgm-item__editor-panel">
+                    <div className="space-bgm-item__editor-head">
+                      <p className="space-bgm-item__editor-title">正在编辑：{expandedShowcaseItem.title}</p>
+                      <button
+                        className="ghost-button space-bgm-item__editor-cancel"
+                        type="button"
+                        onClick={handleShowcaseEditorClose}
+                      >
+                        退出
+                      </button>
                     </div>
-                    {canEditShowcase ? (
-                      <div className="space-bgm-item__toolbar">
+                    <div className="space-bgm-item__editor-status">
+                      {SPACE_COLLECTION_STATUS_META.map((statusItem) => (
                         <button
-                          className="ghost-button space-bgm-item__toggle-button"
+                          className={`space-bgm-item__status-chip ${
+                            expandedShowcaseDraft.collectionStatus === statusItem.id ? "space-bgm-item__status-chip--active" : ""
+                          }`}
+                          key={`${expandedShowcaseItem.id}-${statusItem.id}`}
                           type="button"
-                          onClick={() => handleShowcaseEditorToggle(item)}
+                          onClick={() => handleShowcaseDraftStatusChange(expandedShowcaseItem, statusItem.id)}
                         >
-                          {isEditorExpanded ? "收起操作" : "展开操作"}
+                          {statusItem.label}
                         </button>
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
-              {!filteredSpaceShelfItems.length ? (
-                <p className="panel-empty">
-                  {canEditShowcase ? "这个分类下还没有同步条目，可先去 Bangumi 导入页提交任务。" : "这个用户在该分类还没有公开条目。"}
-                </p>
+                      ))}
+                    </div>
+                    <div className="space-bgm-item__editor-fields">
+                      <label className="space-bgm-item__editor-field">
+                        <span>评分</span>
+                        <select
+                          value={typeof expandedShowcaseDraft.myScore === "number" ? String(expandedShowcaseDraft.myScore) : ""}
+                          onChange={(event) => handleShowcaseDraftScoreChange(expandedShowcaseItem, event.target.value)}
+                        >
+                          <option value="">--</option>
+                          {Array.from({ length: 10 }, (_, value) => {
+                            const score = value + 1;
+                            return (
+                              <option key={`${expandedShowcaseItem.id}-score-${score}`} value={score}>
+                                {score}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </label>
+                      <label className="space-bgm-item__editor-field space-bgm-item__editor-field--comment">
+                        <span>短评</span>
+                        <input
+                          type="text"
+                          value={expandedShowcaseDraft.myComment}
+                          onChange={(event) => handleShowcaseDraftCommentChange(expandedShowcaseItem, event.target.value)}
+                          placeholder="写一句短评（最多 200 字）"
+                          maxLength={200}
+                        />
+                      </label>
+                    </div>
+                    <div className="space-bgm-item__editor-actions">
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => handleShowcaseDraftReset(expandedShowcaseItem)}
+                        disabled={Boolean(expandedShowcaseActionState?.pending)}
+                      >
+                        重置
+                      </button>
+                      <button
+                        className="primary-button"
+                        type="button"
+                        onClick={() => void handleShowcaseDraftSave(expandedShowcaseItem)}
+                        disabled={Boolean(expandedShowcaseActionState?.pending)}
+                      >
+                        {expandedShowcaseActionState?.pending ? "保存中..." : "保存"}
+                      </button>
+                    </div>
+                    {expandedShowcaseActionState?.error ? <p className="panel-error">{expandedShowcaseActionState.error}</p> : null}
+                    {expandedShowcaseActionState?.success ? <p className="panel-empty">{expandedShowcaseActionState.success}</p> : null}
+                  </div>
+                </div>
               ) : null}
             </div>
-            {canEditShowcase && expandedShowcaseItem && expandedShowcaseDraft ? (
-              <div className="space-bgm-item__editor space-bgm-item__editor-panel">
-                <p className="space-bgm-item__editor-title">正在编辑：{expandedShowcaseItem.title}</p>
-                <div className="space-bgm-item__editor-status">
-                  {SPACE_COLLECTION_STATUS_META.map((statusItem) => (
-                    <button
-                      className={`space-bgm-item__status-chip ${
-                        expandedShowcaseDraft.collectionStatus === statusItem.id ? "space-bgm-item__status-chip--active" : ""
-                      }`}
-                      key={`${expandedShowcaseItem.id}-${statusItem.id}`}
-                      type="button"
-                      onClick={() => handleShowcaseDraftStatusChange(expandedShowcaseItem, statusItem.id)}
-                    >
-                      {statusItem.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="space-bgm-item__editor-fields">
-                  <label className="space-bgm-item__editor-field">
-                    <span>评分</span>
-                    <select
-                      value={typeof expandedShowcaseDraft.myScore === "number" ? String(expandedShowcaseDraft.myScore) : ""}
-                      onChange={(event) => handleShowcaseDraftScoreChange(expandedShowcaseItem, event.target.value)}
-                    >
-                      <option value="">--</option>
-                      {Array.from({ length: 10 }, (_, value) => {
-                        const score = value + 1;
-                        return (
-                          <option key={`${expandedShowcaseItem.id}-score-${score}`} value={score}>
-                            {score}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </label>
-                  <label className="space-bgm-item__editor-field space-bgm-item__editor-field--comment">
-                    <span>短评</span>
-                    <input
-                      type="text"
-                      value={expandedShowcaseDraft.myComment}
-                      onChange={(event) => handleShowcaseDraftCommentChange(expandedShowcaseItem, event.target.value)}
-                      placeholder="写一句短评（最多 200 字）"
-                      maxLength={200}
-                    />
-                  </label>
-                </div>
-                <div className="space-bgm-item__editor-actions">
-                  <button
-                    className="ghost-button"
-                    type="button"
-                    onClick={() => handleShowcaseDraftReset(expandedShowcaseItem)}
-                    disabled={Boolean(expandedShowcaseActionState?.pending)}
-                  >
-                    重置
-                  </button>
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={() => void handleShowcaseDraftSave(expandedShowcaseItem)}
-                    disabled={Boolean(expandedShowcaseActionState?.pending)}
-                  >
-                    {expandedShowcaseActionState?.pending ? "保存中..." : "保存"}
-                  </button>
-                </div>
-                {expandedShowcaseActionState?.error ? <p className="panel-error">{expandedShowcaseActionState.error}</p> : null}
-                {expandedShowcaseActionState?.success ? <p className="panel-empty">{expandedShowcaseActionState.success}</p> : null}
-              </div>
-            ) : null}
             <PaginationBar
               pager={showcasePager}
               onPageChange={(page) =>
@@ -2060,14 +2198,16 @@ export default function SpacePage({
           <article className="panel">
             <div className="panel-heading">
               <div>
-                <p className="panel-kicker">个人日志</p>
-                <h2>Markdown 日志区</h2>
+                <p className="panel-kicker">{isViewingPublicProfile ? `${viewingProfileLabel} 日志` : "个人日志"}</p>
+                <h2>{isViewingPublicProfile ? `${viewingProfileLabel} 的 Markdown 日志区` : "Markdown 日志区"}</h2>
               </div>
-              <StatusChip tone={hasVerifiedSpaceAccess ? "success" : "warn"}>
-                {hasVerifiedSpaceAccess ? "POST /articles" : "需要已认证账号"}
+              <StatusChip tone={isViewingPublicProfile ? "neutral" : hasVerifiedSpaceAccess ? "success" : "warn"}>
+                {isViewingPublicProfile ? "访客只读" : hasVerifiedSpaceAccess ? "可发布日志" : "需要已认证账号"}
               </StatusChip>
             </div>
-            {!session ? (
+            {isViewingPublicProfile ? (
+              <p className="panel-empty">正在浏览 {viewingProfileLabel} 的日志归档，当前模式仅支持阅读。</p>
+            ) : !session ? (
               <p className="panel-empty">登录并通过认证后，可以在这里写个人日志。</p>
             ) : !hasVerifiedSpaceAccess ? (
               <p className="panel-empty">当前账号还没有日志发布权限，需要通过认证后才能写日志。</p>
@@ -2075,7 +2215,7 @@ export default function SpacePage({
               <form className="space-form stories-editor" onSubmit={(event) => void onArticleSubmit(event)}>
                 <div className="stories-editor__toolbar">
                   <div>
-                    <p className="panel-kicker">Space Editor</p>
+                    <p className="panel-kicker">空间编辑器</p>
                     <h2>Markdown 日志编辑器</h2>
                   </div>
                   <div className="stories-editor__toolbar-actions">
@@ -2103,7 +2243,7 @@ export default function SpacePage({
                     <span>可见范围</span>
                     <select name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
                       <option value="public">公开</option>
-                      <option value="member">成员</option>
+                      <option value="member">仅成员可见</option>
                       <option value="private">仅自己可见</option>
                     </select>
                   </label>
@@ -2131,7 +2271,7 @@ export default function SpacePage({
 
                 <div className="stories-editor__split">
                   <section className="stories-editor__pane">
-                    <div className="stories-editor__pane-head">Markdown Source</div>
+                    <div className="stories-editor__pane-head">Markdown 源文本</div>
                     <textarea
                       name="content"
                       rows={14}
@@ -2142,7 +2282,7 @@ export default function SpacePage({
                     />
                   </section>
                   <section className="stories-editor__pane stories-editor__pane--preview">
-                    <div className="stories-editor__pane-head">Live Preview</div>
+                    <div className="stories-editor__pane-head">实时预览</div>
                     <div className="stories-editor__preview">
                       {articleForm.content.trim() ? (
                         <RichContent content={articleForm.content} />
@@ -2198,20 +2338,20 @@ export default function SpacePage({
           </article>
         </section>
 
-        <section style={{ display: spaceActivePage === "bangumi" ? undefined : "none" }}>
+        <section style={{ display: spaceActivePage === "bangumi" && !isViewingPublicProfile ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
                 <p className="panel-kicker">Bangumi 导入</p>
                 <h2>作品与帐号同步</h2>
               </div>
-              <StatusChip tone={canUseBangumiImport ? "accent" : "warn"}>
-                {canUseBangumiImport ? "POST /users/me/bangumi/import" : "需要登录账号"}
+              <StatusChip tone={canManageBangumiImport ? "accent" : "warn"}>
+                {canManageBangumiImport ? "可发起导入" : "需要登录账号"}
               </StatusChip>
             </div>
             {!session ? (
               <p className="panel-empty">登录后可按作品 ID 导入，或按 Bangumi 登录帐号批量同步收藏。</p>
-            ) : !canUseBangumiImport ? (
+            ) : !canManageBangumiImport ? (
               <p className="panel-empty">当前账号无法发起导入，请重新登录后重试。</p>
             ) : (
               <form className="space-form" onSubmit={(event) => void onBangumiImportSubmit(event)}>
@@ -2262,20 +2402,20 @@ export default function SpacePage({
                   <label>
                     <span>收藏状态</span>
                     <select name="status" value={bangumiForm.status} onChange={onBangumiFieldChange}>
-                      <option value="wish">wish</option>
-                      <option value="doing">doing</option>
-                      <option value="collect">collect</option>
-                      <option value="on_hold">on_hold</option>
-                      <option value="dropped">dropped</option>
+                      <option value="wish">想看</option>
+                      <option value="doing">在看</option>
+                      <option value="collect">看过</option>
+                      <option value="on_hold">搁置</option>
+                      <option value="dropped">抛弃</option>
                     </select>
                   </label>
                 )}
                 <label>
                   <span>可见范围</span>
                   <select name="visibility" value={bangumiForm.visibility} onChange={onBangumiFieldChange}>
-                    <option value="public">public</option>
-                    <option value="members">members</option>
-                    <option value="private">private</option>
+                    <option value="public">公开</option>
+                    <option value="members">仅成员可见</option>
+                    <option value="private">仅自己可见</option>
                   </select>
                 </label>
                 {bangumiActionState.error ? <p className="panel-error">{bangumiActionState.error}</p> : null}
@@ -2297,7 +2437,7 @@ export default function SpacePage({
                 </button>
               </form>
             )}
-            {canUseBangumiImport ? (
+            {canManageBangumiImport ? (
               <div className="space-job-list">
                 <div className="space-log-list__header">
                   <strong>我的导入任务</strong>
@@ -2359,58 +2499,65 @@ export default function SpacePage({
               <StatusChip tone="accent">{spaceFriends.length} 位</StatusChip>
             </div>
             <p className="panel-empty">
-              {session
+              {isViewingPublicProfile
+                ? `仅展示 ${viewingProfileLabel} 的好友列表。`
+                : session
                 ? "好友申请需要对方审核通过，审核前不会加入好友列表。"
                 : "游客模式仅本地维护好友列表；登录后可使用真实好友审核流程。"}
             </p>
-            <form className="space-form space-friend-form" onSubmit={(event) => void handleSpaceFriendSubmit(event)}>
-              <div className="space-friend-form__row">
+            {isViewingPublicProfile && spaceFriendActionState.error ? (
+              <p className="panel-error">{spaceFriendActionState.error}</p>
+            ) : null}
+            {!isViewingPublicProfile ? (
+              <form className="space-form space-friend-form" onSubmit={(event) => void handleSpaceFriendSubmit(event)}>
+                <div className="space-friend-form__row">
+                  <label>
+                    <span>好友用户名</span>
+                    <input
+                      name="username"
+                      type="text"
+                      value={spaceFriendForm.username}
+                      onChange={handleSpaceFriendFieldChange}
+                      placeholder="例如：rubedo_room"
+                      required
+                    />
+                  </label>
+                  {!session ? (
+                    <label>
+                      <span>初始状态</span>
+                      <select name="status" value={spaceFriendForm.status} onChange={handleSpaceFriendFieldChange}>
+                        <option value="在线">在线</option>
+                        <option value="忙碌">忙碌</option>
+                        <option value="离线">离线</option>
+                      </select>
+                    </label>
+                  ) : null}
+                </div>
                 <label>
-                  <span>好友用户名</span>
+                  <span>{session ? "申请备注" : "备注"}</span>
                   <input
-                    name="username"
+                    name="note"
                     type="text"
-                    value={spaceFriendForm.username}
+                    value={spaceFriendForm.note}
                     onChange={handleSpaceFriendFieldChange}
-                    placeholder="例如：rubedo_room"
-                    required
+                    placeholder={session ? "可选：给对方留一句话" : "可选：给好友写一句介绍"}
                   />
                 </label>
-                {!session ? (
-                  <label>
-                    <span>初始状态</span>
-                    <select name="status" value={spaceFriendForm.status} onChange={handleSpaceFriendFieldChange}>
-                      <option value="在线">在线</option>
-                      <option value="忙碌">忙碌</option>
-                      <option value="离线">离线</option>
-                    </select>
-                  </label>
-                ) : null}
-              </div>
-              <label>
-                <span>{session ? "申请备注" : "备注"}</span>
-                <input
-                  name="note"
-                  type="text"
-                  value={spaceFriendForm.note}
-                  onChange={handleSpaceFriendFieldChange}
-                  placeholder={session ? "可选：给对方留一句话" : "可选：给好友写一句介绍"}
-                />
-              </label>
-              {spaceFriendActionState.error ? <p className="panel-error">{spaceFriendActionState.error}</p> : null}
-              {spaceFriendActionState.success ? <p className="panel-empty">{spaceFriendActionState.success}</p> : null}
-              <div className="space-friend-form__actions">
-                <button className="primary-button" type="submit" disabled={spaceFriendActionState.pending}>
-                  {spaceFriendActionState.pending
-                    ? session ? "发送中..." : "添加中..."
-                    : session ? "发送好友申请" : "添加真实好友"}
-                </button>
-                <button className="ghost-button" type="button" onClick={handleResetSpaceFriends}>
-                  {session ? "刷新列表" : "恢复默认"}
-                </button>
-              </div>
-            </form>
-            {session ? (
+                {spaceFriendActionState.error ? <p className="panel-error">{spaceFriendActionState.error}</p> : null}
+                {spaceFriendActionState.success ? <p className="panel-empty">{spaceFriendActionState.success}</p> : null}
+                <div className="space-friend-form__actions">
+                  <button className="primary-button" type="submit" disabled={spaceFriendActionState.pending}>
+                    {spaceFriendActionState.pending
+                      ? session ? "发送中..." : "添加中..."
+                      : session ? "发送好友申请" : "添加真实好友"}
+                  </button>
+                  <button className="ghost-button" type="button" onClick={handleResetSpaceFriends}>
+                    {session ? "刷新列表" : "清空列表"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+            {!isViewingPublicProfile && session ? (
               <div className="space-friend-request-panels">
                 <div className="space-side-card">
                   <div className="space-side-card__header">
@@ -2494,35 +2641,37 @@ export default function SpacePage({
                       {friend.isReal ? "真实账号" : "本地好友"}
                     </StatusChip>
                   </div>
-                  <div className="space-friend-card__actions">
-                    {!session ? (
+                  {!isViewingPublicProfile ? (
+                    <div className="space-friend-card__actions">
+                      {!session ? (
+                        <button
+                          className="ghost-button"
+                          type="button"
+                          onClick={() => handleRotateSpaceFriendStatus(friend.id)}
+                        >
+                          切换状态
+                        </button>
+                      ) : null}
                       <button
                         className="ghost-button"
                         type="button"
-                        onClick={() => handleRotateSpaceFriendStatus(friend.id)}
+                        onClick={() => void handleViewSpaceFriendProfile(friend)}
+                        disabled={spaceFriendActionState.pending}
                       >
-                        切换状态
+                        查看主页
                       </button>
-                    ) : null}
-                    <button
-                      className="ghost-button"
-                      type="button"
-                      onClick={() => void handleViewSpaceFriendProfile(friend)}
-                      disabled={spaceFriendActionState.pending}
-                    >
-                      查看主页
-                    </button>
-                    {!session ? (
-                      <button className="ghost-button" type="button" onClick={() => handleRemoveSpaceFriend(friend.id)}>
-                        移除好友
-                      </button>
-                    ) : null}
-                  </div>
+                      {!session ? (
+                        <button className="ghost-button" type="button" onClick={() => handleRemoveSpaceFriend(friend.id)}>
+                          移除好友
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ))}
               {spaceFriendsLoading ? <p className="panel-empty">好友关系同步中...</p> : null}
               {!spaceFriendsLoading && !spaceFriends.length ? (
-                <p className="panel-empty">好友列表为空，先添加一个真实好友吧。</p>
+                <p className="panel-empty">{isViewingPublicProfile ? "这个空间暂时没有公开好友。" : "好友列表为空，先添加一个真实好友吧。"}</p>
               ) : null}
             </div>
           </article>
@@ -2548,9 +2697,7 @@ export default function SpacePage({
                     <strong>{capsule.title}</strong>
                     <span>{capsule.time}</span>
                   </div>
-                  <p className="space-capsule-card__command">
-                    <span className="space-capsule-card__prompt">{terminalSpaceID}@redgal:~$</span> {capsule.command}
-                  </p>
+                  <p className="space-capsule-card__command">操作：{capsule.command}</p>
                   <p className="space-capsule-card__record">{capsule.record}</p>
                   <p className="space-capsule-card__detail">{capsule.body}</p>
                 </article>
