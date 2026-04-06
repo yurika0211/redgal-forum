@@ -104,3 +104,15 @@ type UpdateGalleryEntryRequest struct {
 	SortOrder *int    `json:"sort_order"`
 	Active    *bool   `json:"active"`
 }
+
+type GalleryAsset struct {
+	URL          string `json:"url"`
+	Filename     string `json:"filename"`
+	OriginalName string `json:"original_name,omitempty"`
+	ContentType  string `json:"content_type,omitempty"`
+	Size         int64  `json:"size,omitempty"`
+}
+
+type GalleryAssetUploadResult struct {
+	Files []GalleryAsset `json:"files"`
+}

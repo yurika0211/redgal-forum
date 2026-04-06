@@ -2,17 +2,47 @@ package forum
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"example.com/rubedo/backend/internal/pagination"
+	platformcache "example.com/rubedo/backend/internal/platform/cache"
 	"example.com/rubedo/backend/internal/security"
 )
 
 type Service struct {
-	repo Repository
+	repo                 Repository
+	snapshotCache        *platformcache.MultiLevel
+	snapshotCacheEnabled bool
+	snapshotCacheTTL     time.Duration
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repo: repo}
+const defaultMyThreadSnapshotCacheTTL = 20 * time.Second
+
+type SnapshotCacheOptions struct {
+	Enabled bool
+	TTL     time.Duration
+}
+
+func NewService(repo Repository, snapshotCache *platformcache.MultiLevel) *Service {
+	return &Service{
+		repo:                 repo,
+		snapshotCache:        snapshotCache,
+		snapshotCacheEnabled: true,
+		snapshotCacheTTL:     defaultMyThreadSnapshotCacheTTL,
+	}
+}
+
+func (s *Service) ConfigureSnapshotCache(options SnapshotCacheOptions) *Service {
+	s.snapshotCacheEnabled = options.Enabled
+
+	if options.TTL > 0 {
+		s.snapshotCacheTTL = options.TTL
+	} else {
+		s.snapshotCacheTTL = defaultMyThreadSnapshotCacheTTL
+	}
+
+	return s
 }
 
 func (s *Service) ListThreads(
@@ -39,8 +69,51 @@ func (s *Service) GetAnonymousThread(ctx context.Context, threadID string) (Thre
 	return s.repo.GetAnonymousThread(ctx, threadID)
 }
 
+func (s *Service) GetAvailabilitySettings(ctx context.Context) (AvailabilitySettings, error) {
+	return s.repo.GetAvailabilitySettings(ctx)
+}
+
+func (s *Service) UpdateAvailabilitySettings(
+	ctx context.Context,
+	input UpdateAvailabilitySettingsRequest,
+) (AvailabilitySettings, error) {
+	return s.repo.UpdateAvailabilitySettings(ctx, input)
+}
+
 func (s *Service) GetProgress(ctx context.Context, principal security.Principal) (Progress, error) {
 	return s.repo.GetProgress(ctx, principal)
+}
+
+func (s *Service) ListMyThreadReplySnapshots(
+	ctx context.Context,
+	principal security.Principal,
+	params pagination.Params,
+) (pagination.Result[ThreadReplySnapshot], error) {
+	cacheKey := fmt.Sprintf(
+		"reply-snapshots:user=%s:page=%d:size=%d",
+		principal.Username,
+		params.Page,
+		params.PageSize,
+	)
+
+	if s.snapshotCacheEnabled && s.snapshotCache != nil {
+		var cached pagination.Result[ThreadReplySnapshot]
+		hit, err := s.snapshotCache.GetJSON(ctx, cacheKey, &cached)
+		if err == nil && hit {
+			return cached, nil
+		}
+	}
+
+	result, err := s.repo.ListMyThreadReplySnapshots(ctx, principal, params)
+	if err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	if s.snapshotCacheEnabled && s.snapshotCache != nil {
+		_ = s.snapshotCache.SetJSON(ctx, cacheKey, result, s.snapshotCacheTTL)
+	}
+
+	return result, nil
 }
 
 func (s *Service) SignIn(ctx context.Context, principal security.Principal) (SignInResult, error) {

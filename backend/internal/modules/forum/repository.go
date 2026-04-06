@@ -18,11 +18,15 @@ import (
 )
 
 const (
+	boardModeNormal          = "normal"
+	boardModeAnonymous       = "anonymous"
+	defaultNormalBoardName   = "站内讨论"
+	defaultNormalBoardSlug   = "forum-general"
 	anonymousBoardSlug       = "anonymous"
 	anonymousBoardName       = "匿名板"
+	AnonymousBoardMessageCap = 250
 	anonymousTripcodeSecret  = "shiokou"
 	anonymousThreadHardLimit = 1000
-	anonymousBoardThreadCap  = 100
 	signInExpDelta           = 5
 	postThreadExpDelta       = 10
 	replyExpDelta            = 3
@@ -33,7 +37,10 @@ type Repository interface {
 	ListAnonymousThreads(ctx context.Context, params pagination.Params, query string) (pagination.Result[Thread], error)
 	GetThread(ctx context.Context, threadID string) (ThreadDetail, error)
 	GetAnonymousThread(ctx context.Context, threadID string) (ThreadDetail, error)
+	GetAvailabilitySettings(ctx context.Context) (AvailabilitySettings, error)
+	UpdateAvailabilitySettings(ctx context.Context, input UpdateAvailabilitySettingsRequest) (AvailabilitySettings, error)
 	GetProgress(ctx context.Context, principal security.Principal) (Progress, error)
+	ListMyThreadReplySnapshots(ctx context.Context, principal security.Principal, params pagination.Params) (pagination.Result[ThreadReplySnapshot], error)
 	SignIn(ctx context.Context, principal security.Principal) (SignInResult, error)
 	CreateThread(ctx context.Context, principal security.Principal, input CreateThreadRequest) (Thread, error)
 	CreateAnonymousThread(ctx context.Context, principal security.Principal, input CreateThreadRequest) (Thread, error)
@@ -60,7 +67,7 @@ func (r *repository) ListThreads(
 		return pagination.Result[Thread]{}, fmt.Errorf("postgres unavailable for forum thread listing")
 	}
 
-	return r.listThreadsByMode(ctx, params, "normal", query)
+	return r.listThreadsByMode(ctx, params, boardModeNormal, query)
 }
 
 func (r *repository) ListAnonymousThreads(
@@ -72,7 +79,7 @@ func (r *repository) ListAnonymousThreads(
 		return pagination.NewResult(scaffoldAnonymousThreads(), len(scaffoldAnonymousThreads()), params), nil
 	}
 
-	return r.listThreadsByMode(ctx, params, "anonymous", query)
+	return r.listThreadsByMode(ctx, params, boardModeAnonymous, query)
 }
 
 func (r *repository) listThreadsByMode(
@@ -81,6 +88,10 @@ func (r *repository) listThreadsByMode(
 	mode string,
 	query string,
 ) (pagination.Result[Thread], error) {
+	if err := r.assertModeEnabled(ctx, mode); err != nil {
+		return pagination.Result[Thread]{}, err
+	}
+
 	searchPattern := searchLikePattern(query)
 
 	var total int
@@ -93,6 +104,7 @@ func (r *repository) listThreadsByMode(
 		 where ft.deleted_at is null
 		   and ft.status in ('active', 'locked')
 		   and fb.board_mode = $1
+		   and fb.is_active = true
 		   and (
 		     $2 = ''
 		     or lower(ft.title) like lower($2)
@@ -147,6 +159,7 @@ func (r *repository) listThreadsByMode(
 		where ft.deleted_at is null
 		  and ft.status in ('active', 'locked')
 		  and fb.board_mode = $1
+		  and fb.is_active = true
 		  and (
 		    $2 = ''
 		    or lower(ft.title) like lower($2)
@@ -198,7 +211,7 @@ func (r *repository) GetThread(ctx context.Context, threadID string) (ThreadDeta
 		return ThreadDetail{}, fmt.Errorf("postgres unavailable for forum thread detail")
 	}
 
-	return r.getThreadByMode(ctx, threadID, "")
+	return r.getThreadByMode(ctx, threadID, boardModeNormal)
 }
 
 func (r *repository) GetAnonymousThread(ctx context.Context, threadID string) (ThreadDetail, error) {
@@ -206,7 +219,81 @@ func (r *repository) GetAnonymousThread(ctx context.Context, threadID string) (T
 		return scaffoldAnonymousThreadDetail(threadID), nil
 	}
 
-	return r.getThreadByMode(ctx, threadID, "anonymous")
+	return r.getThreadByMode(ctx, threadID, boardModeAnonymous)
+}
+
+func (r *repository) GetAvailabilitySettings(ctx context.Context) (AvailabilitySettings, error) {
+	if !r.hasDatabase() {
+		return AvailabilitySettings{
+			ForumEnabled:     true,
+			AnonymousEnabled: true,
+		}, nil
+	}
+
+	forumEnabled, err := r.modeEnabled(ctx, boardModeNormal)
+	if err != nil {
+		return AvailabilitySettings{}, err
+	}
+
+	anonymousEnabled, err := r.modeEnabled(ctx, boardModeAnonymous)
+	if err != nil {
+		return AvailabilitySettings{}, err
+	}
+
+	return AvailabilitySettings{
+		ForumEnabled:     forumEnabled,
+		AnonymousEnabled: anonymousEnabled,
+	}, nil
+}
+
+func (r *repository) UpdateAvailabilitySettings(
+	ctx context.Context,
+	input UpdateAvailabilitySettingsRequest,
+) (AvailabilitySettings, error) {
+	current, err := r.GetAvailabilitySettings(ctx)
+	if err != nil {
+		return AvailabilitySettings{}, err
+	}
+
+	if input.ForumEnabled == nil && input.AnonymousEnabled == nil {
+		return current, nil
+	}
+
+	if !r.hasDatabase() {
+		if input.ForumEnabled != nil {
+			current.ForumEnabled = *input.ForumEnabled
+		}
+		if input.AnonymousEnabled != nil {
+			current.AnonymousEnabled = *input.AnonymousEnabled
+		}
+		return current, nil
+	}
+
+	tx, err := r.platform.Postgres.BeginTx(ctx, nil)
+	if err != nil {
+		return AvailabilitySettings{}, err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	if input.ForumEnabled != nil {
+		if err := r.setModeEnabledWithTx(ctx, tx, boardModeNormal, *input.ForumEnabled); err != nil {
+			return AvailabilitySettings{}, err
+		}
+	}
+
+	if input.AnonymousEnabled != nil {
+		if err := r.setModeEnabledWithTx(ctx, tx, boardModeAnonymous, *input.AnonymousEnabled); err != nil {
+			return AvailabilitySettings{}, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return AvailabilitySettings{}, err
+	}
+
+	return r.GetAvailabilitySettings(ctx)
 }
 
 func (r *repository) GetProgress(ctx context.Context, principal security.Principal) (Progress, error) {
@@ -220,6 +307,87 @@ func (r *repository) GetProgress(ctx context.Context, principal security.Princip
 	}
 
 	return r.loadProgress(ctx, r.platform.Postgres, userID)
+}
+
+func (r *repository) ListMyThreadReplySnapshots(
+	ctx context.Context,
+	principal security.Principal,
+	params pagination.Params,
+) (pagination.Result[ThreadReplySnapshot], error) {
+	if !r.hasDatabase() {
+		items := make([]ThreadReplySnapshot, 0, len(scaffoldThreads()))
+		for _, thread := range scaffoldThreads() {
+			items = append(items, ThreadReplySnapshot{
+				ThreadID:   thread.ID,
+				Title:      thread.Title,
+				ReplyCount: thread.ReplyCount,
+				LastPostAt: thread.LastPostAt,
+			})
+		}
+		return pagination.Slice(items, params), nil
+	}
+	if err := r.assertModeEnabled(ctx, boardModeNormal); err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	userID, err := platformdb.EnsureUser(ctx, r.platform.Postgres, principal.Username)
+	if err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from forum_threads ft
+		 join forum_boards fb on fb.id = ft.board_id
+		 where ft.author_id = $1
+		   and ft.deleted_at is null
+		   and ft.status in ('active', 'locked')
+		   and fb.board_mode = 'normal'`,
+		userID,
+	).Scan(&total); err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	rows, err := r.platform.Postgres.QueryContext(
+		ctx,
+		`select
+			ft.id,
+			ft.title,
+			ft.reply_count,
+			ft.last_post_at
+		from forum_threads ft
+		join forum_boards fb on fb.id = ft.board_id
+		where ft.author_id = $1
+		  and ft.deleted_at is null
+		  and ft.status in ('active', 'locked')
+		  and fb.board_mode = 'normal'
+		order by ft.last_post_at desc, ft.id desc
+		limit $2 offset $3`,
+		userID,
+		params.PageSize,
+		params.Offset(),
+	)
+	if err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+	defer rows.Close()
+
+	items := make([]ThreadReplySnapshot, 0, params.PageSize)
+	for rows.Next() {
+		item, scanErr := scanThreadReplySnapshot(rows)
+		if scanErr != nil {
+			return pagination.Result[ThreadReplySnapshot]{}, scanErr
+		}
+		items = append(items, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return pagination.Result[ThreadReplySnapshot]{}, err
+	}
+
+	return pagination.NewResult(items, total, params), nil
 }
 
 func (r *repository) SignIn(ctx context.Context, principal security.Principal) (SignInResult, error) {
@@ -285,6 +453,10 @@ func (r *repository) SignIn(ctx context.Context, principal security.Principal) (
 }
 
 func (r *repository) getThreadByMode(ctx context.Context, threadID string, mode string) (ThreadDetail, error) {
+	if err := r.assertModeEnabled(ctx, mode); err != nil {
+		return ThreadDetail{}, err
+	}
+
 	dbThreadID, err := parseThreadIdentifier(threadID)
 	if err != nil {
 		return ThreadDetail{}, err
@@ -292,12 +464,17 @@ func (r *repository) getThreadByMode(ctx context.Context, threadID string, mode 
 
 	if _, err := r.platform.Postgres.ExecContext(
 		ctx,
-		`update forum_threads
-		 set view_count = view_count + 1
-		 where id = $1
-		   and deleted_at is null
-		   and status in ('active', 'locked')`,
+		`update forum_threads ft
+		 set view_count = ft.view_count + 1
+		 from forum_boards fb
+		 where ft.id = $1
+		   and ft.board_id = fb.id
+		   and ft.deleted_at is null
+		   and ft.status in ('active', 'locked')
+		   and fb.is_active = true
+		   and ($2 = '' or fb.board_mode::text = $2)`,
 		dbThreadID,
+		mode,
 	); err != nil {
 		return ThreadDetail{}, err
 	}
@@ -335,6 +512,7 @@ func (r *repository) getThreadByMode(ctx context.Context, threadID string, mode 
 		where ft.id = $1
 		  and ft.deleted_at is null
 		  and ft.status in ('active', 'locked')
+		  and fb.is_active = true
 		  and ($3 = '' or fb.board_mode::text = $3)
 		group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username`,
 		dbThreadID,
@@ -388,6 +566,7 @@ func (r *repository) getThreadByMode(ctx context.Context, threadID string, mode 
 		where fp.thread_id = $1
 		  and fp.deleted_at is null
 		  and fp.status = 'visible'
+		  and fb.is_active = true
 		  and ($3 = '' or fb.board_mode::text = $3)
 		order by fp.floor_no asc`,
 		dbThreadID,
@@ -423,6 +602,9 @@ func (r *repository) CreateThread(ctx context.Context, principal security.Princi
 	if !r.hasDatabase() {
 		return Thread{}, scaffold.ErrNotImplemented
 	}
+	if err := r.assertModeEnabled(ctx, boardModeNormal); err != nil {
+		return Thread{}, err
+	}
 
 	return r.createThreadForBoard(ctx, principal, input, false)
 }
@@ -435,6 +617,9 @@ func (r *repository) CreateAnonymousThread(ctx context.Context, principal securi
 		thread.Content = input.Content
 		thread.Tags = cleanedTags(input.Tags)
 		return thread, nil
+	}
+	if err := r.assertModeEnabled(ctx, boardModeAnonymous); err != nil {
+		return Thread{}, err
 	}
 
 	return r.createThreadForBoard(ctx, principal, input, true)
@@ -546,6 +731,9 @@ func (r *repository) CreateReply(ctx context.Context, principal security.Princip
 	if !r.hasDatabase() {
 		return Reply{}, scaffold.ErrNotImplemented
 	}
+	if err := r.assertModeEnabled(ctx, boardModeNormal); err != nil {
+		return Reply{}, err
+	}
 
 	return r.createReplyForThread(ctx, principal, threadID, input, false)
 }
@@ -556,6 +744,9 @@ func (r *repository) CreateAnonymousReply(ctx context.Context, principal securit
 		reply.ID = "anon-reply-new"
 		reply.Content = input.Content
 		return reply, nil
+	}
+	if err := r.assertModeEnabled(ctx, boardModeAnonymous); err != nil {
+		return Reply{}, err
 	}
 
 	return r.createReplyForThread(ctx, principal, threadID, input, true)
@@ -584,27 +775,37 @@ func (r *repository) createReplyForThread(ctx context.Context, principal securit
 		nextFloor    int
 		threadStatus string
 		boardMode    string
+		boardActive  bool
 	)
 	if err := tx.QueryRowContext(
 		ctx,
-		`select coalesce(max(fp.floor_no), 0) + 1, ft.status::text, fb.board_mode::text
+		`select coalesce(max(fp.floor_no), 0) + 1, ft.status::text, fb.board_mode::text, fb.is_active
 		 from forum_threads ft
 		 join forum_boards fb on fb.id = ft.board_id
 		 left join forum_posts fp on fp.thread_id = ft.id and fp.deleted_at is null
 		 where ft.id = $1
-		 group by ft.id, fb.board_mode`,
+		 group by ft.id, fb.board_mode, fb.is_active`,
 		dbThreadID,
-	).Scan(&nextFloor, &threadStatus, &boardMode); err != nil {
+	).Scan(&nextFloor, &threadStatus, &boardMode, &boardActive); err != nil {
 		return Reply{}, err
 	}
 
-	if requireAnonymousBoard && boardMode != "anonymous" {
+	if !boardActive {
+		if boardMode == boardModeAnonymous {
+			return Reply{}, ErrAnonymousDisabled
+		}
+		return Reply{}, ErrForumDisabled
+	}
+	if requireAnonymousBoard && boardMode != boardModeAnonymous {
 		return Reply{}, fmt.Errorf("thread %s is not in anonymous board", threadID)
+	}
+	if !requireAnonymousBoard && boardMode != boardModeNormal {
+		return Reply{}, fmt.Errorf("thread %s is not in forum board", threadID)
 	}
 	if threadStatus == "locked" {
 		return Reply{}, fmt.Errorf("thread %s is locked", threadID)
 	}
-	if boardMode == "anonymous" && nextFloor > anonymousThreadHardLimit {
+	if boardMode == boardModeAnonymous && nextFloor > anonymousThreadHardLimit {
 		return Reply{}, fmt.Errorf("thread %s reached 1000 replies", threadID)
 	}
 
@@ -674,12 +875,12 @@ func (r *repository) createReplyForThread(ctx context.Context, principal securit
 		replyToUserID,
 		nextFloor,
 		input.Content,
-		input.Anonymous || boardMode == "anonymous",
+		input.Anonymous || boardMode == boardModeAnonymous,
 	).Scan(&replyID, &createdAt); err != nil {
 		return Reply{}, err
 	}
 
-	if input.Anonymous || boardMode == "anonymous" {
+	if input.Anonymous || boardMode == boardModeAnonymous {
 		if err := ensureAnonymousIdentity(ctx, tx, dbThreadID, authorID); err != nil {
 			return Reply{}, err
 		}
@@ -687,10 +888,10 @@ func (r *repository) createReplyForThread(ctx context.Context, principal securit
 
 	updateQuery := `update forum_threads
 		set reply_count = reply_count + 1`
-	if !(boardMode == "anonymous" && input.Sage) {
+	if !(boardMode == boardModeAnonymous && input.Sage) {
 		updateQuery += `, last_post_at = now()`
 	}
-	if boardMode == "anonymous" && nextFloor >= anonymousThreadHardLimit {
+	if boardMode == boardModeAnonymous && nextFloor >= anonymousThreadHardLimit {
 		updateQuery += `, status = 'locked'`
 	}
 	updateQuery += ` where id = $1`
@@ -716,9 +917,9 @@ func (r *repository) createReplyForThread(ctx context.Context, principal securit
 
 	author := principal.Username
 	tripcode := ""
-	if input.Anonymous || boardMode == "anonymous" {
+	if input.Anonymous || boardMode == boardModeAnonymous {
 		author = "匿名旅人"
-		tripcode = tripcodeDisplay(boardMode == "anonymous", principal.Username)
+		tripcode = tripcodeDisplay(boardMode == boardModeAnonymous, principal.Username)
 	}
 
 	return Reply{
@@ -731,7 +932,7 @@ func (r *repository) createReplyForThread(ctx context.Context, principal securit
 		Content:       input.Content,
 		Author:        author,
 		Tripcode:      tripcode,
-		Anonymous:     input.Anonymous || boardMode == "anonymous",
+		Anonymous:     input.Anonymous || boardMode == boardModeAnonymous,
 		CreatedAt:     createdAt.Time,
 	}, nil
 }
@@ -831,6 +1032,124 @@ func (r *repository) hasDatabase() bool {
 	return r.platform != nil && r.platform.Postgres != nil && r.platform.Postgres.Available()
 }
 
+func (r *repository) assertModeEnabled(ctx context.Context, mode string) error {
+	if mode == "" {
+		return nil
+	}
+
+	enabled, err := r.modeEnabled(ctx, mode)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		return nil
+	}
+
+	if mode == boardModeAnonymous {
+		return ErrAnonymousDisabled
+	}
+
+	return ErrForumDisabled
+}
+
+func (r *repository) modeEnabled(ctx context.Context, mode string) (bool, error) {
+	if !r.hasDatabase() || mode == "" {
+		return true, nil
+	}
+
+	var total int
+	var active int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select
+			count(*)::int as total,
+			count(*) filter (where is_active = true)::int as active
+		 from forum_boards
+		 where board_mode = $1`,
+		mode,
+	).Scan(&total, &active); err != nil {
+		return false, err
+	}
+
+	// Backward-compatibility: if a mode has no board rows yet, treat it as enabled.
+	return total == 0 || active > 0, nil
+}
+
+func (r *repository) setModeEnabledWithTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	mode string,
+	enabled bool,
+) error {
+	result, err := tx.ExecContext(
+		ctx,
+		`update forum_boards
+		 set is_active = $2
+		 where board_mode = $1`,
+		mode,
+		enabled,
+	)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected > 0 || enabled {
+		return nil
+	}
+
+	boardName, boardSlug := defaultBoardIdentity(mode)
+	if boardName == "" || boardSlug == "" {
+		return fmt.Errorf("unsupported board mode %q", mode)
+	}
+
+	if _, err := tx.ExecContext(
+		ctx,
+		`insert into forum_boards (
+			name,
+			slug,
+			description,
+			board_mode,
+			read_visibility,
+			write_visibility,
+			sort_order,
+			is_active
+		) values ($1, $2, $3, $4, 'public', 'members', 0, $5)
+		on conflict do nothing`,
+		boardName,
+		boardSlug,
+		fmt.Sprintf("%s 相关讨论分区。", boardName),
+		mode,
+		enabled,
+	); err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
+		`update forum_boards
+		 set is_active = $2
+		 where board_mode = $1`,
+		mode,
+		enabled,
+	)
+	return err
+}
+
+func defaultBoardIdentity(mode string) (string, string) {
+	switch mode {
+	case boardModeNormal:
+		return defaultNormalBoardName, defaultNormalBoardSlug
+	case boardModeAnonymous:
+		return anonymousBoardName, anonymousBoardSlug
+	default:
+		return "", ""
+	}
+}
+
 type threadScanner interface {
 	Scan(dest ...any) error
 }
@@ -887,6 +1206,26 @@ func scanThreadRow(scanner threadScanner) (Thread, error) {
 		IsPinned:   isPinned,
 		LastPostAt: lastPostAt.Time,
 		CreatedAt:  createdAt.Time,
+	}, nil
+}
+
+func scanThreadReplySnapshot(scanner threadScanner) (ThreadReplySnapshot, error) {
+	var (
+		id         int64
+		title      string
+		replyCount int
+		lastPostAt time.Time
+	)
+
+	if err := scanner.Scan(&id, &title, &replyCount, &lastPostAt); err != nil {
+		return ThreadReplySnapshot{}, err
+	}
+
+	return ThreadReplySnapshot{
+		ThreadID:   strconv.FormatInt(id, 10),
+		Title:      title,
+		ReplyCount: replyCount,
+		LastPostAt: lastPostAt,
 	}, nil
 }
 
@@ -1152,20 +1491,18 @@ func tripcodeDisplay(enabled bool, username string) string {
 func archiveOverflowAnonymousThreads(ctx context.Context, tx *sql.Tx, boardID int64) error {
 	_, err := tx.ExecContext(
 		ctx,
-		`update forum_threads
-		 set status = 'hidden',
-		     updated_at = now()
+		`delete from forum_threads
 		 where id in (
 		     select id
 		     from forum_threads
 		     where board_id = $1
 		       and deleted_at is null
 		       and status in ('active', 'locked')
-		     order by is_pinned desc, last_post_at desc, id desc
+		     order by last_post_at desc, created_at desc, id desc
 		     offset $2
 		 )`,
 		boardID,
-		anonymousBoardThreadCap,
+		AnonymousBoardMessageCap,
 	)
 	return err
 }

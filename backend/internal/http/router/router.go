@@ -68,6 +68,7 @@ func registerAuthRoutes(api *gin.RouterGroup, deps Dependencies) {
 
 func registerUserRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group := api.Group("/users")
+	group.GET("/:username/friends", deps.UserHandler.ListUserFriends)
 	group.GET("/:username/bangumi/collections", deps.UserHandler.ListUserBangumiCollections)
 	group.GET("/:username", deps.UserHandler.GetProfile)
 
@@ -146,25 +147,34 @@ func registerForumRoutes(api *gin.RouterGroup, deps Dependencies) {
 	group := api.Group("/forum")
 	group.GET("/threads", deps.ForumHandler.ListThreads)
 	group.GET("/threads/:threadID", deps.ForumHandler.GetThread)
-	group.GET("/anonymous/threads", deps.ForumHandler.ListAnonymousThreads)
-	group.GET("/anonymous/threads/:threadID", deps.ForumHandler.GetAnonymousThread)
 
 	member := group.Group("")
 	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("forum-write"))
 	member.GET("/me/progression", deps.ForumHandler.GetProgress)
+	member.GET("/me/thread-reply-snapshots", deps.ForumHandler.ListMyThreadReplySnapshots)
 	member.POST("/sign-in", deps.ForumHandler.SignIn)
 	member.POST("/threads", deps.ForumHandler.CreateThread)
 	member.POST("/threads/:threadID/replies", deps.ForumHandler.CreateReply)
 
 	anonymous := group.Group("/anonymous")
-	anonymous.Use(middleware.RequireAuthenticated(), middleware.RateLimit("anonymous-forum-write"))
-	anonymous.POST("/threads", deps.ForumHandler.CreateAnonymousThread)
-	anonymous.POST("/threads/:threadID/replies", deps.ForumHandler.CreateAnonymousReply)
+	anonymous.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser())
+	anonymous.GET("/threads", deps.ForumHandler.ListAnonymousThreads)
+	anonymous.GET("/threads/:threadID", deps.ForumHandler.GetAnonymousThread)
+
+	anonymousWrite := group.Group("/anonymous")
+	anonymousWrite.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("anonymous-forum-write"))
+	anonymousWrite.POST("/threads", deps.ForumHandler.CreateAnonymousThread)
+	anonymousWrite.POST("/threads/:threadID/replies", deps.ForumHandler.CreateAnonymousReply)
 
 	admin := api.Group("/admin/forum")
 	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
 	admin.DELETE("/threads/:threadID", deps.ForumHandler.DeleteThread)
 	admin.DELETE("/threads/:threadID/replies/:replyID", deps.ForumHandler.DeleteReply)
+
+	superAdmin := api.Group("/super-admin/forum")
+	superAdmin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleSuperAdmin))
+	superAdmin.GET("/settings", deps.ForumHandler.GetAvailabilitySettings)
+	superAdmin.PATCH("/settings", deps.ForumHandler.UpdateAvailabilitySettings)
 }
 
 func registerSiteRoutes(api *gin.RouterGroup, deps Dependencies) {
@@ -181,6 +191,7 @@ func registerSiteRoutes(api *gin.RouterGroup, deps Dependencies) {
 	admin.POST("/gallery-entries", deps.SiteHandler.CreateGalleryEntry)
 	admin.PATCH("/gallery-entries/:entryID", deps.SiteHandler.UpdateGalleryEntry)
 	admin.DELETE("/gallery-entries/:entryID", deps.SiteHandler.DeleteGalleryEntry)
+	admin.POST("/gallery-assets", deps.SiteHandler.UploadGalleryAssets)
 }
 
 func registerWallRoutes(api *gin.RouterGroup, deps Dependencies) {

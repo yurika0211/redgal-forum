@@ -38,6 +38,13 @@ type ThreadDetail struct {
 	Replies []Reply `json:"replies"`
 }
 
+type ThreadReplySnapshot struct {
+	ThreadID   string    `json:"thread_id"`
+	Title      string    `json:"title"`
+	ReplyCount int       `json:"reply_count"`
+	LastPostAt time.Time `json:"last_post_at"`
+}
+
 type LevelConfig struct {
 	Level      int            `json:"level"`
 	MinExp     int            `json:"min_exp"`
@@ -102,4 +109,14 @@ type DeleteReplyResult struct {
 	ThreadID string `json:"thread_id"`
 	ReplyID  string `json:"reply_id"`
 	Status   string `json:"status"`
+}
+
+type AvailabilitySettings struct {
+	ForumEnabled     bool `json:"forum_enabled"`
+	AnonymousEnabled bool `json:"anonymous_enabled"`
+}
+
+type UpdateAvailabilitySettingsRequest struct {
+	ForumEnabled     *bool `json:"forum_enabled"`
+	AnonymousEnabled *bool `json:"anonymous_enabled"`
 }

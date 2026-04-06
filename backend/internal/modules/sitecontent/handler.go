@@ -1,6 +1,7 @@
 package sitecontent
 
 import (
+	"errors"
 	"net/http"
 
 	"example.com/rubedo/backend/internal/http/response"
@@ -55,6 +56,10 @@ func (h *Handler) CreateContentBlock(c *gin.Context) {
 
 	block, err := h.service.CreateContentBlock(c.Request.Context(), input)
 	if err != nil {
+		if errors.Is(err, ErrInvalidPortalActivityLabel) {
+			response.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -71,6 +76,10 @@ func (h *Handler) UpdateContentBlock(c *gin.Context) {
 
 	block, err := h.service.UpdateContentBlock(c.Request.Context(), c.Param("blockID"), input)
 	if err != nil {
+		if errors.Is(err, ErrInvalidPortalActivityLabel) {
+			response.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -126,4 +135,21 @@ func (h *Handler) DeleteGalleryEntry(c *gin.Context) {
 	}
 
 	response.OK(c, gin.H{"deleted": true})
+}
+
+func (h *Handler) UploadGalleryAssets(c *gin.Context) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "请使用 multipart/form-data 上传图片。")
+		return
+	}
+
+	files := form.File["files"]
+	result, err := uploadGalleryAssets(files)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.Created(c, result)
 }

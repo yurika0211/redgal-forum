@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import AppErrorBoundary from "./components/AppErrorBoundary";
 import "katex/dist/katex.min.css";
 import "./index.css";
 
@@ -10,4 +11,8 @@ if (!rootElement) {
   throw new Error("Root element #root not found");
 }
 
-ReactDOM.createRoot(rootElement).render(<App />);
+ReactDOM.createRoot(rootElement).render(
+  <AppErrorBoundary>
+    <App />
+  </AppErrorBoundary>,
+);

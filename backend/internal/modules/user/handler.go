@@ -78,6 +78,16 @@ func (h *Handler) ListFriends(c *gin.Context) {
 	response.OK(c, friends)
 }
 
+func (h *Handler) ListUserFriends(c *gin.Context) {
+	friends, err := h.service.ListUserFriends(c.Request.Context(), c.Param("username"), pagination.FromGin(c))
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, friends)
+}
+
 func (h *Handler) ListIncomingFriendRequests(c *gin.Context) {
 	requests, err := h.service.ListIncomingFriendRequests(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
 	if err != nil {
@@ -156,16 +166,6 @@ func (h *Handler) ImportBangumi(c *gin.Context) {
 	response.Accepted(c, job)
 }
 
-func (h *Handler) ListMyBangumiJobs(c *gin.Context) {
-	jobs, err := h.service.ListMyBangumiImportJobs(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	response.OK(c, jobs)
-}
-
 func (h *Handler) ListMyBangumiImportJobs(c *gin.Context) {
 	jobs, err := h.service.ListMyBangumiImportJobs(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
 	if err != nil {
@@ -220,6 +220,11 @@ func (h *Handler) UpdateMyBangumiCollection(c *gin.Context) {
 func (h *Handler) GetAdminDashboard(c *gin.Context) {
 	result, err := h.service.GetAdminDashboard(c.Request.Context(), security.FromContext(c))
 	if err != nil {
+		if errors.Is(err, ErrAdminRoleRequired) {
+			response.Error(c, http.StatusForbidden, err.Error())
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -230,6 +235,11 @@ func (h *Handler) GetAdminDashboard(c *gin.Context) {
 func (h *Handler) GetSuperAdminDashboard(c *gin.Context) {
 	result, err := h.service.GetSuperAdminDashboard(c.Request.Context(), security.FromContext(c))
 	if err != nil {
+		if errors.Is(err, ErrSuperAdminRoleRequired) {
+			response.Error(c, http.StatusForbidden, err.Error())
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -240,6 +250,11 @@ func (h *Handler) GetSuperAdminDashboard(c *gin.Context) {
 func (h *Handler) ListAdminUsers(c *gin.Context) {
 	users, err := h.service.ListAdminUsers(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
 	if err != nil {
+		if errors.Is(err, ErrAdminRoleRequired) {
+			response.Error(c, http.StatusForbidden, err.Error())
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -247,35 +262,14 @@ func (h *Handler) ListAdminUsers(c *gin.Context) {
 	response.OK(c, users)
 }
 
-func (h *Handler) ListBangumiJobs(c *gin.Context) {
-	jobs, err := h.service.ListBangumiImportJobs(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	response.OK(c, jobs)
-}
-
-func (h *Handler) UpdateBangumiJobStatus(c *gin.Context) {
-	var input UpdateBangumiJobStatusRequest
-	if err := c.ShouldBindJSON(&input); err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	job, err := h.service.UpdateBangumiImportJobStatus(c.Request.Context(), security.FromContext(c), c.Param("jobID"), input)
-	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	response.OK(c, job)
-}
-
 func (h *Handler) ListBangumiImportJobs(c *gin.Context) {
 	jobs, err := h.service.ListBangumiImportJobs(c.Request.Context(), security.FromContext(c), pagination.FromGin(c))
 	if err != nil {
+		if errors.Is(err, ErrAdminRoleRequired) {
+			response.Error(c, http.StatusForbidden, err.Error())
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -292,6 +286,11 @@ func (h *Handler) UpdateBangumiImportJobStatus(c *gin.Context) {
 
 	job, err := h.service.UpdateBangumiImportJobStatus(c.Request.Context(), security.FromContext(c), c.Param("jobID"), input)
 	if err != nil {
+		if errors.Is(err, ErrAdminRoleRequired) {
+			response.Error(c, http.StatusForbidden, err.Error())
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -308,6 +307,11 @@ func (h *Handler) UpdateUserStatus(c *gin.Context) {
 
 	result, err := h.service.UpdateUserStatus(c.Request.Context(), security.FromContext(c), c.Param("userID"), input)
 	if err != nil {
+		if errors.Is(err, ErrAdminRoleRequired) {
+			response.Error(c, http.StatusForbidden, err.Error())
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -325,6 +329,8 @@ func (h *Handler) ModerateUser(c *gin.Context) {
 	result, err := h.service.ModerateUser(c.Request.Context(), security.FromContext(c), c.Param("userID"), input)
 	if err != nil {
 		switch {
+		case errors.Is(err, ErrAdminRoleRequired):
+			response.Error(c, http.StatusForbidden, err.Error())
 		case errors.Is(err, ErrUnsupportedModeration), errors.Is(err, ErrModerationSelf):
 			response.Error(c, http.StatusBadRequest, err.Error())
 		case errors.Is(err, ErrModerationForbidden):
@@ -347,6 +353,11 @@ func (h *Handler) ReviewVerification(c *gin.Context) {
 
 	result, err := h.service.ReviewVerification(c.Request.Context(), security.FromContext(c), c.Param("userID"), input)
 	if err != nil {
+		if errors.Is(err, ErrAdminRoleRequired) {
+			response.Error(c, http.StatusForbidden, err.Error())
+			return
+		}
+
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}

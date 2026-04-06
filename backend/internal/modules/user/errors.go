@@ -9,4 +9,6 @@ var (
 	ErrUnsupportedModeration     = errors.New("unsupported moderation action")
 	ErrModerationForbidden       = errors.New("moderation action forbidden")
 	ErrModerationSelf            = errors.New("cannot moderate yourself")
+	ErrAdminRoleRequired         = errors.New("admin role required")
+	ErrSuperAdminRoleRequired    = errors.New("super admin role required")
 )

@@ -1,5 +1,7 @@
 import type { SiteGalleryEntry } from "../api";
 
+const STANDARD_DATE_LABEL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 export function excerpt(value: string, maxLength = 160): string {
   const normalized = value.trim();
 
@@ -39,9 +41,9 @@ export function normalizeVisibilityLabel(value: string): string {
       return "公开";
     case "member":
     case "members":
-      return "成员";
+      return "仅成员可见";
     case "private":
-      return "私有";
+      return "仅自己可见";
     default:
       return value;
   }
@@ -119,6 +121,32 @@ export function parseTags(raw: string): string[] {
     .split(/[,\n，]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+export function parseStandardDateLabel(value: string): number | null {
+  const normalized = value.trim();
+  const match = normalized.match(STANDARD_DATE_LABEL_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() + 1 !== month ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed.getTime();
+}
+
+export function isStandardDateLabel(value: string): boolean {
+  return parseStandardDateLabel(value) !== null;
 }
 
 export function isAuthFailure(error: unknown): boolean {

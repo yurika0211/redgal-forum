@@ -30,8 +30,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
       meilisearch:
         condition: service_healthy
     expose:
@@ -49,7 +47,6 @@ services:
       REDIS_ADDR: "redis:6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
       REDIS_DB: "${REDIS_DB:-0}"
-      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/"
       MEILISEARCH_URL: "http://meilisearch:7700"
       MEILISEARCH_API_KEY: "${MEILISEARCH_MASTER_KEY:?set MEILISEARCH_MASTER_KEY}"
       BANGUMI_API_BASE_URL: "${BANGUMI_API_BASE_URL:-https://api.bgm.tv/v0}"
@@ -100,23 +97,6 @@ services:
     networks:
       - internal
 
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:?set RABBITMQ_DEFAULT_USER}"
-      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:?set RABBITMQ_DEFAULT_PASS}"
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
-    restart: always
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    networks:
-      - internal
-
   meilisearch:
     image: getmeili/meilisearch:v1.13
     environment:
@@ -137,7 +117,6 @@ services:
 volumes:
   postgres-data:
   redis-data:
-  rabbitmq-data:
   meilisearch-data:
 
 networks:

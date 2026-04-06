@@ -764,6 +764,12 @@ create index idx_user_bangumi_collections_user_status
 create index idx_user_bangumi_collections_subject
     on user_bangumi_collections (subject_id, collection_status);
 
+create index idx_user_bangumi_collections_user_updated
+    on user_bangumi_collections (user_id, updated_at desc, id desc);
+
+create index idx_user_bangumi_collections_user_visibility_updated
+    on user_bangumi_collections (user_id, display_visibility, updated_at desc, id desc);
+
 create table bangumi_sync_jobs (
     id bigserial primary key,
     user_id bigint not null references users(id),

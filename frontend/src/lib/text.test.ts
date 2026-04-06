@@ -4,8 +4,10 @@ import {
   excerpt,
   extractMarkdownPreviewImage,
   galleryEntryTypeLabel,
+  isStandardDateLabel,
   normalizeVisibilityLabel,
   parseLines,
+  parseStandardDateLabel,
   parseTags,
 } from "./text";
 
@@ -26,6 +28,14 @@ describe("text helpers", () => {
     expect(parseTags("站台, 慢热\n短札")).toEqual(["站台", "慢热", "短札"]);
   });
 
+  it("validates standard date labels", () => {
+    expect(isStandardDateLabel("2026-04-06")).toBe(true);
+    expect(isStandardDateLabel(" 2026-04-06 ")).toBe(true);
+    expect(isStandardDateLabel("2026/04/06")).toBe(false);
+    expect(isStandardDateLabel("2026-02-30")).toBe(false);
+    expect(parseStandardDateLabel("2026-04-06")).not.toBeNull();
+  });
+
   it("extracts markdown and html preview images", () => {
     expect(extractMarkdownPreviewImage("![](https://example.com/a.png)")).toBe(
       "https://example.com/a.png",
@@ -36,7 +46,7 @@ describe("text helpers", () => {
   });
 
   it("localizes visibility and gallery labels", () => {
-    expect(normalizeVisibilityLabel("members")).toBe("成员");
+    expect(normalizeVisibilityLabel("members")).toBe("仅成员可见");
     expect(galleryEntryTypeLabel("timeline")).toBe("时间轴");
   });
 });
