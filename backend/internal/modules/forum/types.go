@@ -110,3 +110,13 @@ type DeleteReplyResult struct {
 	ReplyID  string `json:"reply_id"`
 	Status   string `json:"status"`
 }
+
+type AvailabilitySettings struct {
+	ForumEnabled     bool `json:"forum_enabled"`
+	AnonymousEnabled bool `json:"anonymous_enabled"`
+}
+
+type UpdateAvailabilitySettingsRequest struct {
+	ForumEnabled     *bool `json:"forum_enabled"`
+	AnonymousEnabled *bool `json:"anonymous_enabled"`
+}

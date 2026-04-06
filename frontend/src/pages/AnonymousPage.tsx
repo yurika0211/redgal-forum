@@ -8,10 +8,8 @@ import type {
   ForumThread as ApiForumThread,
   Session,
 } from "../api";
-import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
-import { formatForumFloor } from "../lib/forum";
 import type { PagerState } from "../lib/pagination";
 import { formatDateTime } from "../lib/text";
 import type {
@@ -20,22 +18,26 @@ import type {
 } from "../types/app";
 
 interface AnonymousPageProps {
+  anonymousLoadingMore: boolean;
   anonymousThreadActionState: FormActionState<ApiForumThread>;
   anonymousThreadFeed: ApiForumThread[];
   anonymousThreadForm: ThreadFormState;
   anonymousThreadPager: PagerState;
   anonymousThreadsError: string;
+  hasMoreAnonymousMessages: boolean;
   isLoadingData: boolean;
   pendingAnonymousScrollMessageID: string | null;
   session: Session | null;
+  onAnonymousLoadMore: () => Promise<void>;
   onAnonymousThreadFieldChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
   onAnonymousScrollDone: () => void;
-  onAnonymousThreadPageChange: (page: number) => void;
   onAnonymousThreadSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onNavigate: (href: string) => void;
 }
+
+const ANONYMOUS_MESSAGE_TONE_COUNT = 6;
 
 function normalizeTimestamp(thread: ApiForumThread): number {
   const created = Date.parse(thread.created_at || "");
@@ -47,22 +49,43 @@ function normalizeTimestamp(thread: ApiForumThread): number {
   return Number.isFinite(updated) ? updated : 0;
 }
 
+function hashString(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function resolveMessageTone(thread: ApiForumThread): number {
+  const key = `${thread.author || ""}#${thread.tripcode || ""}`.trim();
+  if (!key) {
+    return 0;
+  }
+  return hashString(key) % ANONYMOUS_MESSAGE_TONE_COUNT;
+}
+
 export default function AnonymousPage({
+  anonymousLoadingMore,
   anonymousThreadActionState,
   anonymousThreadFeed,
   anonymousThreadForm,
   anonymousThreadPager,
   anonymousThreadsError,
+  hasMoreAnonymousMessages,
   isLoadingData,
   pendingAnonymousScrollMessageID,
   session,
+  onAnonymousLoadMore,
   onAnonymousThreadFieldChange,
   onAnonymousScrollDone,
-  onAnonymousThreadPageChange,
   onAnonymousThreadSubmit,
   onNavigate,
 }: AnonymousPageProps) {
+  const streamRef = useRef<HTMLDivElement | null>(null);
   const messageRefMap = useRef<Record<string, HTMLElement | null>>({});
+  const hasAutoScrolledLatestRef = useRef(false);
+  const pendingLoadAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const pagedMessagesDesc = [...anonymousThreadFeed].sort((left, right) => {
     const leftTime = normalizeTimestamp(left);
     const rightTime = normalizeTimestamp(right);
@@ -79,14 +102,6 @@ export default function AnonymousPage({
     }
     return left.id.localeCompare(right.id);
   });
-
-  function resolveGlobalFloor(localIndex: number): number {
-    const positionInPageDesc = pagedMessagesDesc.length - localIndex;
-    const globalRankDesc =
-      (Math.max(anonymousThreadPager.page, 1) - 1) * anonymousThreadPager.pageSize + positionInPageDesc;
-    const computed = anonymousThreadPager.total - globalRankDesc + 1;
-    return Number.isFinite(computed) && computed > 0 ? computed : localIndex + 1;
-  }
 
   useEffect(() => {
     if (!pendingAnonymousScrollMessageID) {
@@ -105,6 +120,57 @@ export default function AnonymousPage({
     onAnonymousScrollDone();
   }, [chatMessages, onAnonymousScrollDone, pendingAnonymousScrollMessageID]);
 
+  useEffect(() => {
+    if (hasAutoScrolledLatestRef.current || pendingAnonymousScrollMessageID || !chatMessages.length) {
+      return;
+    }
+
+    const latest = chatMessages[chatMessages.length - 1];
+    const target = messageRefMap.current[latest.id];
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({
+      behavior: "auto",
+      block: "end",
+    });
+    hasAutoScrolledLatestRef.current = true;
+  }, [chatMessages, pendingAnonymousScrollMessageID]);
+
+  useEffect(() => {
+    if (anonymousLoadingMore) {
+      return;
+    }
+
+    const stream = streamRef.current;
+    const anchor = pendingLoadAnchorRef.current;
+    if (!stream || !anchor) {
+      return;
+    }
+
+    const deltaHeight = stream.scrollHeight - anchor.scrollHeight;
+    stream.scrollTop = anchor.scrollTop + deltaHeight;
+    pendingLoadAnchorRef.current = null;
+  }, [anonymousLoadingMore, chatMessages.length]);
+
+  function handleStreamScroll(): void {
+    const stream = streamRef.current;
+    if (!stream || anonymousLoadingMore || !hasMoreAnonymousMessages || pendingLoadAnchorRef.current) {
+      return;
+    }
+
+    if (stream.scrollTop > 120) {
+      return;
+    }
+
+    pendingLoadAnchorRef.current = {
+      scrollHeight: stream.scrollHeight,
+      scrollTop: stream.scrollTop,
+    };
+    void onAnonymousLoadMore();
+  }
+
   return (
     <section className="panel anonymous-chat-room">
       {anonymousThreadsError ? <p className="panel-error">{anonymousThreadsError}</p> : null}
@@ -119,38 +185,40 @@ export default function AnonymousPage({
 
       <p className="anonymous-chat-room__hint">聊天室</p>
 
-      <div className="anonymous-thread-chat anonymous-chat-room__stream">
-        {chatMessages.map((thread, index) => (
-          <article
-            className="anonymous-thread-chat__message"
-            key={thread.id}
-            ref={(node) => {
-              messageRefMap.current[thread.id] = node;
-            }}
-          >
-            <div className="anonymous-thread-chat__meta">
-              <strong>{formatForumFloor(resolveGlobalFloor(index))}</strong>
-              <span>{thread.author}</span>
-              {thread.tripcode ? <span>{thread.tripcode}</span> : null}
-              <span>{formatDateTime(thread.created_at || thread.last_post_at)}</span>
-            </div>
-            <div className="detail-body detail-body--reply anonymous-thread-chat__body">
-              <RichContent content={thread.content} />
-            </div>
-          </article>
-        ))}
+      <div
+        className="anonymous-thread-chat anonymous-chat-room__stream"
+        onScroll={handleStreamScroll}
+        ref={streamRef}
+      >
+        {chatMessages.map((thread) => {
+          const tone = resolveMessageTone(thread);
+          return (
+            <article
+              className={`anonymous-thread-chat__message anonymous-thread-chat__message--tone-${tone}`}
+              key={thread.id}
+              ref={(node) => {
+                messageRefMap.current[thread.id] = node;
+              }}
+            >
+              <div className="anonymous-thread-chat__meta">
+                <span>{thread.author}</span>
+                {thread.tripcode ? <span>{thread.tripcode}</span> : null}
+                <span>{formatDateTime(thread.created_at || thread.last_post_at)}</span>
+              </div>
+              <div className="detail-body detail-body--reply anonymous-thread-chat__body">
+                <RichContent content={thread.content} />
+              </div>
+            </article>
+          );
+        })}
         {!chatMessages.length && !isLoadingData ? (
           <p className="panel-empty">聊天室还没有消息，发一条试试。</p>
         ) : null}
         {isLoadingData && !chatMessages.length ? <p className="panel-empty">消息加载中...</p> : null}
-      </div>
-
-      <div className="anonymous-wall__pager">
-        <PaginationBar
-          pager={anonymousThreadPager}
-          onPageChange={onAnonymousThreadPageChange}
-          emptyText="暂无聊天室消息。"
-        />
+        {anonymousLoadingMore ? <p className="panel-empty">加载更早消息中...</p> : null}
+        {!anonymousLoadingMore && hasMoreAnonymousMessages ? (
+          <p className="panel-empty">上滑可继续查看更早消息</p>
+        ) : null}
       </div>
 
       {!session ? (

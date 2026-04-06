@@ -78,6 +78,7 @@ interface SpaceShowcaseGroup {
 }
 
 interface SpaceFriend {
+  avatarURL: string;
   id: string;
   isReal: boolean;
   name: string;
@@ -456,6 +457,12 @@ function createDefaultSpaceFriends(): SpaceFriend[] {
   return [];
 }
 
+function getSpaceFriendAvatarFallback(friend: Pick<SpaceFriend, "name" | "username">): string {
+  const name = (friend.name || "").trim();
+  const username = (friend.username || "").trim();
+  return (name || username || "友").charAt(0).toUpperCase() || "友";
+}
+
 function parseStoredSpaceFriends(value: unknown): SpaceFriend[] {
   if (!Array.isArray(value)) {
     return [];
@@ -478,6 +485,7 @@ function parseStoredSpaceFriends(value: unknown): SpaceFriend[] {
     }
 
     result.push({
+      avatarURL: typeof candidate.avatarURL === "string" ? candidate.avatarURL : "",
       id: candidate.id,
       isReal: Boolean(candidate.isReal),
       name: candidate.name,
@@ -520,8 +528,10 @@ function mapFriendSummaryToSpaceFriend(friend: ApiFriendSummary): SpaceFriend {
   const nickname = (friend.nickname || "").trim();
   const username = (friend.username || "").trim();
   const signature = (friend.signature || "").trim();
+  const avatarURL = (friend.avatar_url || "").trim();
 
   return {
+    avatarURL,
     id: friend.user_id,
     isReal: true,
     name: nickname || username || "站内好友",
@@ -569,9 +579,7 @@ interface SpaceCapsule {
   id: string;
   title: string;
   time: string;
-  command: string;
   record: string;
-  body: string;
   sortGroup: number;
   sortOrder: number;
   timestamp: number | null;
@@ -605,25 +613,6 @@ function formatCapsuleTime(value: string | undefined, fallback: string): string 
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(timestamp));
-}
-
-function normalizeSubjectIds(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw.reduce<string[]>((result, item) => {
-    if (typeof item === "number" && Number.isFinite(item)) {
-      result.push(String(item));
-      return result;
-    }
-
-    if (typeof item === "string" && item.trim()) {
-      result.push(item.trim());
-    }
-
-    return result;
-  }, []);
 }
 
 function extractAnyPreviewImage(value: string): string | null {
@@ -662,19 +651,12 @@ function createSpaceCapsules(spaceLogEntries: ApiArticle[], bangumiJobs: Bangumi
   const articleCapsules = spaceLogEntries.map((article, index) => {
     const timedArticle = article as TimedArticle;
     const eventTime = pickArticleEventTime(timedArticle);
-    const tags = article.tags.slice(0, 4);
-    const tagsText = tags.join(",");
-    const visibilityLabel = normalizeVisibilityLabel(article.visibility);
 
     return {
       id: `article-${article.id}`,
       title: `发布日志：${article.title}`,
       time: formatCapsuleTime(eventTime, `最近日志 #${String(index + 1).padStart(2, "0")}`),
-      command: `article.publish --id ${article.id} --visibility ${article.visibility}${
-        tagsText ? ` --tags ${tagsText}` : ""
-      }`,
-      record: `行为记录：发布日志《${article.title}》，权限 ${visibilityLabel}${tags.length ? `，标签 ${tags.length} 个` : ""}。`,
-      body: article.summary.trim() || excerpt(article.content, 120),
+      record: `发布了日志《${article.title}》。`,
       timestamp: parseTimestamp(eventTime),
       sortGroup: 1,
       sortOrder: index,
@@ -683,16 +665,6 @@ function createSpaceCapsules(spaceLogEntries: ApiArticle[], bangumiJobs: Bangumi
 
   const bangumiCapsules = bangumiJobs.map((job, index) => {
     const eventTime = pickBangumiEventTime(job);
-    const requestPayload = (job.request_payload as Record<string, unknown> | undefined) ?? {};
-    const subjectIds = normalizeSubjectIds(
-      (requestPayload as { subject_ids?: unknown }).subject_ids,
-    );
-    const syncMode =
-      typeof requestPayload.sync_mode === "string" && requestPayload.sync_mode.trim()
-        ? requestPayload.sync_mode.trim()
-        : "subject_ids";
-    const bangumiUsername =
-      typeof requestPayload.bangumi_username === "string" ? requestPayload.bangumi_username.trim() : "";
     const statusLabel =
       job.status === "succeeded"
         ? "同步完成"
@@ -701,28 +673,12 @@ function createSpaceCapsules(spaceLogEntries: ApiArticle[], bangumiJobs: Bangumi
           : job.status === "cancelled"
             ? "任务取消"
             : "同步处理中";
-    const commandParts = [
-      `bangumi.import --job ${job.job_id}`,
-      `--status ${job.status}`,
-      syncMode === "account" ? "--mode account" : "--mode subject_ids",
-      job.channel ? `--channel ${job.channel}` : "",
-      bangumiUsername ? `--username ${bangumiUsername}` : "",
-      subjectIds.length ? `--subject ${subjectIds.join(",")}` : "",
-    ].filter(Boolean);
 
     return {
       id: `bangumi-${job.job_id}`,
       title: `Bangumi 导入任务 #${job.job_id}`,
       time: formatCapsuleTime(eventTime, `任务队列 #${String(index + 1).padStart(2, "0")}`),
-      command: commandParts.join(" "),
-      record: `行为记录：发起 ${job.job_type || "collection_sync"} 导入，状态 ${statusLabel}。`,
-      body: job.error_message
-        ? `任务回执：${job.error_message}`
-        : subjectIds.length
-          ? `同步条目：${subjectIds.join("、")}`
-          : bangumiUsername
-            ? `同步账号：${bangumiUsername}`
-            : "同步条目：本次任务未附带 subject_ids。",
+      record: `发起了 Bangumi 同步任务，当前状态：${statusLabel}。`,
       timestamp: parseTimestamp(eventTime),
       sortGroup: 0,
       sortOrder: index,
@@ -908,6 +864,7 @@ export default function SpacePage({
   );
   const [showcasePager, setShowcasePager] = useState<PagerState>(() => createPagerState(20));
   const [spaceActivePage, setSpaceActivePage] = useState<SpaceSidebarPageKey>("profile");
+  const [isProfileEditorCollapsed, setIsProfileEditorCollapsed] = useState(true);
   const isViewingPublicProfile = Boolean(viewingPublicProfileUsername);
   const viewingProfileLabel = viewingPublicProfileUsername ? `@${viewingPublicProfileUsername}` : "当前账号";
   const canManageBangumiImport = canUseBangumiImport && !isViewingPublicProfile;
@@ -1314,6 +1271,7 @@ export default function SpacePage({
       const normalizedUsername = profile.username.trim();
       const normalizedName = (profile.nickname || profile.username).trim() || profile.username;
       const nextFriend: SpaceFriend = {
+        avatarURL: (profile.avatar_url || "").trim(),
         id: createSpaceFriendID(),
         isReal: true,
         name: normalizedName,
@@ -1410,12 +1368,14 @@ export default function SpacePage({
       const profile = await fetchPublicProfile(username);
       const normalizedUsername = profile.username.trim();
       const normalizedName = (profile.nickname || profile.username).trim() || profile.username;
+      const normalizedAvatarURL = (profile.avatar_url || "").trim();
 
       setSpaceFriends((current) =>
         current.map((item) =>
           item.id === friend.id
             ? {
                 ...item,
+                avatarURL: normalizedAvatarURL,
                 isReal: true,
                 name: normalizedName,
                 username: normalizedUsername,
@@ -1799,88 +1759,106 @@ export default function SpacePage({
                   ))}
                 </div>
                 {canEditProfile ? (
-                  <form className="space-form space-profile-editor" onSubmit={(event) => void onProfileSubmit(event)}>
+                  <form
+                    className={`space-form space-profile-editor ${isProfileEditorCollapsed ? "space-profile-editor--collapsed" : ""}`}
+                    onSubmit={(event) => void onProfileSubmit(event)}
+                  >
                     <div className="panel-heading">
                       <div>
                         <p className="panel-kicker">资料编辑</p>
                         <h3>空间身份设置</h3>
                       </div>
-                      <button className="primary-button" type="submit" disabled={profileActionState.pending}>
-                        {profileActionState.pending ? "保存中..." : "保存资料"}
-                      </button>
+                      <div className="space-profile-editor__head-actions">
+                        <button
+                          className="ghost-button"
+                          type="button"
+                          onClick={() => setIsProfileEditorCollapsed((current) => !current)}
+                        >
+                          {isProfileEditorCollapsed ? "展开编辑" : "收起"}
+                        </button>
+                        {!isProfileEditorCollapsed ? (
+                          <button className="primary-button" type="submit" disabled={profileActionState.pending}>
+                            {profileActionState.pending ? "保存中..." : "保存资料"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="space-profile-editor__grid">
-                      <label>
-                        <span>空间 ID</span>
-                        <input
-                          name="username"
-                          type="text"
-                          value={profileForm.username}
-                          onChange={onProfileFieldChange}
-                          placeholder="例如：demo_super_admin"
-                          disabled={!spaceIDEditable}
-                          required
-                        />
-                      </label>
-                      <label>
-                        <span>个性签名</span>
-                        <input
-                          name="signature"
-                          type="text"
-                          value={profileForm.signature}
-                          onChange={onProfileFieldChange}
-                          placeholder="写一句固定展示在资料卡上的签名"
-                        />
-                      </label>
-                      <label>
-                        <span>头像地址</span>
-                        <input
-                          name="avatar_url"
-                          type="url"
-                          value={profileForm.avatar_url}
-                          onChange={onProfileFieldChange}
-                          placeholder="https://example.com/avatar.png"
-                        />
-                      </label>
-                      <label>
-                        <span>显示昵称</span>
-                        <input
-                          name="nickname"
-                          type="text"
-                          value={profileForm.nickname}
-                          onChange={onProfileFieldChange}
-                          placeholder="用于主卡标题展示"
-                        />
-                      </label>
-                    </div>
-                    <label>
-                      <span>个人简介</span>
-                      <textarea
-                        name="bio"
-                        rows={3}
-                        value={profileForm.bio}
-                        onChange={onProfileFieldChange}
-                        placeholder="写一段空间简介"
-                      />
-                    </label>
-                    <div className="space-profile-editor__preview">
-                      {profileForm.avatar_url.trim() ? (
-                        <img alt="头像预览" className="profile-stage__avatar" src={profileForm.avatar_url} />
-                      ) : (
-                        <div className="profile-stage__avatar profile-stage__avatar--fallback">
-                          {getAvatarFallback(displayProfile)}
+                    {!isProfileEditorCollapsed ? (
+                      <>
+                        <div className="space-profile-editor__grid">
+                          <label>
+                            <span>空间 ID</span>
+                            <input
+                              name="username"
+                              type="text"
+                              value={profileForm.username}
+                              onChange={onProfileFieldChange}
+                              placeholder="例如：demo_super_admin"
+                              disabled={!spaceIDEditable}
+                              required
+                            />
+                          </label>
+                          <label>
+                            <span>个性签名</span>
+                            <input
+                              name="signature"
+                              type="text"
+                              value={profileForm.signature}
+                              onChange={onProfileFieldChange}
+                              placeholder="写一句固定展示在资料卡上的签名"
+                            />
+                          </label>
+                          <label>
+                            <span>头像地址</span>
+                            <input
+                              name="avatar_url"
+                              type="url"
+                              value={profileForm.avatar_url}
+                              onChange={onProfileFieldChange}
+                              placeholder="https://example.com/avatar.png"
+                            />
+                          </label>
+                          <label>
+                            <span>显示昵称</span>
+                            <input
+                              name="nickname"
+                              type="text"
+                              value={profileForm.nickname}
+                              onChange={onProfileFieldChange}
+                              placeholder="用于主卡标题展示"
+                            />
+                          </label>
                         </div>
-                      )}
-                      <p className="panel-empty">
-                        预览：@{profileForm.username || displayProfile.username}
-                        {profileForm.signature.trim() ? ` · ${profileForm.signature.trim()}` : ""}
-                      </p>
-                    </div>
-                    {!spaceIDEditable ? (
-                      <p className="panel-empty">空间 ID 仅允许修改一次，当前账号已用完修改次数。</p>
+                        <label>
+                          <span>个人简介</span>
+                          <textarea
+                            name="bio"
+                            rows={3}
+                            value={profileForm.bio}
+                            onChange={onProfileFieldChange}
+                            placeholder="写一段空间简介"
+                          />
+                        </label>
+                        <div className="space-profile-editor__preview">
+                          {profileForm.avatar_url.trim() ? (
+                            <img alt="头像预览" className="profile-stage__avatar" src={profileForm.avatar_url} />
+                          ) : (
+                            <div className="profile-stage__avatar profile-stage__avatar--fallback">
+                              {getAvatarFallback(displayProfile)}
+                            </div>
+                          )}
+                          <p className="panel-empty">
+                            预览：@{profileForm.username || displayProfile.username}
+                            {profileForm.signature.trim() ? ` · ${profileForm.signature.trim()}` : ""}
+                          </p>
+                        </div>
+                        {!spaceIDEditable ? (
+                          <p className="panel-empty">空间 ID 仅允许修改一次，当前账号已用完修改次数。</p>
+                        ) : null}
+                        {profileActionState.error ? <p className="panel-error">{profileActionState.error}</p> : null}
+                        {profileActionState.success ? <p className="panel-empty">{profileActionState.success}</p> : null}
+                      </>
                     ) : null}
-                    {profileActionState.error ? <p className="panel-error">{profileActionState.error}</p> : null}
-                    {profileActionState.success ? <p className="panel-empty">{profileActionState.success}</p> : null}
                   </form>
                 ) : null}
               </>
@@ -2631,7 +2609,16 @@ export default function SpacePage({
               {spaceFriends.map((friend) => (
                 <div className="space-side-card" key={friend.id}>
                   <div className="space-side-card__header">
-                    <strong>{friend.name}</strong>
+                    <div className="space-friend-card__identity">
+                      {friend.avatarURL ? (
+                        <img alt={`${friend.name} 的头像`} className="space-friend-card__avatar" src={friend.avatarURL} />
+                      ) : (
+                        <div className="space-friend-card__avatar space-friend-card__avatar--fallback">
+                          {getSpaceFriendAvatarFallback(friend)}
+                        </div>
+                      )}
+                      <strong>{friend.name}</strong>
+                    </div>
                     <StatusChip tone={getSpaceFriendTone(friend.status)}>{friend.status}</StatusChip>
                   </div>
                   <p>{friend.note}</p>
@@ -2688,18 +2675,11 @@ export default function SpacePage({
             <div className="space-capsule-list">
               {spaceCapsules.map((capsule) => (
                 <article className="space-capsule-card" key={capsule.id}>
-                  <div className="space-capsule-card__bar" aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
                   <div className="space-capsule-card__header">
                     <strong>{capsule.title}</strong>
                     <span>{capsule.time}</span>
                   </div>
-                  <p className="space-capsule-card__command">操作：{capsule.command}</p>
                   <p className="space-capsule-card__record">{capsule.record}</p>
-                  <p className="space-capsule-card__detail">{capsule.body}</p>
                 </article>
               ))}
               {!spaceCapsules.length ? (

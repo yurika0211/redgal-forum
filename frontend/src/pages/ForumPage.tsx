@@ -273,7 +273,7 @@ export default function ForumPage({
 
     return (
       <>
-        <section className="detail-page detail-page--forum">
+        <section className="detail-page detail-page--forum detail-page--forum-compact">
           <article className="panel detail-hero detail-hero--forum">
             <div className="detail-hero__top">
               <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/forum")}>

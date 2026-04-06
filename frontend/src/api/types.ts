@@ -348,6 +348,16 @@ export interface ForumSignInResult {
   message: string;
 }
 
+export interface ForumAvailabilitySettings {
+  forum_enabled: boolean;
+  anonymous_enabled: boolean;
+}
+
+export interface UpdateForumAvailabilitySettingsPayload {
+  forum_enabled?: boolean;
+  anonymous_enabled?: boolean;
+}
+
 export interface CreateThreadPayload {
   title: string;
   content: string;
@@ -484,6 +494,18 @@ export interface UpdateGalleryEntryPayload {
   extra_text?: string;
   sort_order?: number;
   active?: boolean;
+}
+
+export interface GalleryAsset {
+  url: string;
+  filename: string;
+  original_name?: string;
+  content_type?: string;
+  size?: number;
+}
+
+export interface GalleryAssetUploadResult {
+  files: GalleryAsset[];
 }
 
 export interface CreateContentBlockPayload {

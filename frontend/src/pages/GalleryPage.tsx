@@ -19,6 +19,7 @@ interface GalleryPageProps {
   canManageGallery: boolean;
   editingGalleryEntryID: string | null;
   galleryActionState: FormActionState<SiteGalleryEntry>;
+  galleryUploadState: FormActionState<SiteGalleryEntry[]>;
   galleryAlbums: DisplayAlbum[];
   galleryEntriesRaw: SiteGalleryEntry[];
   galleryForm: GalleryFormState;
@@ -30,6 +31,7 @@ interface GalleryPageProps {
   onGalleryBulkSetActive: (entryIDs: readonly string[], active: boolean) => Promise<void>;
   onGalleryDelete: (entry: SiteGalleryEntry) => Promise<void>;
   onGalleryEditStart: (entry: SiteGalleryEntry) => void;
+  onGalleryAnnotate: (entryID: string, annotation: string) => Promise<void>;
   onGalleryEditorReset: () => void;
   onGalleryFieldChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
@@ -38,10 +40,13 @@ interface GalleryPageProps {
   onGalleryReorder: (orderedEntryIDs: readonly string[]) => Promise<void>;
   onGallerySortNudge: (entry: SiteGalleryEntry, delta: -1 | 1) => Promise<void>;
   onGallerySubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onGalleryUploadFiles: (files: readonly File[]) => Promise<void>;
 }
 
 interface GalleryPhoto {
   alt: string;
+  annotation: string;
+  entryID: string;
   id: string;
   src: string;
 }
@@ -56,7 +61,9 @@ interface GalleryNarrative {
 type GallerySectionType = SiteGalleryEntry["entry_type"] | "mixed";
 
 interface GallerySectionPhoto {
+  annotation: string;
   id: string;
+  entryID: string;
   src: string;
   alt: string;
   title: string;
@@ -70,6 +77,12 @@ interface GalleryCurationSection {
   summary: string;
   photos: GallerySectionPhoto[];
   notes: GalleryNarrative[];
+}
+
+interface GalleryLightboxPhoto extends GallerySectionPhoto {
+  marker: string;
+  sectionKicker: string;
+  sectionTitle: string;
 }
 
 type GalleryNotesPosition = "side" | "bottom" | "hidden";
@@ -215,12 +228,36 @@ function moveEntryByID(
   return next;
 }
 
+function deriveActivityTag(entry: SiteGalleryEntry): string {
+  const subtitle = (entry.subtitle || "").trim();
+  if (subtitle) {
+    return subtitle;
+  }
+
+  const normalizedTitle = entry.title.trim().replace(/(?:\s*[-_/]?\s*)?#?\d{1,3}$/u, "").trim();
+  if (normalizedTitle) {
+    return normalizedTitle;
+  }
+
+  const slugBase = entry.slug.trim().replace(/-[a-z0-9]{6,}-\d+$/i, "").replace(/-\d+$/i, "").trim();
+  if (slugBase) {
+    return slugBase.replace(/[-_]+/g, " ");
+  }
+
+  return galleryEntryTypeLabel(entry.entry_type);
+}
+
+function normalizeActivityKey(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, "-");
+}
+
 export default function GalleryPage({
   adminGalleryEntries,
   adminGalleryPager,
   canManageGallery,
   editingGalleryEntryID,
   galleryActionState,
+  galleryUploadState,
   galleryAlbums,
   galleryEntriesRaw,
   galleryForm,
@@ -232,18 +269,25 @@ export default function GalleryPage({
   onGalleryBulkSetActive,
   onGalleryDelete,
   onGalleryEditStart,
+  onGalleryAnnotate,
   onGalleryEditorReset,
   onGalleryFieldChange,
   onGalleryPageChange,
   onGalleryReorder,
   onGallerySortNudge,
   onGallerySubmit,
+  onGalleryUploadFiles,
 }: GalleryPageProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [layoutState, setLayoutState] = useState<GalleryLayoutState>(() => readStoredGalleryLayout());
   const [draggingEntryID, setDraggingEntryID] = useState<string>("");
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const [isAnnotationSaving, setIsAnnotationSaving] = useState(false);
+  const [lightboxAnnotationDraft, setLightboxAnnotationDraft] = useState("");
+  const [lightboxAnnotationFeedback, setLightboxAnnotationFeedback] = useState("");
   const [selectedEntryIDs, setSelectedEntryIDs] = useState<string[]>([]);
   const [localAdminEntries, setLocalAdminEntries] = useState<SiteGalleryEntry[]>(adminGalleryEntries);
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -261,128 +305,85 @@ export default function GalleryPage({
     setSelectedEntryIDs((current) => current.filter((entryID) => adminGalleryEntries.some((entry) => entry.id === entryID)));
   }, [adminGalleryEntries]);
 
+  useEffect(() => {
+    if (!galleryUploadState.pending && (galleryUploadState.success || galleryUploadState.error)) {
+      setPendingUploadFiles([]);
+    }
+  }, [galleryUploadState.error, galleryUploadState.pending, galleryUploadState.success]);
+
   const dynamicPhotos: GalleryPhoto[] = galleryEntriesRaw
     .filter((entry) => entry.active && isLikelyImageSource(entry.extra_text || ""))
     .slice(0, 48)
     .map((entry) => ({
+      annotation: entry.body?.trim() || entry.subtitle?.trim() || "",
+      entryID: entry.id,
       id: `entry-photo-${entry.id}`,
       src: normalizeImageSource(entry.extra_text || ""),
       alt: entry.title,
     }));
-  const galleryNarratives: GalleryNarrative[] = [
-    ...galleryAlbums.map((entry) => ({
-      id: `album-${entry.id}`,
-      section: "相册",
-      title: entry.title,
-      body: entry.caption || "相册编目",
-    })),
-    ...galleryPolaroids.map((entry) => ({
-      id: `polaroid-${entry.id}`,
-      section: "拍立得",
-      title: entry.title,
-      body: entry.note || "单帧印象",
-    })),
-    ...galleryPapers.map((entry) => ({
-      id: `paper-${entry.id}`,
-      section: "旧纸",
-      title: entry.title,
-      body: entry.body || "文字片段",
-    })),
-    ...galleryTracks.map((entry) => ({
-      id: `track-${entry.id}`,
-      section: "留声机",
-      title: entry.title,
-      body: entry.detail || "声音线索",
-    })),
-    ...galleryTimeline.map((entry) => ({
-      id: `timeline-${entry.id}`,
-      section: "时间轴",
-      title: `${entry.year} · ${entry.title}`,
-      body: entry.summary || "节点记录",
-    })),
-  ];
-  const editorialNarratives: GalleryNarrative[] =
-    galleryNarratives.length > 0
-      ? galleryNarratives
-      : dynamicPhotos.map((photo, index) => ({
-          id: `photo-note-${photo.id}`,
-          section: "展墙",
-          title: photo.alt,
-          body: `图片说明待补充 #${String(index + 1).padStart(2, "0")}`,
-        }));
-
-  const sectionSummaryByType: Record<SiteGalleryEntry["entry_type"], string> = {
-    album: galleryAlbums[0]?.caption || GALLERY_SECTION_META.album.summary,
-    polaroid: galleryPolaroids[0]?.note || GALLERY_SECTION_META.polaroid.summary,
-    paper: galleryPapers[0]?.body || GALLERY_SECTION_META.paper.summary,
-    timeline: galleryTimeline[0]?.summary || GALLERY_SECTION_META.timeline.summary,
-    track: galleryTracks[0]?.detail || GALLERY_SECTION_META.track.summary,
-  };
-
   const activeImageEntries = galleryEntriesRaw
     .filter((entry) => entry.active && isLikelyImageSource(entry.extra_text || ""))
     .sort((left, right) => left.sort_order - right.sort_order || left.id.localeCompare(right.id));
 
-  const typedSections = GALLERY_SECTION_ORDER
-    .map<GalleryCurationSection | null>((type) => {
-      const entries = activeImageEntries.filter((entry) => entry.entry_type === type);
-      if (!entries.length) {
-        return null;
-      }
+  const activitySectionMap = new Map<
+    string,
+    {
+      id: string;
+      type: SiteGalleryEntry["entry_type"];
+      kicker: string;
+      photos: GallerySectionPhoto[];
+    }
+  >();
+  activeImageEntries.forEach((entry) => {
+    const activityTag = deriveActivityTag(entry);
+    const activityKey = normalizeActivityKey(activityTag) || `activity-${entry.id}`;
+    const existing = activitySectionMap.get(activityKey);
 
-      const meta = GALLERY_SECTION_META[type];
-      return {
-        id: `section-${type}`,
-        type,
-        kicker: meta.kicker,
-        title: meta.title,
-        summary: sectionSummaryByType[type] || meta.summary,
-        photos: entries.map((entry) => ({
-          id: `section-photo-${entry.id}`,
-          src: normalizeImageSource(entry.extra_text || ""),
-          alt: entry.title,
-          title: entry.title,
-        })),
-        notes: entries.map((entry) => ({
-          id: `section-note-${entry.id}`,
-          section: galleryEntryTypeLabel(type),
-          title: entry.subtitle?.trim() || entry.title,
-          body: entry.body?.trim() || entry.subtitle?.trim() || `${galleryEntryTypeLabel(type)}图像记录`,
-        })),
-      };
-    })
-    .filter((section): section is GalleryCurationSection => section !== null);
+    const photo: GallerySectionPhoto = {
+      annotation: entry.body?.trim() || entry.subtitle?.trim() || "",
+      entryID: entry.id,
+      id: `section-photo-${entry.id}`,
+      src: normalizeImageSource(entry.extra_text || ""),
+      alt: entry.title,
+      title: entry.title,
+    };
 
-  const curationSections: GalleryCurationSection[] =
-    typedSections.length > 0
-      ? typedSections
-      : dynamicPhotos.length > 0
-        ? [
-            {
-              id: "section-mixed",
-              type: "mixed",
-              kicker: "展墙",
-              title: "综合画廊",
-              summary: "按画面节奏重新编排，支持在同一栏目中连续展示多张图片。",
-              photos: dynamicPhotos.map((photo) => ({
-                id: `mixed-${photo.id}`,
-                src: photo.src,
-                alt: photo.alt,
-                title: photo.alt,
-              })),
-              notes: editorialNarratives,
-            },
-          ]
-        : [];
+    if (!existing) {
+      activitySectionMap.set(activityKey, {
+        id: `section-activity-${entry.id}`,
+        type: entry.entry_type,
+        kicker: activityTag,
+        photos: [photo],
+      });
+      return;
+    }
 
-  const curationNotes = curationSections.flatMap((section) =>
-    section.notes.map((note) => ({
-      ...note,
-      section: section.title,
+    existing.photos.push(photo);
+  });
+
+  const curationSections: GalleryCurationSection[] = Array.from(activitySectionMap.values()).map((section) => ({
+    id: section.id,
+    type: section.type,
+    kicker: section.kicker,
+    title: section.kicker,
+    summary: "",
+    photos: section.photos,
+    notes: [],
+  }));
+
+  const lightboxPhotos = curationSections.flatMap((section, sectionIndex) =>
+    section.photos.map<GalleryLightboxPhoto>((photo, photoIndex) => ({
+      ...photo,
+      marker: `${String(sectionIndex + 1).padStart(2, "0")}-${String(photoIndex + 1).padStart(2, "0")}`,
+      sectionKicker: section.kicker,
+      sectionTitle: section.title,
     })),
   );
-  const totalCurationPhotos = curationSections.reduce((sum, section) => sum + section.photos.length, 0);
-
+  const lightboxIndexByPhotoID = new Map(lightboxPhotos.map((photo, index) => [photo.id, index] as const));
+  const activeLightboxPhoto =
+    lightboxIndex >= 0 && lightboxIndex < lightboxPhotos.length ? lightboxPhotos[lightboxIndex] : null;
+  const isLightboxOpen = lightboxIndex >= 0 && lightboxIndex < lightboxPhotos.length;
+  const activeLightboxAnnotation = activeLightboxPhoto?.annotation?.trim() || "";
   const layoutStyle = useMemo(
     () =>
       ({
@@ -393,8 +394,6 @@ export default function GalleryPage({
       }) as CSSProperties,
     [layoutState.cardAspect, layoutState.columns],
   );
-  const notesLimit = Math.min(Math.max(layoutState.notesCount, 1), curationNotes.length);
-  const visibleNarratives = curationNotes.slice(0, notesLimit);
   const extraTextLabel = galleryForm.entry_type === "track" ? "曲目时长 / 额外文本" : "图片 URL / 额外文本";
   const editorPreviewImage =
     galleryForm.entry_type !== "track" && isLikelyImageSource(galleryForm.extra_text)
@@ -402,25 +401,107 @@ export default function GalleryPage({
       : dynamicPhotos[0]?.src || "";
   const allCurrentPageSelected =
     localAdminEntries.length > 0 && selectedEntryIDs.length === localAdminEntries.length;
+  const uploadFileCount = pendingUploadFiles.length;
+  const uploadFileNamesPreview =
+    uploadFileCount <= 3
+      ? pendingUploadFiles.map((file) => file.name).join("，")
+      : `${pendingUploadFiles.slice(0, 3).map((file) => file.name).join("，")} 等`;
+
+  useEffect(() => {
+    if (!lightboxPhotos.length) {
+      setLightboxIndex(-1);
+      return;
+    }
+
+    setLightboxIndex((current) => (current >= lightboxPhotos.length ? lightboxPhotos.length - 1 : current));
+  }, [lightboxPhotos.length]);
+
+  useEffect(() => {
+    if (!isLightboxOpen || typeof window === "undefined") {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setLightboxIndex(-1);
+        return;
+      }
+
+      if (lightboxPhotos.length <= 1) {
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setLightboxIndex((current) => (current + 1 + lightboxPhotos.length) % lightboxPhotos.length);
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setLightboxIndex((current) => (current - 1 + lightboxPhotos.length) % lightboxPhotos.length);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isLightboxOpen, lightboxPhotos.length]);
+
+  useEffect(() => {
+    if (!activeLightboxPhoto) {
+      setLightboxAnnotationDraft("");
+      setLightboxAnnotationFeedback("");
+      setIsAnnotationSaving(false);
+      return;
+    }
+
+    setLightboxAnnotationDraft(activeLightboxPhoto.annotation || "");
+    setLightboxAnnotationFeedback("");
+  }, [activeLightboxPhoto?.id, activeLightboxPhoto?.annotation]);
+
+  async function handleLightboxAnnotationSave(): Promise<void> {
+    if (!activeLightboxPhoto?.entryID) {
+      return;
+    }
+
+    setIsAnnotationSaving(true);
+    setLightboxAnnotationFeedback("");
+
+    try {
+      await onGalleryAnnotate(activeLightboxPhoto.entryID, lightboxAnnotationDraft);
+      setLightboxAnnotationFeedback("注释已保存。");
+    } catch {
+      setLightboxAnnotationFeedback("注释保存失败，请稍后重试。");
+    } finally {
+      setIsAnnotationSaving(false);
+    }
+  }
+
+  function openLightboxByPhotoID(photoID: string): void {
+    const targetIndex = lightboxIndexByPhotoID.get(photoID);
+    if (typeof targetIndex === "number") {
+      setLightboxIndex(targetIndex);
+    }
+  }
 
   return (
     <section className="gallery-photo-shell gallery-photo-shell--editorial" style={layoutStyle}>
-      <div className="gallery-photo-shell__head">
-        <div>
-          <p className="panel-kicker">展示墙</p>
-          <h2>艺术照展示墙</h2>
-          <p className="gallery-photo-shell__lede">
-            按栏目分组展陈，同一栏目可连续放多张图片，文字改为章节注记，整体更像策展墙而不是图文横排。
-          </p>
+      <div className="gallery-photo-shell__head gallery-photo-shell__head--art">
+        <div className="gallery-photo-shell__head-copy">
+          <p className="gallery-photo-shell__head-kicker">Gallery Curator</p>
+          <h2 className="gallery-photo-shell__art-title">光影艺术墙</h2>
+          <p className="gallery-photo-shell__head-note">把照片排成一面有呼吸感的展墙。</p>
         </div>
-        <div className="gallery-photo-shell__head-actions">
-          <StatusChip tone="accent">{totalCurationPhotos} 张照片</StatusChip>
-          {canManageGallery ? (
+        {canManageGallery ? (
+          <div className="gallery-photo-shell__head-actions">
             <button className="ghost-button" onClick={() => setIsEditorOpen((current) => !current)} type="button">
               {isEditorOpen ? "收起前台编辑" : "前台编辑"}
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {canManageGallery && isEditorOpen ? (
@@ -432,7 +513,7 @@ export default function GalleryPage({
             </div>
             {galleryActionState.error ? <p className="panel-error">{galleryActionState.error}</p> : null}
             {galleryActionState.success ? <p className="panel-empty">{galleryActionState.success}</p> : null}
-            <form className="space-form" onSubmit={(event) => void onGallerySubmit(event)}>
+            <form className="space-form gallery-inline-admin__form" onSubmit={(event) => void onGallerySubmit(event)}>
               <label>
                 <span>条目类型</span>
                 <select
@@ -473,6 +554,52 @@ export default function GalleryPage({
                   value={galleryForm.extra_text}
                 />
               </label>
+              {galleryForm.entry_type !== "track" ? (
+                <>
+                  <label className="gallery-inline-admin__upload-field">
+                    <span>多图片上传（可一次选择多张）</span>
+                    <input
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml"
+                      multiple
+                      onChange={(event) => {
+                        const files = Array.from(event.target.files || []);
+                        setPendingUploadFiles(files);
+                      }}
+                      type="file"
+                    />
+                  </label>
+                  {uploadFileCount > 0 ? (
+                    <p className="gallery-inline-admin__upload-summary">
+                      已选择 {uploadFileCount} 张：{uploadFileNamesPreview}
+                    </p>
+                  ) : null}
+                  {uploadFileCount > 1 && !editingGalleryEntryID ? (
+                    <p className="gallery-inline-admin__upload-summary">
+                      多图上传会自动按当前类型与排序批量创建条目。
+                    </p>
+                  ) : null}
+                  {galleryUploadState.error ? <p className="panel-error">{galleryUploadState.error}</p> : null}
+                  {galleryUploadState.success ? <p className="panel-empty">{galleryUploadState.success}</p> : null}
+                  <div className="gallery-admin__actions gallery-inline-admin__upload-actions">
+                    <button
+                      className="ghost-button"
+                      disabled={galleryUploadState.pending || uploadFileCount <= 0}
+                      onClick={() => void onGalleryUploadFiles(pendingUploadFiles)}
+                      type="button"
+                    >
+                      {galleryUploadState.pending ? "上传中..." : "上传图片"}
+                    </button>
+                    <button
+                      className="ghost-button"
+                      disabled={galleryUploadState.pending || uploadFileCount <= 0}
+                      onClick={() => setPendingUploadFiles([])}
+                      type="button"
+                    >
+                      清空选择
+                    </button>
+                  </div>
+                </>
+              ) : null}
               <label>
                 <span>排序</span>
                 <input name="sort_order" onChange={onGalleryFieldChange} value={galleryForm.sort_order} />
@@ -541,23 +668,6 @@ export default function GalleryPage({
                 </select>
               </label>
               <label>
-                <span>描述区位置</span>
-                <select
-                  value={layoutState.notesPosition}
-                  onChange={(event) =>
-                    setLayoutState((current) => ({
-                      ...current,
-                      notesPosition:
-                        event.target.value === "bottom" || event.target.value === "hidden" ? event.target.value : "side",
-                    }))
-                  }
-                >
-                  <option value="side">右侧</option>
-                  <option value="bottom">底部</option>
-                  <option value="hidden">隐藏</option>
-                </select>
-              </label>
-              <label>
                 <span>图片比例</span>
                 <select
                   value={layoutState.cardAspect}
@@ -573,22 +683,6 @@ export default function GalleryPage({
                   <option value="square">方形</option>
                   <option value="portrait">竖向</option>
                 </select>
-              </label>
-              <label>
-                <span>描述条数</span>
-                <input
-                  max={24}
-                  min={1}
-                  type="number"
-                  value={layoutState.notesCount}
-                  onChange={(event) => {
-                    const parsed = Number.parseInt(event.target.value, 10);
-                    setLayoutState((current) => ({
-                      ...current,
-                      notesCount: Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 24) : current.notesCount,
-                    }));
-                  }}
-                />
               </label>
               <div className="gallery-admin__actions">
                 <button
@@ -743,52 +837,43 @@ export default function GalleryPage({
         </section>
       ) : null}
 
-      <div
-        className={`gallery-curation-layout ${
-          layoutState.notesPosition === "bottom"
-            ? "gallery-curation-layout--notes-bottom"
-            : layoutState.notesPosition === "hidden"
-              ? "gallery-curation-layout--notes-hidden"
-              : "gallery-curation-layout--notes-side"
-        }`}
-      >
+      <div className="gallery-curation-layout gallery-curation-layout--notes-hidden">
         <div className="gallery-curation-stack">
-          {curationSections.map((section, sectionIndex) => (
+          {curationSections.map((section) => (
             <article
               className={`gallery-curation-section gallery-curation-section--${section.type}`}
+              id={`gallery-curation-section-${section.id}`}
               key={section.id}
             >
-              <div className="gallery-curation-section__head">
-                <div>
-                  <p className="panel-kicker">{section.kicker}</p>
-                  <h3>{section.title}</h3>
-                </div>
-                <StatusChip tone="neutral">{section.photos.length} 张</StatusChip>
+              <div className="gallery-curation-section__head gallery-curation-section__head--tag-only">
+                <span className="gallery-topic-tag">#{section.kicker}</span>
               </div>
-              <p className="gallery-curation-section__summary">{section.summary}</p>
-              <div className="gallery-curation-grid">
-                {section.photos.map((photo, index) => (
-                  <figure
-                    className={`gallery-curation-card ${
-                      index % 7 === 0
-                        ? "gallery-curation-card--featured"
-                        : index % 5 === 0
-                          ? "gallery-curation-card--tall"
-                          : ""
-                    }`}
-                    key={photo.id}
-                  >
-                    <div className="gallery-curation-card__media">
-                      <img alt={photo.alt} loading="lazy" src={photo.src} />
-                    </div>
-                    <figcaption className="gallery-curation-card__caption">
-                      <span className="gallery-curation-card__index">
-                        {String(sectionIndex + 1).padStart(2, "0")}-{String(index + 1).padStart(2, "0")}
-                      </span>
-                      <strong>{photo.title}</strong>
-                    </figcaption>
-                  </figure>
-                ))}
+              <div className="gallery-wall-carousel">
+                <div className="gallery-curation-grid gallery-curation-grid--wall">
+                  {section.photos.map((photo, photoIndex) => (
+                    <figure
+                      className={`gallery-curation-card gallery-wall-frame gallery-wall-frame--${(photoIndex % 5) + 1}`}
+                      key={photo.id}
+                    >
+                      <span aria-hidden="true" className="gallery-wall-frame__pin" />
+                      <div
+                        aria-label={`查看大图：${photo.title}`}
+                        className="gallery-curation-card__media gallery-curation-card__media--clickable"
+                        onClick={() => openLightboxByPhotoID(photo.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openLightboxByPhotoID(photo.id);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <img alt={photo.alt} loading="lazy" src={photo.src} />
+                      </div>
+                    </figure>
+                  ))}
+                </div>
               </div>
             </article>
           ))}
@@ -796,50 +881,92 @@ export default function GalleryPage({
             <p className="panel-empty">当前还没有展示图片，管理员可在上方直编中创建条目并填写图片链接。</p>
           ) : null}
         </div>
-
-        {layoutState.notesPosition === "side" ? (
-          <aside className="gallery-curation-notes">
-            <div className="gallery-curation-notes__head">
-              <p className="panel-kicker">章节注记</p>
-              <h3>文字索引</h3>
-            </div>
-            <ol className="gallery-curation-notes__list">
-              {visibleNarratives.map((entry, index) => (
-                <li className="gallery-curation-notes__item" key={entry.id}>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <div>
-                    <strong>{entry.title}</strong>
-                    <small>{entry.section}</small>
-                    <p>{entry.body}</p>
-                  </div>
-                </li>
-              ))}
-              {!visibleNarratives.length ? <p className="panel-empty">暂无可展示的文字描述。</p> : null}
-            </ol>
-          </aside>
-        ) : null}
       </div>
 
-      {layoutState.notesPosition === "bottom" ? (
-        <section className="gallery-curation-notes gallery-curation-notes--bottom">
-          <div className="gallery-curation-notes__head">
-            <p className="panel-kicker">章节注记</p>
-            <h3>文字索引</h3>
-          </div>
-          <ol className="gallery-curation-notes__list">
-            {visibleNarratives.map((entry, index) => (
-              <li className="gallery-curation-notes__item" key={entry.id}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <div>
-                  <strong>{entry.title}</strong>
-                  <small>{entry.section}</small>
-                  <p>{entry.body}</p>
-                </div>
-              </li>
-            ))}
-            {!visibleNarratives.length ? <p className="panel-empty">暂无可展示的文字描述。</p> : null}
-          </ol>
-        </section>
+      {activeLightboxPhoto ? (
+        <div className="gallery-lightbox" role="dialog" aria-label="展示墙大图预览" aria-modal="true">
+          <button
+            aria-label="关闭大图预览"
+            className="gallery-lightbox__backdrop"
+            onClick={() => setLightboxIndex(-1)}
+            type="button"
+          />
+          <article className="gallery-lightbox__panel">
+            <div className="gallery-lightbox__head">
+              <div>
+                <p className="panel-kicker">{activeLightboxPhoto.sectionKicker}</p>
+                <h3>{activeLightboxPhoto.title}</h3>
+              </div>
+              <button className="ghost-button" onClick={() => setLightboxIndex(-1)} type="button">
+                关闭
+              </button>
+            </div>
+            <div className="gallery-lightbox__media">
+              <img alt={activeLightboxPhoto.alt} src={activeLightboxPhoto.src} />
+            </div>
+            <div className="gallery-lightbox__foot">
+              <div className="gallery-lightbox__annotation">
+                <p className="gallery-lightbox__annotation-label">图片注释</p>
+                {canManageGallery && activeLightboxPhoto.entryID ? (
+                  <label className="gallery-lightbox__annotation-editor">
+                    <textarea
+                      rows={3}
+                      value={lightboxAnnotationDraft}
+                      onChange={(event) => setLightboxAnnotationDraft(event.target.value)}
+                      placeholder="给这张图片写注释..."
+                    />
+                  </label>
+                ) : (
+                  <p className="gallery-lightbox__annotation-body">
+                    {activeLightboxAnnotation || "暂无注释。"}
+                  </p>
+                )}
+                {canManageGallery && activeLightboxPhoto.entryID ? (
+                  <div className="gallery-lightbox__annotation-actions">
+                    <button
+                      className="ghost-button"
+                      disabled={isAnnotationSaving}
+                      onClick={() => void handleLightboxAnnotationSave()}
+                      type="button"
+                    >
+                      {isAnnotationSaving ? "保存中..." : "保存注释"}
+                    </button>
+                  </div>
+                ) : null}
+                {lightboxAnnotationFeedback ? <p className="panel-empty">{lightboxAnnotationFeedback}</p> : null}
+              </div>
+              <div className="gallery-lightbox__meta">
+                <span>{activeLightboxPhoto.sectionTitle}</span>
+                <span>{activeLightboxPhoto.marker}</span>
+                <span>
+                  {lightboxIndex + 1} / {lightboxPhotos.length}
+                </span>
+              </div>
+              <div className="gallery-lightbox__actions">
+                <button
+                  className="ghost-button"
+                  disabled={lightboxPhotos.length <= 1}
+                  onClick={() =>
+                    setLightboxIndex((current) => (current - 1 + lightboxPhotos.length) % lightboxPhotos.length)
+                  }
+                  type="button"
+                >
+                  上一张
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={lightboxPhotos.length <= 1}
+                  onClick={() =>
+                    setLightboxIndex((current) => (current + 1 + lightboxPhotos.length) % lightboxPhotos.length)
+                  }
+                  type="button"
+                >
+                  下一张
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
       ) : null}
     </section>
   );

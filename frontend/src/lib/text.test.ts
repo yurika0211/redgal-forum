@@ -4,8 +4,10 @@ import {
   excerpt,
   extractMarkdownPreviewImage,
   galleryEntryTypeLabel,
+  isStandardDateLabel,
   normalizeVisibilityLabel,
   parseLines,
+  parseStandardDateLabel,
   parseTags,
 } from "./text";
 
@@ -24,6 +26,14 @@ describe("text helpers", () => {
   it("parses lines and tags", () => {
     expect(parseLines("a\n\nb\n")).toEqual(["a", "b"]);
     expect(parseTags("站台, 慢热\n短札")).toEqual(["站台", "慢热", "短札"]);
+  });
+
+  it("validates standard date labels", () => {
+    expect(isStandardDateLabel("2026-04-06")).toBe(true);
+    expect(isStandardDateLabel(" 2026-04-06 ")).toBe(true);
+    expect(isStandardDateLabel("2026/04/06")).toBe(false);
+    expect(isStandardDateLabel("2026-02-30")).toBe(false);
+    expect(parseStandardDateLabel("2026-04-06")).not.toBeNull();
   });
 
   it("extracts markdown and html preview images", () => {

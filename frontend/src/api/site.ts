@@ -1,6 +1,7 @@
 import { request, withListQuery } from "./request";
 import type {
   CreateContentBlockPayload,
+  GalleryAssetUploadResult,
   CreateGalleryEntryPayload,
   ListParams,
   Paginated,
@@ -10,6 +11,8 @@ import type {
   UpdateContentBlockPayload,
   UpdateGalleryEntryPayload,
 } from "./types";
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/$/, "");
 
 export function fetchSiteContent(): Promise<SiteContent> {
   return request<SiteContent>("/site/content");
@@ -85,4 +88,37 @@ export function deleteGalleryEntry(token: string, entryID: string): Promise<{ de
     method: "DELETE",
     token,
   });
+}
+
+export async function uploadGalleryAssets(
+  token: string,
+  files: readonly File[],
+): Promise<GalleryAssetUploadResult> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  const response = await fetch(`${API_BASE_URL}/admin/site/gallery-assets`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { data?: GalleryAssetUploadResult; error?: string; ok?: boolean }
+    | null;
+
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error || `Request failed with status ${response.status}`);
+  }
+
+  if (!payload?.data || !Array.isArray(payload.data.files)) {
+    throw new Error("上传响应缺少图片数据");
+  }
+
+  return payload.data;
 }

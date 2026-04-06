@@ -211,7 +211,7 @@ export default function PortalPage({
         </article>
       </section>
 
-      <section className="panel">
+      <section className="panel portal-activity-panel">
         <div className="panel-heading">
           <div>
             <p className="panel-kicker">活动与聚会</p>
@@ -233,7 +233,10 @@ export default function PortalPage({
         <div className="portal-timeline">
           <span className="portal-timeline__line" aria-hidden="true" />
           {societyActivities.map((activity, index) => (
-            <article className="portal-timeline-item" key={activity.id}>
+            <article
+              className="portal-timeline-item"
+              key={activity.id}
+            >
               <span className="portal-timeline-item__dot" aria-hidden="true" />
               <div className="portal-timeline-item__body">
                 <div className="portal-timeline-item__head">
@@ -280,7 +283,9 @@ export default function PortalPage({
                 name="label"
                 value={activityForm.label}
                 onChange={handleActivityFieldChange}
-                placeholder="例如：每周 / 专题 / 2026.04"
+                placeholder="YYYY-MM-DD，例如 2026-04-06"
+                pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
+                required
               />
             </label>
             <label>

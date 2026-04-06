@@ -198,6 +198,14 @@ func (r *repository) CreateContentBlock(ctx context.Context, input CreateContent
 		return ContentBlock{}, sql.ErrConnDone
 	}
 
+	if input.BlockType == ContentBlockPortalActivity {
+		normalizedLabel, err := normalizePortalActivityDateLabel(input.Label)
+		if err != nil {
+			return ContentBlock{}, err
+		}
+		input.Label = normalizedLabel
+	}
+
 	active := true
 	if input.Active != nil {
 		active = *input.Active
@@ -254,7 +262,15 @@ func (r *repository) UpdateContentBlock(ctx context.Context, blockID string, inp
 		next.Kicker = *input.Kicker
 	}
 	if input.Label != nil {
-		next.Label = *input.Label
+		if current.BlockType == ContentBlockPortalActivity {
+			normalizedLabel, err := normalizePortalActivityDateLabel(*input.Label)
+			if err != nil {
+				return ContentBlock{}, err
+			}
+			next.Label = normalizedLabel
+		} else {
+			next.Label = *input.Label
+		}
 	}
 	if input.Title != nil && strings.TrimSpace(*input.Title) != "" {
 		next.Title = *input.Title

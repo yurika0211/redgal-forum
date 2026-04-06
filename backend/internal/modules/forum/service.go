@@ -69,6 +69,17 @@ func (s *Service) GetAnonymousThread(ctx context.Context, threadID string) (Thre
 	return s.repo.GetAnonymousThread(ctx, threadID)
 }
 
+func (s *Service) GetAvailabilitySettings(ctx context.Context) (AvailabilitySettings, error) {
+	return s.repo.GetAvailabilitySettings(ctx)
+}
+
+func (s *Service) UpdateAvailabilitySettings(
+	ctx context.Context,
+	input UpdateAvailabilitySettingsRequest,
+) (AvailabilitySettings, error) {
+	return s.repo.UpdateAvailabilitySettings(ctx, input)
+}
+
 func (s *Service) GetProgress(ctx context.Context, principal security.Principal) (Progress, error) {
 	return s.repo.GetProgress(ctx, principal)
 }

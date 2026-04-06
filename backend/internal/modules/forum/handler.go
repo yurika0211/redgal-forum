@@ -27,7 +27,7 @@ func (h *Handler) ListThreads(c *gin.Context) {
 		strings.TrimSpace(c.Query("q")),
 	)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -37,11 +37,14 @@ func (h *Handler) ListThreads(c *gin.Context) {
 func (h *Handler) ListAnonymousThreads(c *gin.Context) {
 	threads, err := h.service.ListAnonymousThreads(
 		c.Request.Context(),
-		pagination.FromGin(c),
+		pagination.Params{
+			Page:     1,
+			PageSize: AnonymousBoardMessageCap,
+		},
 		strings.TrimSpace(c.Query("q")),
 	)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -51,7 +54,7 @@ func (h *Handler) ListAnonymousThreads(c *gin.Context) {
 func (h *Handler) GetThread(c *gin.Context) {
 	thread, err := h.service.GetThread(c.Request.Context(), c.Param("threadID"))
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -61,11 +64,41 @@ func (h *Handler) GetThread(c *gin.Context) {
 func (h *Handler) GetAnonymousThread(c *gin.Context) {
 	thread, err := h.service.GetAnonymousThread(c.Request.Context(), c.Param("threadID"))
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
 	response.OK(c, thread)
+}
+
+func (h *Handler) GetAvailabilitySettings(c *gin.Context) {
+	settings, err := h.service.GetAvailabilitySettings(c.Request.Context())
+	if err != nil {
+		respondForumError(c, err)
+		return
+	}
+
+	response.OK(c, settings)
+}
+
+func (h *Handler) UpdateAvailabilitySettings(c *gin.Context) {
+	var input UpdateAvailabilitySettingsRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if input.ForumEnabled == nil && input.AnonymousEnabled == nil {
+		response.Error(c, http.StatusBadRequest, "至少需要提供一个开关字段。")
+		return
+	}
+
+	settings, err := h.service.UpdateAvailabilitySettings(c.Request.Context(), input)
+	if err != nil {
+		respondForumError(c, err)
+		return
+	}
+
+	response.OK(c, settings)
 }
 
 func (h *Handler) GetProgress(c *gin.Context) {
@@ -85,7 +118,7 @@ func (h *Handler) ListMyThreadReplySnapshots(c *gin.Context) {
 		pagination.FromGin(c),
 	)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -119,8 +152,7 @@ func (h *Handler) CreateThread(c *gin.Context) {
 			response.NotImplemented(c, "forum.thread.create")
 			return
 		}
-
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -140,8 +172,7 @@ func (h *Handler) CreateAnonymousThread(c *gin.Context) {
 			response.NotImplemented(c, "forum.anonymous_thread.create")
 			return
 		}
-
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -165,8 +196,7 @@ func (h *Handler) CreateReply(c *gin.Context) {
 			response.NotImplemented(c, "forum.reply.create")
 			return
 		}
-
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -186,8 +216,7 @@ func (h *Handler) CreateAnonymousReply(c *gin.Context) {
 			response.NotImplemented(c, "forum.anonymous_reply.create")
 			return
 		}
-
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		respondForumError(c, err)
 		return
 	}
 
@@ -217,4 +246,13 @@ func (h *Handler) DeleteReply(c *gin.Context) {
 	}
 
 	response.OK(c, result)
+}
+
+func respondForumError(c *gin.Context, err error) {
+	if errors.Is(err, ErrForumDisabled) || errors.Is(err, ErrAnonymousDisabled) {
+		response.Error(c, http.StatusForbidden, err.Error())
+		return
+	}
+
+	response.Error(c, http.StatusInternalServerError, err.Error())
 }

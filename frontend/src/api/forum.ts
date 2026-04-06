@@ -4,6 +4,7 @@ import type {
   CreateThreadPayload,
   DeleteForumReplyResult,
   DeleteForumThreadResult,
+  ForumAvailabilitySettings,
   ForumProgress,
   ForumReply,
   ForumSignInResult,
@@ -12,6 +13,7 @@ import type {
   ForumThreadReplySnapshot,
   ListParams,
   Paginated,
+  UpdateForumAvailabilitySettingsPayload,
 } from "./types";
 
 export function fetchThreads(token?: string, params?: ListParams): Promise<Paginated<ForumThread>> {
@@ -36,6 +38,21 @@ export function fetchAnonymousThreadDetail(
   token?: string,
 ): Promise<ForumThreadDetail> {
   return request<ForumThreadDetail>(`/forum/anonymous/threads/${encodeURIComponent(threadID)}`, {
+    token,
+  });
+}
+
+export function fetchSuperAdminForumSettings(token: string): Promise<ForumAvailabilitySettings> {
+  return request<ForumAvailabilitySettings>("/super-admin/forum/settings", { token });
+}
+
+export function updateSuperAdminForumSettings(
+  body: UpdateForumAvailabilitySettingsPayload,
+  token: string,
+): Promise<ForumAvailabilitySettings> {
+  return request<ForumAvailabilitySettings>("/super-admin/forum/settings", {
+    method: "PATCH",
+    body,
     token,
   });
 }

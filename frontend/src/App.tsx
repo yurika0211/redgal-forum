@@ -39,6 +39,7 @@ import {
   fetchHealth,
   fetchMyBangumiCollections,
   fetchMyBangumiJobs,
+  fetchSuperAdminForumSettings,
   fetchUserBangumiCollections,
   fetchMyProfile,
   fetchPublicProfile,
@@ -71,6 +72,7 @@ import {
   type DeleteForumThreadResult,
   type ForumProgress as ApiForumProgress,
   type ForumReply as ApiForumReply,
+  type ForumAvailabilitySettings as ApiForumAvailabilitySettings,
   type ForumSignInResult as ApiForumSignInResult,
   type ForumThread as ApiForumThread,
   type ForumThreadDetail as ApiForumThreadDetail,
@@ -100,8 +102,10 @@ import {
   type UpdateProfilePayload,
   type UpdateGalleryEntryPayload,
   updateGalleryEntry,
+  uploadGalleryAssets,
   updateRelayStatus,
   updateWritingContestStatus,
+  updateSuperAdminForumSettings,
   updateMyProfile,
 } from "./api";
 import Header, { type HeaderNotificationItem, type NavigationGroup } from "./components/Header";
@@ -141,9 +145,11 @@ import {
   formatDateTime,
   formatUpdatedAt,
   galleryEntryTypeLabel,
+  isStandardDateLabel,
   isAuthFailure,
   normalizeVisibilityLabel,
   parseLines,
+  parseStandardDateLabel,
   parseTags,
   toErrorMessage,
 } from "./lib/text";
@@ -164,6 +170,7 @@ type SpaceShelfTab = "anime" | "books" | "games";
 const THEME_STORAGE_KEY = "rubedo_theme_mode";
 const HOME_NOTICE_SEEN_KEY = "rubedo_home_notice_seen_v1";
 const HOME_NOTICE_SEEN_LIMIT = 96;
+const ANONYMOUS_BOARD_MESSAGE_CAP = 250;
 
 function readStoredThemeMode(): ThemeMode {
   if (typeof window === "undefined") {
@@ -211,6 +218,29 @@ function readStoredHomeNoticeSeenIDs(): string[] {
     window.localStorage.removeItem(HOME_NOTICE_SEEN_KEY);
     return [];
   }
+}
+
+function comparePortalActivitiesByLabelDateDesc(left: DisplayActivity, right: DisplayActivity): number {
+  const leftDate = parseStandardDateLabel(left.label);
+  const rightDate = parseStandardDateLabel(right.label);
+
+  if (leftDate !== null && rightDate !== null && leftDate !== rightDate) {
+    return rightDate - leftDate;
+  }
+  if (leftDate !== null && rightDate === null) {
+    return -1;
+  }
+  if (leftDate === null && rightDate !== null) {
+    return 1;
+  }
+
+  const leftSortOrder = left.sortOrder ?? 0;
+  const rightSortOrder = right.sortOrder ?? 0;
+  if (leftSortOrder !== rightSortOrder) {
+    return leftSortOrder - rightSortOrder;
+  }
+
+  return left.id.localeCompare(right.id, "zh-CN");
 }
 
 interface StatusChipProps {
@@ -745,6 +775,20 @@ function createEmptyActionState<T>(): FormActionState<T> {
   };
 }
 
+function mergeAnonymousThreads(
+  existing: readonly ApiForumThread[],
+  incoming: readonly ApiForumThread[],
+): ApiForumThread[] {
+  const byID = new Map<string, ApiForumThread>();
+  existing.forEach((item) => {
+    byID.set(item.id, item);
+  });
+  incoming.forEach((item) => {
+    byID.set(item.id, item);
+  });
+  return Array.from(byID.values());
+}
+
 function StatusChip({ tone = "neutral", children }: StatusChipProps) {
   return <span className={`status-chip status-chip--${tone}`}>{children}</span>;
 }
@@ -829,9 +873,15 @@ function App() {
   const [galleryForm, setGalleryForm] = useState<GalleryFormState>(() => createGalleryFormState());
   const [galleryActionState, setGalleryActionState] =
     useState<FormActionState<SiteGalleryEntry>>(createEmptyActionState<SiteGalleryEntry>);
+  const [galleryUploadState, setGalleryUploadState] =
+    useState<FormActionState<SiteGalleryEntry[]>>(createEmptyActionState<SiteGalleryEntry[]>);
   const [editingGalleryEntryID, setEditingGalleryEntryID] = useState<string | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<ApiAdminDashboard | null>(null);
   const [superAdminDashboard, setSuperAdminDashboard] = useState<ApiSuperAdminDashboard | null>(null);
+  const [forumAvailabilitySettings, setForumAvailabilitySettings] =
+    useState<ApiForumAvailabilitySettings | null>(null);
+  const [forumAvailabilityActionState, setForumAvailabilityActionState] =
+    useState<FormActionState<ApiForumAvailabilitySettings>>(createEmptyActionState<ApiForumAvailabilitySettings>);
   const [adminUsers, setAdminUsers] = useState<ApiAdminUser[]>([]);
   const [adminUsersPager, setAdminUsersPager] = useState<PagerState>(() => createPagerState(6));
   const [adminUserActionState, setAdminUserActionState] =
@@ -920,7 +970,10 @@ function App() {
   });
   const [articlePager, setArticlePager] = useState<PagerState>(() => createPagerState(6));
   const [threadPager, setThreadPager] = useState<PagerState>(() => createPagerState(6));
-  const [anonymousThreadPager, setAnonymousThreadPager] = useState<PagerState>(() => createPagerState(250));
+  const [anonymousThreadPager, setAnonymousThreadPager] = useState<PagerState>(() =>
+    createPagerState(ANONYMOUS_BOARD_MESSAGE_CAP),
+  );
+  const [anonymousLoadingMore, setAnonymousLoadingMore] = useState(false);
   const [wallPager, setWallPager] = useState<PagerState>(() => createPagerState(6));
   const [adminGalleryPager, setAdminGalleryPager] = useState<PagerState>(() => createPagerState(6));
   const [healthError, setHealthError] = useState("");
@@ -939,6 +992,7 @@ function App() {
   const [adminBangumiJobsError, setAdminBangumiJobsError] = useState("");
   const [adminContentBlocksError, setAdminContentBlocksError] = useState("");
   const [adminActivityError, setAdminActivityError] = useState("");
+  const [forumAvailabilityError, setForumAvailabilityError] = useState("");
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -986,15 +1040,17 @@ function App() {
       }))
     : DEFAULT_SOCIETY_PILLARS;
   const societyActivities: DisplayActivity[] = siteContent?.portal_activities.length
-    ? siteContent.portal_activities.map((item) => ({
-        id: item.slug || item.id,
-        blockID: item.id,
-        label: item.label || "",
-        title: item.title,
-        description: item.description || "",
-        sortOrder: item.sort_order,
-        active: item.active,
-      }))
+    ? siteContent.portal_activities
+        .map((item) => ({
+          id: item.slug || item.id,
+          blockID: item.id,
+          label: item.label || "",
+          title: item.title,
+          description: item.description || "",
+          sortOrder: item.sort_order,
+          active: item.active,
+        }))
+        .sort(comparePortalActivitiesByLabelDateDesc)
     : DEFAULT_SOCIETY_ACTIVITIES;
   const societyNotices: DisplayNotice[] = siteContent?.portal_notices?.length
     ? siteContent.portal_notices.map((item) => ({
@@ -1093,6 +1149,7 @@ function App() {
     session && profile?.roles?.some((role) => role === "admin" || role === "super_admin"),
   );
   const canUseBangumiImport = Boolean(session);
+  const canAccessAnonymous = Boolean(session && profile?.verified);
   const hasVerifiedSpaceAccess = Boolean(session && profile);
   const spaceLogEntries = storyFeed.filter((article) => {
     if (!displayProfile) {
@@ -1390,15 +1447,15 @@ function App() {
           ? fetchThreadDetail(selectedForumThreadID, token || undefined)
           : Promise.resolve<ApiForumThreadDetail | null>(null);
       const anonymousThreadResult =
-        routePath === "/anonymous"
+        routePath === "/anonymous" && canAccessAnonymous
           ? fetchAnonymousThreads(token || undefined, {
-              page: anonymousThreadPager.page,
-              pageSize: anonymousThreadPager.pageSize,
+              page: 1,
+              pageSize: ANONYMOUS_BOARD_MESSAGE_CAP,
             })
           : Promise.resolve<Paginated<ApiForumThread>>({
               items: [],
-              page: anonymousThreadPager.page,
-              page_size: anonymousThreadPager.pageSize,
+              page: 1,
+              page_size: ANONYMOUS_BOARD_MESSAGE_CAP,
               total: 0,
               total_pages: 0,
             });
@@ -1570,6 +1627,7 @@ function App() {
         setHasLoadedOnce(true);
         setIsLoadingData(false);
         setIsRefreshing(false);
+        setAnonymousLoadingMore(false);
       });
     }
 
@@ -1589,20 +1647,19 @@ function App() {
     selectedAnonymousThreadID,
     selectedForumThreadID,
     session,
-    anonymousThreadPager.page,
-    anonymousThreadPager.pageSize,
     threadPager.page,
     threadPager.pageSize,
     threadSearchKeyword,
     wallPager.page,
     wallPager.pageSize,
+    canAccessAnonymous,
   ]);
 
   useEffect(() => {
     let active = true;
     let inFlight = false;
 
-    if (routePath !== "/anonymous" || typeof window === "undefined") {
+    if (routePath !== "/anonymous" || !canAccessAnonymous || typeof window === "undefined") {
       return () => {
         active = false;
       };
@@ -1622,16 +1679,28 @@ function App() {
       inFlight = true;
       try {
         const result = await fetchAnonymousThreads(token || undefined, {
-          page: anonymousThreadPager.page,
-          pageSize: anonymousThreadPager.pageSize,
+          page: 1,
+          pageSize: ANONYMOUS_BOARD_MESSAGE_CAP,
         });
         if (!active) {
           return;
         }
 
-        const normalized = normalizeListResult<ApiForumThread>(result, anonymousThreadPager);
-        setAnonymousThreadFeed(normalized.items);
-        setAnonymousThreadPager(normalized.pager);
+        const normalized = normalizeListResult<ApiForumThread>(
+          result,
+          createPagerState(ANONYMOUS_BOARD_MESSAGE_CAP),
+        );
+        setAnonymousThreadFeed((current) => mergeAnonymousThreads(current, normalized.items));
+        setAnonymousThreadPager((current) => ({
+          ...current,
+          page:
+            normalized.pager.totalPages > 0
+              ? Math.min(Math.max(current.page, 1), normalized.pager.totalPages)
+              : 1,
+          pageSize: normalized.pager.pageSize,
+          total: normalized.pager.total,
+          totalPages: normalized.pager.totalPages,
+        }));
         setAnonymousThreadsError("");
       } catch (error) {
         if (!active) {
@@ -1652,7 +1721,15 @@ function App() {
       active = false;
       window.clearInterval(intervalID);
     };
-  }, [anonymousThreadPager.page, anonymousThreadPager.pageSize, routePath, session]);
+  }, [routePath, session, canAccessAnonymous]);
+
+  useEffect(() => {
+    if (routePath !== "/anonymous" || canAccessAnonymous) {
+      return;
+    }
+
+    navigateRoute("/space");
+  }, [routePath, canAccessAnonymous, navigateRoute]);
 
   useEffect(() => {
     let active = true;
@@ -1823,6 +1900,9 @@ function App() {
     if (!session || !canAdmin || routePath !== "/admin") {
       setAdminDashboard(null);
       setSuperAdminDashboard(null);
+      setForumAvailabilitySettings(null);
+      setForumAvailabilityError("");
+      setForumAvailabilityActionState(createEmptyActionState<ApiForumAvailabilitySettings>());
       setAdminUsers([]);
       setAdminContentBlocks([]);
       setRelays([]);
@@ -1844,6 +1924,7 @@ function App() {
       const [
         dashboardResult,
         superAdminResult,
+        forumSettingsResult,
         usersResult,
         bangumiJobsResult,
         blocksResult,
@@ -1853,6 +1934,9 @@ function App() {
       ] = await Promise.allSettled([
         fetchAdminDashboard(accessToken),
         canSuperAdmin ? fetchSuperAdminDashboard(accessToken) : Promise.resolve<ApiSuperAdminDashboard | null>(null),
+        canSuperAdmin
+          ? fetchSuperAdminForumSettings(accessToken)
+          : Promise.resolve<ApiForumAvailabilitySettings | null>(null),
         fetchAdminUsers(accessToken, {
           page: adminUsersPager.page,
           pageSize: adminUsersPager.pageSize,
@@ -1886,6 +1970,9 @@ function App() {
       startTransition(() => {
         setAdminDashboard(dashboardResult.status === "fulfilled" ? dashboardResult.value : null);
         setSuperAdminDashboard(superAdminResult.status === "fulfilled" ? superAdminResult.value : null);
+        setForumAvailabilitySettings(
+          forumSettingsResult.status === "fulfilled" ? forumSettingsResult.value : null,
+        );
 
         if (usersResult.status === "fulfilled") {
           const normalized = normalizeListResult<ApiAdminUser>(usersResult.value, adminUsersPager);
@@ -1955,6 +2042,11 @@ function App() {
               ? toErrorMessage(contestsResult.reason)
               : "",
         );
+        setForumAvailabilityError(
+          forumSettingsResult.status === "rejected"
+            ? toErrorMessage(forumSettingsResult.reason)
+            : "",
+        );
       });
     }
 
@@ -2016,6 +2108,17 @@ function App() {
 
   function handleNavigate(nextHref: string): void {
     setIsHeaderHidden(false);
+    const resolvedURL =
+      typeof window !== "undefined"
+        ? new URL(nextHref, window.location.origin)
+        : new URL(`http://localhost${nextHref}`);
+    const nextPath = normalizePath(resolvedURL.pathname);
+
+    if (nextPath === "/anonymous" && !canAccessAnonymous) {
+      navigateRoute("/space");
+      return;
+    }
+
     navigateRoute(nextHref);
   }
 
@@ -2297,9 +2400,13 @@ function App() {
     setArticleManageActionState(createEmptyActionState<ApiArticle | DeleteArticleResult>());
     setForumProgress(null);
     setForumSignInState(createEmptyActionState<ApiForumSignInResult>());
+    setForumAvailabilitySettings(null);
+    setForumAvailabilityError("");
+    setForumAvailabilityActionState(createEmptyActionState<ApiForumAvailabilitySettings>());
     setAdminGalleryEntries([]);
     setGalleryForm(createGalleryFormState());
     setGalleryActionState(createEmptyActionState<SiteGalleryEntry>());
+    setGalleryUploadState(createEmptyActionState<SiteGalleryEntry[]>());
     setEditingGalleryEntryID(null);
     setLoginState({
       pending: false,
@@ -2776,14 +2883,6 @@ function App() {
         success: "聊天室消息已发送。",
       });
       setPendingAnonymousScrollMessageID(thread.id);
-      setAnonymousThreadPager((current) =>
-        current.page === 1
-          ? current
-          : {
-              ...current,
-              page: 1,
-            },
-      );
       setRefreshNonce((current) => current + 1);
     } catch (error) {
       setAnonymousThreadActionState({
@@ -2792,6 +2891,47 @@ function App() {
         data: null,
         success: "",
       });
+    }
+  }
+
+  async function handleAnonymousLoadMore(): Promise<void> {
+    if (anonymousLoadingMore || !canAccessAnonymous) {
+      return;
+    }
+
+    const nextPage = anonymousThreadPager.page + 1;
+    if (anonymousThreadPager.totalPages > 0 && nextPage > anonymousThreadPager.totalPages) {
+      return;
+    }
+
+    setAnonymousLoadingMore(true);
+
+    try {
+      const result = await fetchAnonymousThreads(session?.accessToken || undefined, {
+        page: nextPage,
+        pageSize: ANONYMOUS_BOARD_MESSAGE_CAP,
+      });
+      const normalized = normalizeListResult<ApiForumThread>(
+        result,
+        createPagerState(ANONYMOUS_BOARD_MESSAGE_CAP),
+      );
+
+      setAnonymousThreadFeed((current) => mergeAnonymousThreads(current, normalized.items));
+      setAnonymousThreadPager((current) => ({
+        ...current,
+        page:
+          normalized.pager.totalPages > 0
+            ? Math.min(Math.max(current.page, normalized.pager.page), normalized.pager.totalPages)
+            : 1,
+        pageSize: normalized.pager.pageSize,
+        total: normalized.pager.total,
+        totalPages: normalized.pager.totalPages,
+      }));
+      setAnonymousThreadsError("");
+    } catch (error) {
+      setAnonymousThreadsError(`加载历史消息失败：${toErrorMessage(error)}`);
+    } finally {
+      setAnonymousLoadingMore(false);
     }
   }
 
@@ -3133,11 +3273,130 @@ function App() {
     setEditingGalleryEntryID(entry.id);
     setGalleryForm(createGalleryFormState(entry));
     setGalleryActionState(createEmptyActionState<SiteGalleryEntry>());
+    setGalleryUploadState(createEmptyActionState<SiteGalleryEntry[]>());
   }
 
   function resetGalleryEditor(): void {
     setEditingGalleryEntryID(null);
     setGalleryForm(createGalleryFormState());
+    setGalleryUploadState(createEmptyActionState<SiteGalleryEntry[]>());
+  }
+
+  async function handleGalleryUploadFiles(files: readonly File[]): Promise<void> {
+    if (!session || !canManageGallery) {
+      setGalleryUploadState({
+        pending: false,
+        error: "请先登录管理员账号后再上传图片。",
+        data: null,
+        success: "",
+      });
+      return;
+    }
+
+    if (!files.length) {
+      setGalleryUploadState({
+        pending: false,
+        error: "请先选择至少一张图片。",
+        data: null,
+        success: "",
+      });
+      return;
+    }
+
+    setGalleryUploadState({
+      pending: true,
+      error: "",
+      data: null,
+      success: "",
+    });
+
+    try {
+      const uploadResult = await uploadGalleryAssets(session.accessToken, files);
+      const uploadedURLs = uploadResult.files
+        .map((item) => item.url.trim())
+        .filter((url) => Boolean(url));
+
+      if (!uploadedURLs.length) {
+        throw new Error("上传成功，但没有返回可用图片地址。");
+      }
+
+      if (uploadedURLs.length === 1) {
+        setGalleryForm((current) => ({
+          ...current,
+          extra_text: uploadedURLs[0],
+        }));
+        setGalleryUploadState({
+          pending: false,
+          error: "",
+          data: null,
+          success: "图片已上传并填入当前条目。",
+        });
+        return;
+      }
+
+      if (editingGalleryEntryID) {
+        setGalleryForm((current) => ({
+          ...current,
+          extra_text: uploadedURLs[0],
+        }));
+        setGalleryUploadState({
+          pending: false,
+          error: "",
+          data: null,
+          success: `已上传 ${uploadedURLs.length} 张图片。编辑模式下已填入第一张，批量建条目请先退出编辑模式。`,
+        });
+        return;
+      }
+
+      const sortOrderRaw = Number.parseInt(galleryForm.sort_order.trim() || "0", 10);
+      const baseSortOrder = Number.isFinite(sortOrderRaw) ? sortOrderRaw : 0;
+      const baseTitle = galleryForm.title.trim() || "展示图片";
+      const baseSlug = slugifyValue(galleryForm.slug.trim() || baseTitle);
+      const subtitle = galleryForm.subtitle.trim();
+      const body = galleryForm.body.trim();
+      const createdEntries: SiteGalleryEntry[] = [];
+      const uniquePrefix = Date.now().toString(36);
+
+      for (let index = 0; index < uploadedURLs.length; index += 1) {
+        const orderNo = index + 1;
+        const title = `${baseTitle} ${String(orderNo).padStart(2, "0")}`;
+        const payload: CreateGalleryEntryPayload = {
+          entry_type: galleryForm.entry_type,
+          slug: `${baseSlug}-${uniquePrefix}-${orderNo}`,
+          title,
+          subtitle: subtitle || undefined,
+          body: body || undefined,
+          extra_text: uploadedURLs[index],
+          sort_order: baseSortOrder + index,
+          active: galleryForm.active,
+        };
+
+        const entry = await createGalleryEntry(session.accessToken, payload);
+        createdEntries.push(entry);
+      }
+
+      setGalleryUploadState({
+        pending: false,
+        error: "",
+        data: createdEntries,
+        success: `已上传并创建 ${createdEntries.length} 条展示条目。`,
+      });
+      setGalleryActionState({
+        pending: false,
+        error: "",
+        data: createdEntries[createdEntries.length - 1] ?? null,
+        success: `批量创建完成（${createdEntries.length} 条）。`,
+      });
+      resetGalleryEditor();
+      handleRefresh();
+    } catch (error) {
+      setGalleryUploadState({
+        pending: false,
+        error: toErrorMessage(error),
+        data: null,
+        success: "",
+      });
+    }
   }
 
   async function handleGallerySubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -3227,6 +3486,55 @@ function App() {
         data: null,
         success: "",
       });
+    }
+  }
+
+  async function handleGalleryAnnotate(entryID: string, annotation: string): Promise<void> {
+    if (!session || !canManageGallery) {
+      setGalleryActionState({
+        pending: false,
+        error: "仅管理员可编辑图片注释。",
+        data: null,
+        success: "",
+      });
+      throw new Error("permission denied");
+    }
+
+    setGalleryActionState({
+      pending: true,
+      error: "",
+      data: null,
+      success: "",
+    });
+
+    try {
+      const nextEntry = await updateGalleryEntry(session.accessToken, entryID, {
+        body: annotation.trim() || undefined,
+      });
+
+      if (editingGalleryEntryID === entryID) {
+        setGalleryForm((current) => ({
+          ...current,
+          body: annotation,
+        }));
+      }
+
+      setGalleryActionState({
+        pending: false,
+        error: "",
+        data: nextEntry,
+        success: "图片注释已更新。",
+      });
+      handleRefresh();
+    } catch (error) {
+      const message = toErrorMessage(error);
+      setGalleryActionState({
+        pending: false,
+        error: message,
+        data: null,
+        success: "",
+      });
+      throw error;
     }
   }
 
@@ -3534,6 +3842,7 @@ function App() {
 
   async function handlePortalActivityCreate(payload: ActivityEditorPayload): Promise<void> {
     const title = payload.title.trim();
+    const label = payload.label.trim();
     if (!session || !canAdmin) {
       setPortalActivityActionState({
         pending: false,
@@ -3554,6 +3863,26 @@ function App() {
       throw new Error("activity title required");
     }
 
+    if (!label) {
+      setPortalActivityActionState({
+        pending: false,
+        error: "时间标签不能为空，格式需为 YYYY-MM-DD。",
+        data: null,
+        success: "",
+      });
+      throw new Error("activity label required");
+    }
+
+    if (!isStandardDateLabel(label)) {
+      setPortalActivityActionState({
+        pending: false,
+        error: "时间标签格式错误，请填写 YYYY-MM-DD（例如 2026-04-06）。",
+        data: null,
+        success: "",
+      });
+      throw new Error("invalid activity label date");
+    }
+
     setPortalActivityActionState({
       pending: true,
       error: "",
@@ -3569,7 +3898,7 @@ function App() {
       const result = await createContentBlock(session.accessToken, {
         block_type: "portal_activity",
         slug: createPortalActivitySlug(title),
-        label: payload.label.trim() || undefined,
+        label,
         title,
         description: payload.description.trim() || undefined,
         sort_order: maxSort + 10,
@@ -3599,6 +3928,7 @@ function App() {
     payload: ActivityEditorPayload,
   ): Promise<void> {
     const title = payload.title.trim();
+    const label = payload.label.trim();
     if (!session || !canAdmin) {
       setPortalActivityActionState({
         pending: false,
@@ -3629,6 +3959,26 @@ function App() {
       throw new Error("activity title required");
     }
 
+    if (!label) {
+      setPortalActivityActionState({
+        pending: false,
+        error: "时间标签不能为空，格式需为 YYYY-MM-DD。",
+        data: null,
+        success: "",
+      });
+      throw new Error("activity label required");
+    }
+
+    if (!isStandardDateLabel(label)) {
+      setPortalActivityActionState({
+        pending: false,
+        error: "时间标签格式错误，请填写 YYYY-MM-DD（例如 2026-04-06）。",
+        data: null,
+        success: "",
+      });
+      throw new Error("invalid activity label date");
+    }
+
     setPortalActivityActionState({
       pending: true,
       error: "",
@@ -3638,7 +3988,7 @@ function App() {
 
     try {
       const result = await updateContentBlock(session.accessToken, activity.blockID, {
-        label: payload.label.trim() || undefined,
+        label,
         title,
         description: payload.description.trim() || undefined,
         sort_order: activity.sortOrder ?? 0,
@@ -3753,6 +4103,28 @@ function App() {
       return;
     }
 
+    const label = contentBlockForm.label.trim();
+    if (contentBlockForm.block_type === "portal_activity") {
+      if (!label) {
+        setContentBlockActionState({
+          pending: false,
+          error: "活动类型的时间标签不能为空，格式需为 YYYY-MM-DD。",
+          data: null,
+          success: "",
+        });
+        return;
+      }
+      if (!isStandardDateLabel(label)) {
+        setContentBlockActionState({
+          pending: false,
+          error: "活动类型的时间标签格式错误，请填写 YYYY-MM-DD（例如 2026-04-06）。",
+          data: null,
+          success: "",
+        });
+        return;
+      }
+    }
+
     setContentBlockActionState({
       pending: true,
       error: "",
@@ -3766,7 +4138,7 @@ function App() {
         slug: contentBlockForm.slug.trim() || undefined,
         path: contentBlockForm.path.trim() || undefined,
         kicker: contentBlockForm.kicker.trim() || undefined,
-        label: contentBlockForm.label.trim() || undefined,
+        label: label || undefined,
         title,
         description: contentBlockForm.description.trim() || undefined,
         body: contentBlockForm.body.trim() || undefined,
@@ -4020,6 +4392,50 @@ function App() {
       handleRefresh();
     } catch (error) {
       setAdminUserActionState({
+        pending: false,
+        error: toErrorMessage(error),
+        data: null,
+        success: "",
+      });
+    }
+  }
+
+  async function handleSuperAdminForumAvailabilityToggle(
+    key: "forum_enabled" | "anonymous_enabled",
+  ): Promise<void> {
+    if (!session || !canSuperAdmin) {
+      return;
+    }
+
+    const current = forumAvailabilitySettings ?? {
+      forum_enabled: true,
+      anonymous_enabled: true,
+    };
+    const payload = {
+      forum_enabled: key === "forum_enabled" ? !current.forum_enabled : current.forum_enabled,
+      anonymous_enabled:
+        key === "anonymous_enabled" ? !current.anonymous_enabled : current.anonymous_enabled,
+    };
+
+    setForumAvailabilityActionState({
+      pending: true,
+      error: "",
+      data: null,
+      success: "",
+    });
+
+    try {
+      const result = await updateSuperAdminForumSettings(payload, session.accessToken);
+      setForumAvailabilitySettings(result);
+      setForumAvailabilityError("");
+      setForumAvailabilityActionState({
+        pending: false,
+        error: "",
+        data: result,
+        success: "论坛开关已更新。",
+      });
+    } catch (error) {
+      setForumAvailabilityActionState({
         pending: false,
         error: toErrorMessage(error),
         data: null,
@@ -4583,18 +4999,19 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
   function renderAnonymousPage(): ReactNode {
     return (
       <AnonymousPage
+        anonymousLoadingMore={anonymousLoadingMore}
         anonymousThreadActionState={anonymousThreadActionState}
         anonymousThreadFeed={anonymousThreadFeed}
         anonymousThreadForm={anonymousThreadForm}
         anonymousThreadPager={anonymousThreadPager}
         anonymousThreadsError={anonymousThreadsError}
+        hasMoreAnonymousMessages={
+          anonymousThreadPager.totalPages > 0 && anonymousThreadPager.page < anonymousThreadPager.totalPages
+        }
         isLoadingData={isLoadingData}
         session={session}
+        onAnonymousLoadMore={handleAnonymousLoadMore}
         onAnonymousThreadFieldChange={handleAnonymousThreadFieldChange}
-        onAnonymousThreadPageChange={(page) => {
-          setPendingAnonymousScrollMessageID(null);
-          setAnonymousThreadPager((current) => ({ ...current, page }));
-        }}
         onAnonymousThreadSubmit={handleAnonymousThreadSubmit}
         onAnonymousScrollDone={handleAnonymousScrollDone}
         pendingAnonymousScrollMessageID={pendingAnonymousScrollMessageID}
@@ -4660,6 +5077,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         canManageGallery={canManageGallery}
         editingGalleryEntryID={editingGalleryEntryID}
         galleryActionState={galleryActionState}
+        galleryUploadState={galleryUploadState}
         galleryAlbums={galleryAlbums}
         galleryEntriesRaw={galleryEntriesRaw}
         galleryForm={galleryForm}
@@ -4669,10 +5087,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         galleryTracks={galleryTracks}
         onGalleryBulkDelete={handleGalleryBulkDelete}
         onGalleryBulkSetActive={handleGalleryBulkSetActive}
+        onGalleryAnnotate={handleGalleryAnnotate}
         onGalleryDelete={handleGalleryDelete}
         onGalleryEditStart={handleGalleryEditStart}
         onGalleryEditorReset={resetGalleryEditor}
         onGalleryFieldChange={handleGalleryFieldChange}
+        onGalleryUploadFiles={handleGalleryUploadFiles}
         onGalleryPageChange={(page) => setAdminGalleryPager((current) => ({ ...current, page }))}
         onGalleryReorder={handleGalleryReorder}
         onGallerySortNudge={handleGallerySortNudge}
@@ -4719,6 +5139,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
     const announcementBlocks = adminContentBlocks
       .filter((block) => block.block_type === "portal_notice")
       .sort((left, right) => right.sort_order - left.sort_order);
+    const forumEnabled = forumAvailabilitySettings?.forum_enabled ?? true;
+    const anonymousEnabled = forumAvailabilitySettings?.anonymous_enabled ?? true;
 
     return (
       <>
@@ -5044,6 +5466,52 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               </div>
             </div>
             <div className="stack-list">
+              {canSuperAdmin ? (
+                <div className="content-card">
+                  <div className="content-card__header">
+                    <h3>论坛入口开关</h3>
+                    <StatusChip tone="accent">超级管理员</StatusChip>
+                  </div>
+                  {forumAvailabilityError ? <p className="panel-error">{forumAvailabilityError}</p> : null}
+                  {forumAvailabilityActionState.error ? (
+                    <p className="panel-error">{forumAvailabilityActionState.error}</p>
+                  ) : null}
+                  {forumAvailabilityActionState.success ? (
+                    <p className="panel-empty">{forumAvailabilityActionState.success}</p>
+                  ) : null}
+                  <div className="meta-row">
+                    <span>论坛：{forumEnabled ? "开启" : "关闭"}</span>
+                    <span>匿名板：{anonymousEnabled ? "开启" : "关闭"}</span>
+                  </div>
+                  <div className="gallery-admin__actions">
+                    <button
+                      className={`ghost-button ${forumEnabled ? "gallery-admin__danger" : ""}`}
+                      type="button"
+                      disabled={forumAvailabilityActionState.pending}
+                      onClick={() => void handleSuperAdminForumAvailabilityToggle("forum_enabled")}
+                    >
+                      {forumAvailabilityActionState.pending
+                        ? "更新中..."
+                        : forumEnabled
+                          ? "关闭论坛"
+                          : "开启论坛"}
+                    </button>
+                    <button
+                      className={`ghost-button ${anonymousEnabled ? "gallery-admin__danger" : ""}`}
+                      type="button"
+                      disabled={forumAvailabilityActionState.pending}
+                      onClick={() => void handleSuperAdminForumAvailabilityToggle("anonymous_enabled")}
+                    >
+                      {forumAvailabilityActionState.pending
+                        ? "更新中..."
+                        : anonymousEnabled
+                          ? "关闭匿名板"
+                          : "开启匿名板"}
+                    </button>
+                  </div>
+                  <p className="panel-empty">关闭后会拦截对应板块的列表、详情、发帖和回复请求。</p>
+                </div>
+              ) : null}
               <div className="content-card">
                 <div className="content-card__header">
                   <h3>超级管理员</h3>
@@ -5115,7 +5583,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               </label>
               <label>
                 <span>标签</span>
-                <input name="label" value={contentBlockForm.label} onChange={handleContentBlockFieldChange} />
+                <input
+                  name="label"
+                  value={contentBlockForm.label}
+                  onChange={handleContentBlockFieldChange}
+                  placeholder={contentBlockForm.block_type === "portal_activity" ? "YYYY-MM-DD，例如 2026-04-06" : ""}
+                />
               </label>
               <label>
                 <span>摘要</span>
@@ -5586,7 +6059,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
         </section>
 
-        <section className="panel-grid preview-grid" style={{ display: adminActivePage === "site-notes" ? undefined : "none" }}>
+        <section
+          className="page-split-grid admin-page-grid admin-page-grid--announcements"
+          style={{ display: adminActivePage === "site-notes" ? undefined : "none" }}
+        >
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -5669,24 +6145,32 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             <div className="stack-list">
               {announcementBlocks.map((notice) => (
-                <div className="content-card" key={notice.id}>
-                  <div className="content-card__header">
-                    <h3>{notice.title}</h3>
-                    <StatusChip tone={notice.active ? "success" : "warn"}>
-                      {notice.active ? "已启用" : "已隐藏"}
-                    </StatusChip>
-                  </div>
-                  <p>{notice.description || notice.body || "暂无公告说明。"}</p>
-                  <div className="meta-row">
-                    <span>{notice.label || "公告"}</span>
-                    <span>sort: {notice.sort_order}</span>
-                    <span>slug: {notice.slug}</span>
-                  </div>
-                  <div className="gallery-admin__actions">
-                    <button className="ghost-button" type="button" onClick={() => handleContentBlockEditStart(notice)}>
-                      在内容块编辑器中修改
-                    </button>
-                    <button className="ghost-button gallery-admin__danger" type="button" onClick={() => void handleContentBlockDelete(notice)}>
+                <div className="admin-announcement-item" key={notice.id}>
+                  <button
+                    className={`admin-announcement-button ${editingContentBlockID === notice.id ? "admin-announcement-button--active" : ""}`}
+                    type="button"
+                    onClick={() => handleContentBlockEditStart(notice)}
+                  >
+                    <div className="content-card__header">
+                      <h3>{notice.title}</h3>
+                      <StatusChip tone={notice.active ? "success" : "warn"}>
+                        {notice.active ? "已启用" : "已隐藏"}
+                      </StatusChip>
+                    </div>
+                    <p>{notice.description || notice.body || "暂无公告说明。"}</p>
+                    <div className="meta-row">
+                      <span>{notice.label || "公告"}</span>
+                      <span>sort: {notice.sort_order}</span>
+                      <span>slug: {notice.slug}</span>
+                    </div>
+                    <p className="panel-empty">点击卡片载入编辑区。</p>
+                  </button>
+                  <div className="admin-announcement-item__actions">
+                    <button
+                      className="ghost-button small-action-button gallery-admin__danger"
+                      type="button"
+                      onClick={() => void handleContentBlockDelete(notice)}
+                    >
                       删除
                     </button>
                   </div>
@@ -5751,7 +6235,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
   const visibleNavigation = canAdmin
     ? NAV_ITEMS
     : NAV_ITEMS.filter((item) => item.href !== "/admin");
-  const navigationMap = new Map(visibleNavigation.map((item) => [item.href, item]));
+  const accessibleNavigation = canAccessAnonymous
+    ? visibleNavigation
+    : visibleNavigation.filter((item) => item.href !== "/anonymous");
+  const navigationMap = new Map(accessibleNavigation.map((item) => [item.href, item]));
   const groupedNavigation: NavigationGroup[] = [
     {
       id: "browse",
@@ -5807,7 +6294,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
           currentPath={routePath}
           hidden={isHeaderHidden}
           navigationGroups={groupedNavigation}
-          navigation={visibleNavigation}
+          navigation={accessibleNavigation}
           notifications={headerNotifications}
           onNotificationClick={handleNotificationClick}
           onNotificationsMarkAllRead={handleNotificationsMarkAllRead}
