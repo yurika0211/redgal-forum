@@ -3,20 +3,24 @@ package forum
 import "time"
 
 type Thread struct {
-	ID         string    `json:"id"`
-	Title      string    `json:"title"`
-	Content    string    `json:"content"`
-	Board      string    `json:"board"`
-	Anonymous  bool      `json:"anonymous"`
-	Author     string    `json:"author"`
-	Tripcode   string    `json:"tripcode,omitempty"`
-	Locked     bool      `json:"locked"`
-	Tags       []string  `json:"tags"`
-	ReplyCount int       `json:"reply_count"`
-	ViewCount  int64     `json:"view_count"`
-	IsPinned   bool      `json:"is_pinned"`
-	LastPostAt time.Time `json:"last_post_at"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	Title         string    `json:"title"`
+	Content       string    `json:"content"`
+	Board         string    `json:"board"`
+	Anonymous     bool      `json:"anonymous"`
+	Author        string    `json:"author"`
+	Tripcode      string    `json:"tripcode,omitempty"`
+	Locked        bool      `json:"locked"`
+	Tags          []string  `json:"tags"`
+	ReplyCount    int       `json:"reply_count"`
+	ViewCount     int64     `json:"view_count"`
+	LikeCount     int       `json:"like_count"`
+	FavoriteCount int       `json:"favorite_count"`
+	Liked         bool      `json:"liked"`
+	Favorited     bool      `json:"favorited"`
+	IsPinned      bool      `json:"is_pinned"`
+	LastPostAt    time.Time `json:"last_post_at"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type Reply struct {
@@ -119,4 +123,17 @@ type AvailabilitySettings struct {
 type UpdateAvailabilitySettingsRequest struct {
 	ForumEnabled     *bool `json:"forum_enabled"`
 	AnonymousEnabled *bool `json:"anonymous_enabled"`
+}
+
+type UpdateThreadEngagementRequest struct {
+	Liked     *bool `json:"liked"`
+	Favorited *bool `json:"favorited"`
+}
+
+type ThreadEngagement struct {
+	ThreadID      string `json:"thread_id"`
+	Liked         bool   `json:"liked"`
+	Favorited     bool   `json:"favorited"`
+	LikeCount     int    `json:"like_count"`
+	FavoriteCount int    `json:"favorite_count"`
 }

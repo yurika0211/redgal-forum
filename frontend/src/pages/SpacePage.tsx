@@ -22,6 +22,7 @@ import type {
   Article as ApiArticle,
   BangumiCollection,
   BangumiImportJob,
+  ForumThread as ApiForumThread,
   BangumiImportPayload,
   FriendRequest as ApiFriendRequest,
   FriendSummary as ApiFriendSummary,
@@ -32,7 +33,7 @@ import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
 import { createPagerState, type PagerState } from "../lib/pagination";
-import { excerpt, extractMarkdownPreviewImage, normalizeVisibilityLabel } from "../lib/text";
+import { excerpt, extractMarkdownPreviewImage, formatDateTime, normalizeVisibilityLabel } from "../lib/text";
 import type {
   ArticleFormState,
   FormActionState,
@@ -45,9 +46,9 @@ type SpaceSidebarSectionKey = "identity" | "creation" | "community";
 type SpaceSidebarPageKey =
   | "profile"
   | "progress"
-  | "showcase"
   | "journal"
   | "bangumi"
+  | "favorites"
   | "friends"
   | "capsules";
 
@@ -150,9 +151,8 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "creation",
     title: "内容创作",
     kicker: "Creation",
-    description: "管理展示架、日志区和 Bangumi 同步。",
+    description: "管理日志区和 Bangumi 同步。",
     children: [
-      { id: "showcase", label: "作品展示" },
       { id: "journal", label: "Markdown 日志" },
       { id: "bangumi", label: "Bangumi 导入" },
     ],
@@ -163,6 +163,7 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
     kicker: "Community",
     description: "维护空间好友和时间胶囊记录。",
     children: [
+      { id: "favorites", label: "收藏夹" },
       { id: "friends", label: "空间好友" },
       { id: "capsules", label: "时间胶囊" },
     ],
@@ -732,6 +733,9 @@ interface SpacePageProps {
   canUseBangumiImport: boolean;
   collectionTotal: number;
   displayProfile: ApiProfile | null;
+  favoritedThreads: ApiForumThread[];
+  favoritedThreadsError: string;
+  favoritedThreadsPager: PagerState;
   hasVerifiedSpaceAccess: boolean;
   isAuthenticated: boolean;
   loginState: {
@@ -771,6 +775,7 @@ interface SpacePageProps {
   ) => void;
   onBangumiImportSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onBangumiJobsPageChange: (page: number) => void;
+  onFavoritedThreadsPageChange: (page: number) => void;
   onNavigate: (href: string) => void;
   onLogout: () => void;
   onLoginSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
@@ -806,6 +811,9 @@ export default function SpacePage({
   canUseBangumiImport,
   collectionTotal,
   displayProfile,
+  favoritedThreads,
+  favoritedThreadsError,
+  favoritedThreadsPager,
   hasVerifiedSpaceAccess,
   isAuthenticated,
   loginState,
@@ -824,6 +832,7 @@ export default function SpacePage({
   onBangumiFieldChange,
   onBangumiImportSubmit,
   onBangumiJobsPageChange,
+  onFavoritedThreadsPageChange,
   onNavigate,
   onLogout,
   onLoginSubmit,
@@ -1008,11 +1017,18 @@ export default function SpacePage({
   }, [filteredSpaceShelfItems.length]);
 
   useEffect(() => {
-    if (!isViewingPublicProfile || spaceActivePage !== "bangumi") {
+    if (!isViewingPublicProfile) {
       return;
     }
 
-    setSpaceActivePage("journal");
+    if (spaceActivePage === "bangumi") {
+      setSpaceActivePage("journal");
+      return;
+    }
+
+    if (spaceActivePage === "favorites") {
+      setSpaceActivePage("friends");
+    }
   }, [isViewingPublicProfile, spaceActivePage]);
 
   useEffect(() => {
@@ -1648,7 +1664,11 @@ export default function SpacePage({
         <div className="stack-list">
           {SPACE_SIDEBAR_SECTIONS.map((section) => {
             const visibleChildren = section.children.filter(
-              (child) => !(isViewingPublicProfile && child.id === "bangumi"),
+              (child) =>
+                !(
+                  isViewingPublicProfile &&
+                  (child.id === "bangumi" || child.id === "favorites")
+                ),
             );
             if (!visibleChildren.length) {
               return null;
@@ -1966,7 +1986,7 @@ export default function SpacePage({
           {forumProgressPanel}
         </section>
 
-        <section style={{ display: spaceActivePage === "showcase" ? undefined : "none" }}>
+        <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
           <article className="panel space-showcase-panel">
             <div className="panel-heading">
               <div>
@@ -2464,6 +2484,55 @@ export default function SpacePage({
                 />
               </div>
             ) : null}
+          </article>
+        </section>
+
+        <section style={{ display: spaceActivePage === "favorites" ? undefined : "none" }}>
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="panel-kicker">论坛收藏夹</p>
+                <h2>我收藏的帖子</h2>
+              </div>
+              <StatusChip tone="accent">{favoritedThreadsPager.total} 条</StatusChip>
+            </div>
+            {!session ? (
+              <p className="panel-empty">登录后可在这里查看并管理收藏的论坛主题。</p>
+            ) : (
+              <>
+                {favoritedThreadsError ? <p className="panel-error">{favoritedThreadsError}</p> : null}
+                <div className="stack-list">
+                  {favoritedThreads.map((thread) => (
+                    <button
+                      className="content-card thread-card-button"
+                      key={thread.id}
+                      type="button"
+                      onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
+                    >
+                      <div className="content-card__header">
+                        <h3>{thread.title}</h3>
+                        <StatusChip tone="accent">/{thread.board}</StatusChip>
+                      </div>
+                      <p>{excerpt(thread.content, 140)}</p>
+                      <div className="meta-row">
+                        <span>{thread.author}</span>
+                        <span>{formatDateTime(thread.created_at)} 发布</span>
+                        <span>{thread.reply_count} 回复</span>
+                        <span>{thread.view_count} 浏览</span>
+                        <span>{thread.like_count} 点赞</span>
+                        <span>{thread.favorite_count} 收藏</span>
+                      </div>
+                    </button>
+                  ))}
+                  {!favoritedThreads.length ? <p className="panel-empty">当前没有收藏的帖子。</p> : null}
+                </div>
+                <PaginationBar
+                  pager={favoritedThreadsPager}
+                  onPageChange={onFavoritedThreadsPageChange}
+                  emptyText="暂无收藏帖子。"
+                />
+              </>
+            )}
           </article>
         </section>
 

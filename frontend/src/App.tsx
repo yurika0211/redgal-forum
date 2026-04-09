@@ -34,6 +34,7 @@ import {
   fetchAdminGalleryEntries,
   fetchAdminUsers,
   fetchForumProgress,
+  fetchMyFavoritedThreads,
   fetchAnonymousThreadDetail,
   fetchAnonymousThreads,
   fetchHealth,
@@ -76,6 +77,7 @@ import {
   type ForumSignInResult as ApiForumSignInResult,
   type ForumThread as ApiForumThread,
   type ForumThreadDetail as ApiForumThreadDetail,
+  type ThreadEngagement as ApiThreadEngagement,
   type HealthData,
   type Paginated,
   type Profile as ApiProfile,
@@ -95,6 +97,7 @@ import {
   registerAccount,
   moderateAdminUser,
   updateArticle,
+  updateThreadEngagement,
   updateContentBlock,
   signInForum,
   type Session,
@@ -789,6 +792,23 @@ function mergeAnonymousThreads(
   return Array.from(byID.values());
 }
 
+function applyThreadEngagement(
+  thread: ApiForumThread,
+  engagement: ApiThreadEngagement,
+): ApiForumThread {
+  if (thread.id !== engagement.thread_id) {
+    return thread;
+  }
+
+  return {
+    ...thread,
+    liked: engagement.liked,
+    favorited: engagement.favorited,
+    like_count: engagement.like_count,
+    favorite_count: engagement.favorite_count,
+  };
+}
+
 function StatusChip({ tone = "neutral", children }: StatusChipProps) {
   return <span className={`status-chip status-chip--${tone}`}>{children}</span>;
 }
@@ -866,9 +886,12 @@ function App() {
     useState<FormActionState<BangumiImportJob>>(createEmptyActionState<BangumiImportJob>);
   const [myBangumiJobs, setMyBangumiJobs] = useState<BangumiImportJob[]>([]);
   const [myBangumiCollections, setMyBangumiCollections] = useState<BangumiCollection[]>([]);
+  const [myFavoritedThreads, setMyFavoritedThreads] = useState<ApiForumThread[]>([]);
   const [myBangumiJobsPager, setMyBangumiJobsPager] = useState<PagerState>(() => createPagerState(6));
+  const [myFavoritedThreadsPager, setMyFavoritedThreadsPager] = useState<PagerState>(() => createPagerState(6));
   const [bangumiJobsError, setBangumiJobsError] = useState("");
   const [bangumiCollectionsError, setBangumiCollectionsError] = useState("");
+  const [myFavoritedThreadsError, setMyFavoritedThreadsError] = useState("");
   const [adminGalleryEntries, setAdminGalleryEntries] = useState<SiteGalleryEntry[]>([]);
   const [galleryForm, setGalleryForm] = useState<GalleryFormState>(() => createGalleryFormState());
   const [galleryActionState, setGalleryActionState] =
@@ -926,6 +949,8 @@ function App() {
   const [threadForm, setThreadForm] = useState<ThreadFormState>(() => createThreadFormState());
   const [threadActionState, setThreadActionState] =
     useState<FormActionState<ApiForumThread>>(createEmptyActionState<ApiForumThread>);
+  const [threadEngagementActionState, setThreadEngagementActionState] =
+    useState<FormActionState<ApiThreadEngagement>>(createEmptyActionState<ApiThreadEngagement>);
   const [threadManageActionState, setThreadManageActionState] =
     useState<FormActionState<ApiForumThread | DeleteForumThreadResult>>(
       createEmptyActionState<ApiForumThread | DeleteForumThreadResult>,
@@ -1243,10 +1268,10 @@ function App() {
   }, [activeHomeNoticeID]);
 
   useEffect(() => {
-    if (routePath === "/stories" && !isStoriesEditorMode && articleEditingTargetID) {
+    if (routePath === "/stories" && !isStoriesEditorMode && !selectedArticleID && articleEditingTargetID) {
       setArticleEditingTargetID(null);
     }
-  }, [articleEditingTargetID, isStoriesEditorMode, routePath]);
+  }, [articleEditingTargetID, isStoriesEditorMode, routePath, selectedArticleID]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1393,6 +1418,10 @@ function App() {
   }, [selectedForumThreadID]);
 
   useEffect(() => {
+    setThreadEngagementActionState(createEmptyActionState<ApiThreadEngagement>());
+  }, [selectedForumThreadID]);
+
+  useEffect(() => {
     if (!selectedAnonymousThreadID) {
       setAnonymousReplyForm((current) => {
         if (!current.threadID && !current.parentID && !current.content && !current.sage) {
@@ -1438,6 +1467,18 @@ function App() {
       const forumProgressRequest = token
         ? fetchForumProgress(token)
         : Promise.resolve<ApiForumProgress | null>(null);
+      const favoritedThreadsRequest = token
+        ? fetchMyFavoritedThreads(token, {
+            page: myFavoritedThreadsPager.page,
+            pageSize: myFavoritedThreadsPager.pageSize,
+          })
+        : Promise.resolve<Paginated<ApiForumThread>>({
+            items: [],
+            page: 1,
+            page_size: myFavoritedThreadsPager.pageSize,
+            total: 0,
+            total_pages: 0,
+          });
       const articleDetailRequest =
         routePath === "/stories" && selectedArticleID
           ? fetchArticleDetail(selectedArticleID, token || undefined)
@@ -1473,6 +1514,7 @@ function App() {
         wallResult,
         profileResult,
         forumProgressResult,
+        favoritedThreadsResult,
       ] =
         await Promise.allSettled([
           fetchHealth(token || undefined),
@@ -1497,6 +1539,7 @@ function App() {
           }),
           profileRequest,
           forumProgressRequest,
+          favoritedThreadsRequest,
         ]);
 
       if (!active) {
@@ -1525,6 +1568,10 @@ function App() {
         profileResult.status === "rejected" ? toErrorMessage(profileResult.reason) : "";
       const nextForumProgressError =
         forumProgressResult.status === "rejected" ? toErrorMessage(forumProgressResult.reason) : "";
+      const nextMyFavoritedThreadsError =
+        favoritedThreadsResult.status === "rejected"
+          ? toErrorMessage(favoritedThreadsResult.reason)
+          : "";
       const shouldDropSession = token && profileResult.status === "rejected" && isAuthFailure(profileResult.reason);
 
       if (shouldDropSession) {
@@ -1607,6 +1654,17 @@ function App() {
           setForumProgress(null);
         }
 
+        if (favoritedThreadsResult.status === "fulfilled") {
+          const normalized = normalizeListResult<ApiForumThread>(
+            favoritedThreadsResult.value,
+            myFavoritedThreadsPager,
+          );
+          setMyFavoritedThreads(normalized.items);
+          setMyFavoritedThreadsPager(normalized.pager);
+        } else {
+          setMyFavoritedThreads([]);
+        }
+
         if (shouldDropSession) {
           setSession(null);
         }
@@ -1623,6 +1681,7 @@ function App() {
           shouldDropSession ? "当前会话已失效，已切回游客预览。" : nextProfileError,
         );
         setForumProgressError(nextForumProgressError);
+        setMyFavoritedThreadsError(nextMyFavoritedThreadsError);
         setLastUpdatedAt(new Date().toISOString());
         setHasLoadedOnce(true);
         setIsLoadingData(false);
@@ -1650,6 +1709,8 @@ function App() {
     threadPager.page,
     threadPager.pageSize,
     threadSearchKeyword,
+    myFavoritedThreadsPager.page,
+    myFavoritedThreadsPager.pageSize,
     wallPager.page,
     wallPager.pageSize,
     canAccessAnonymous,
@@ -2396,10 +2457,14 @@ function App() {
     setProfileForm(createProfileFormState(null));
     setProfileActionState(createEmptyActionState<ApiProfile>());
     setBangumiActionState(createEmptyActionState<BangumiImportJob>());
+    setMyFavoritedThreads([]);
+    setMyFavoritedThreadsPager(createPagerState(6));
+    setMyFavoritedThreadsError("");
     setArticleEditingTargetID(null);
     setArticleManageActionState(createEmptyActionState<ApiArticle | DeleteArticleResult>());
     setForumProgress(null);
     setForumSignInState(createEmptyActionState<ApiForumSignInResult>());
+    setThreadEngagementActionState(createEmptyActionState<ApiThreadEngagement>());
     setForumAvailabilitySettings(null);
     setForumAvailabilityError("");
     setForumAvailabilityActionState(createEmptyActionState<ApiForumAvailabilitySettings>());
@@ -3133,6 +3198,98 @@ function App() {
       content: current.content ? `${current.content}${snippet}` : snippet.trimStart(),
     }));
     focusForumReplyBox();
+  }
+
+  async function handleThreadEngagementToggle(
+    field: "liked" | "favorited",
+  ): Promise<void> {
+    if (!session) {
+      setThreadEngagementActionState({
+        pending: false,
+        error: "请先登录后再进行点赞或收藏。",
+        data: null,
+        success: "",
+      });
+      return;
+    }
+    if (!hasVerifiedSpaceAccess) {
+      setThreadEngagementActionState({
+        pending: false,
+        error: "当前账号还没有论坛互动权限，请先完成认证。",
+        data: null,
+        success: "",
+      });
+      return;
+    }
+    if (!activeForumThread) {
+      return;
+    }
+
+    const nextValue = field === "liked" ? !activeForumThread.liked : !activeForumThread.favorited;
+
+    setThreadEngagementActionState({
+      pending: true,
+      error: "",
+      data: null,
+      success: "",
+    });
+
+    try {
+      const engagement = await updateThreadEngagement(
+        activeForumThread.id,
+        field === "liked" ? { liked: nextValue } : { favorited: nextValue },
+        session.accessToken,
+      );
+
+      setThreadDetail((current) => {
+        if (!current || current.thread.id !== engagement.thread_id) {
+          return current;
+        }
+        return {
+          ...current,
+          thread: applyThreadEngagement(current.thread, engagement),
+        };
+      });
+      setThreadFeed((current) =>
+        current.map((thread) => applyThreadEngagement(thread, engagement)),
+      );
+      setMyFavoritedThreads((current) => {
+        const currentThread = activeForumThread.id === engagement.thread_id
+          ? applyThreadEngagement(activeForumThread, engagement)
+          : null;
+        if (engagement.favorited) {
+          const updated = current.map((thread) => applyThreadEngagement(thread, engagement));
+          if (updated.some((thread) => thread.id === engagement.thread_id)) {
+            return updated;
+          }
+          return currentThread ? [currentThread, ...updated] : updated;
+        }
+
+        return current
+          .filter((thread) => thread.id !== engagement.thread_id)
+          .map((thread) => applyThreadEngagement(thread, engagement));
+      });
+      setThreadEngagementActionState({
+        pending: false,
+        error: "",
+        data: engagement,
+        success:
+          field === "liked"
+            ? engagement.liked
+              ? "已点赞该主题。"
+              : "已取消点赞。"
+            : engagement.favorited
+              ? "已收藏该主题。"
+              : "已取消收藏。",
+      });
+    } catch (error) {
+      setThreadEngagementActionState({
+        pending: false,
+        error: toErrorMessage(error),
+        data: null,
+        success: "",
+      });
+    }
   }
 
   async function handleShareThread(): Promise<void> {
@@ -4969,6 +5126,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         selectedForumThreadID={selectedForumThreadID}
         session={session}
         threadActionState={threadActionState}
+        threadEngagementActionState={threadEngagementActionState}
         threadManageActionState={threadManageActionState}
         threadDetail={threadDetail}
         threadDetailError={threadDetailError}
@@ -4986,6 +5144,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         onReplyToFloor={handleReplyToFloor}
         onSelectedForumBoardChange={setSelectedForumBoard}
         onShareThread={handleShareThread}
+        onToggleThreadLike={() => void handleThreadEngagementToggle("liked")}
+        onToggleThreadFavorite={() => void handleThreadEngagementToggle("favorited")}
         onThreadDelete={handleThreadDelete}
         onThreadFieldChange={handleThreadFieldChange}
         onThreadPageChange={(page) => setThreadPager((current) => ({ ...current, page }))}
@@ -5039,6 +5199,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         collectionTotal={collectionTotal}
         canUseBangumiImport={canUseBangumiImport}
         displayProfile={displayProfile}
+        favoritedThreads={myFavoritedThreads}
+        favoritedThreadsError={myFavoritedThreadsError}
+        favoritedThreadsPager={myFavoritedThreadsPager}
         hasVerifiedSpaceAccess={hasVerifiedSpaceAccess}
         isAuthenticated={isAuthenticated}
         loginState={loginState}
@@ -5058,6 +5221,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         onBangumiImportSubmit={handleBangumiImportSubmit}
         onBangumiJobsPageChange={(page) => setMyBangumiJobsPager((current) => ({ ...current, page }))}
         onNavigate={handleNavigate}
+        onFavoritedThreadsPageChange={(page) =>
+          setMyFavoritedThreadsPager((current) => ({ ...current, page }))
+        }
         onLogout={handleLogout}
         onLoginSubmit={handleLoginSubmit}
         onProfileFieldChange={handleProfileFieldChange}

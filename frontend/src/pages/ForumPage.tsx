@@ -8,6 +8,7 @@ import type {
 import type {
   DeleteForumThreadResult,
   ForumReply as ApiForumReply,
+  ThreadEngagement as ApiThreadEngagement,
   ForumThread as ApiForumThread,
   ForumThreadDetail as ApiForumThreadDetail,
   Session,
@@ -46,6 +47,7 @@ interface ForumPageProps {
   selectedForumThreadID: string | null;
   session: Session | null;
   threadActionState: FormActionState<ApiForumThread>;
+  threadEngagementActionState: FormActionState<ApiThreadEngagement>;
   threadManageActionState: FormActionState<ApiForumThread | DeleteForumThreadResult>;
   threadDetail: ApiForumThreadDetail | null;
   threadDetailError: string;
@@ -66,6 +68,8 @@ interface ForumPageProps {
   onReplyToFloor: (reply: ApiForumReply) => void;
   onSelectedForumBoardChange: (board: string) => void;
   onShareThread: () => Promise<void>;
+  onToggleThreadLike: () => void;
+  onToggleThreadFavorite: () => void;
   onThreadDelete: (threadID: string) => Promise<boolean>;
   onThreadFieldChange: (
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -94,6 +98,7 @@ export default function ForumPage({
   selectedForumThreadID,
   session,
   threadActionState,
+  threadEngagementActionState,
   threadManageActionState,
   threadDetail,
   threadDetailError,
@@ -112,6 +117,8 @@ export default function ForumPage({
   onReplyToFloor,
   onSelectedForumBoardChange,
   onShareThread,
+  onToggleThreadLike,
+  onToggleThreadFavorite,
   onThreadDelete,
   onThreadFieldChange,
   onThreadPageChange,
@@ -309,6 +316,8 @@ export default function ForumPage({
               <span>{activeForumThread?.board || "分区读取中"}</span>
               <span>{activeForumThread ? `${activeForumThread.view_count} 浏览` : "浏览读取中"}</span>
               <span>{activeForumThread ? `${activeForumThread.reply_count} 回复` : "回复读取中"}</span>
+              <span>{activeForumThread ? `${activeForumThread.like_count} 点赞` : "点赞读取中"}</span>
+              <span>{activeForumThread ? `${activeForumThread.favorite_count} 收藏` : "收藏读取中"}</span>
             </div>
             <div className="forum-detail-status">
               {activeForumThread?.is_pinned ? <StatusChip tone="accent">置顶</StatusChip> : null}
@@ -503,10 +512,26 @@ export default function ForumPage({
                 <button className="ghost-button" type="button" onClick={() => void onShareThread()}>
                   分享
                 </button>
-                <StatusChip tone="neutral">收藏</StatusChip>
-                <StatusChip tone="neutral">点赞</StatusChip>
+                <button
+                  className={`ghost-button ${activeForumThread?.favorited ? "ghost-button--active" : ""}`}
+                  type="button"
+                  onClick={onToggleThreadFavorite}
+                  disabled={!session || !hasVerifiedSpaceAccess || threadEngagementActionState.pending}
+                >
+                  {activeForumThread?.favorited ? "取消收藏" : "收藏"} · {activeForumThread?.favorite_count ?? 0}
+                </button>
+                <button
+                  className={`ghost-button ${activeForumThread?.liked ? "ghost-button--active" : ""}`}
+                  type="button"
+                  onClick={onToggleThreadLike}
+                  disabled={!session || !hasVerifiedSpaceAccess || threadEngagementActionState.pending}
+                >
+                  {activeForumThread?.liked ? "取消点赞" : "点赞"} · {activeForumThread?.like_count ?? 0}
+                </button>
               </div>
             </div>
+            {threadEngagementActionState.error ? <p className="panel-error">{threadEngagementActionState.error}</p> : null}
+            {threadEngagementActionState.success ? <p className="panel-empty">{threadEngagementActionState.success}</p> : null}
 
             {!session ? (
               <p className="panel-empty">登录并通过认证后，可以直接在详情页底部快速回复当前主题。</p>
