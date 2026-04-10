@@ -6175,7 +6175,8 @@ b {
 
 .story-snippet-list {
   display: grid;
-  gap: 0;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .stories-feed-shell {
@@ -6186,21 +6187,24 @@ b {
 
 .story-snippet-item {
   width: 100%;
-  padding: 12px 0 14px;
-  border: none;
-  border-bottom: 1px dashed var(--line-soft);
+  padding: 14px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
   color: inherit;
   text-align: left;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.52);
   cursor: pointer;
   transition:
-    color 120ms ease,
-    transform 120ms ease;
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
 }
 
 .story-snippet-item:hover {
   color: inherit;
-  transform: translateX(2px);
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .story-snippet-item__layout {
@@ -6227,35 +6231,68 @@ b {
   margin: 0;
   font-family: var(--font-display);
   color: var(--text-strong);
-  font-size: 1.06rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
 }
 
 .story-snippet-item__visibility {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
   color: var(--text-muted);
   font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .story-snippet-item__excerpt {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   color: var(--text-soft);
-  line-height: 1.75;
+  line-height: 1.8;
 }
 
 .story-snippet-item__meta {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   color: var(--text-muted);
   font-size: 0.86rem;
 }
 
+.story-snippet-item__meta-divider {
+  color: var(--text-faint);
+}
+
+.story-snippet-item__meta--empty-tag {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
+.story-snippet-item__tags {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.story-snippet-item__tag {
+  padding: 2px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
 .story-snippet-item__cover {
-  flex: 0 0 112px;
-  width: 112px;
-  aspect-ratio: 4 / 3;
+  flex: 0 0 120px;
+  width: 120px;
+  aspect-ratio: 16 / 11;
   overflow: hidden;
   border: 1px solid var(--line-soft);
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.18);
 }
 
@@ -12450,12 +12487,18 @@ html[data-theme="night"] .forum-list-page .forum-thread-text-list {
 
 html[data-theme="night"] .story-snippet-item,
 html[data-theme="night"] .forum-list-page .forum-thread-text-item {
-  border-bottom-color: rgba(123, 149, 177, 0.22);
+  border-color: rgba(123, 149, 177, 0.22);
 }
 
 html[data-theme="night"] .story-snippet-item:hover,
 html[data-theme="night"] .forum-list-page .forum-thread-text-item:hover {
-  background: rgba(48, 76, 108, 0.14);
+  background: rgba(48, 76, 108, 0.2);
+}
+
+html[data-theme="night"] .story-snippet-item__visibility,
+html[data-theme="night"] .story-snippet-item__tag {
+  border-color: rgba(123, 149, 177, 0.32);
+  color: rgba(210, 227, 245, 0.82);
 }
 
 html[data-theme="night"] .story-snippet-item__excerpt,

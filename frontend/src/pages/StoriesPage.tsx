@@ -585,6 +585,11 @@ export default function StoriesPage({
           <div className="story-snippet-list">
             {storyFeed.map((article) => {
               const previewImage = extractMarkdownPreviewImage(article.content);
+              const visibleTags = article.tags
+                .map((tag) => tag.trim())
+                .filter(Boolean)
+                .slice(0, 4);
+              const authorLabel = article.author.trim() || "未知作者";
 
               return (
                 <button
@@ -603,22 +608,39 @@ export default function StoriesPage({
                       </div>
                       <p className="story-snippet-item__excerpt">{excerpt(article.summary || article.content, 190)}</p>
                       <p className="story-snippet-item__meta">
-                        {buildPublicProfileHref(article.author) ? (
-                          <span
-                            className="profile-name-link profile-name-link--inline"
-                            role="link"
-                            tabIndex={0}
-                            onClick={(event) => handleAuthorClickInList(event, article.author)}
-                            onKeyDown={(event) => handleAuthorKeyDownInList(event, article.author)}
-                          >
-                            {article.author}
-                          </span>
-                        ) : (
-                          article.author
-                        )}{" "}
-                        · {article.tags.join(" · ") || "暂无标签"} ·{" "}
-                        {formatPublishedAgo(article.created_at)}
+                        <span className="story-snippet-item__meta-author">
+                          {buildPublicProfileHref(article.author) ? (
+                            <span
+                              className="profile-name-link profile-name-link--inline"
+                              role="link"
+                              tabIndex={0}
+                              onClick={(event) => handleAuthorClickInList(event, article.author)}
+                              onKeyDown={(event) => handleAuthorKeyDownInList(event, article.author)}
+                            >
+                              {authorLabel}
+                            </span>
+                          ) : (
+                            authorLabel
+                          )}
+                        </span>
+                        <span className="story-snippet-item__meta-divider" aria-hidden="true">
+                          ·
+                        </span>
+                        <span className="story-snippet-item__meta-time">
+                          {formatPublishedAgo(article.created_at)}
+                        </span>
                       </p>
+                      {visibleTags.length ? (
+                        <div className="story-snippet-item__tags">
+                          {visibleTags.map((tag) => (
+                            <span className="story-snippet-item__tag" key={`${article.id}-tag-${tag}`}>
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="story-snippet-item__meta story-snippet-item__meta--empty-tag">暂无标签</p>
+                      )}
                     </div>
                     {previewImage ? (
                       <div className="story-snippet-item__cover">

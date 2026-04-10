@@ -147,21 +147,21 @@ export default function PortalPage({
       <section className="panel portal-manifesto">
         <div className="portal-manifesto__head">
           <p className="eyebrow">社团介绍 / manifesto</p>
-          <h1>这里聚着一群愿意认真聊视觉小说的人。</h1>
+          <h1>从 2017 到现在，我们把热爱写进了持续发生的社团活动。</h1>
         </div>
         <div className="portal-manifesto__body portal-manifesto__body--single">
           <div className="portal-manifesto__copy">
             <p>
-              百川乃大不是只用来“看作品”的地方。我们会拆剧情、聊角色、做共赏、
-              也会把截图、札记、活动照片和那些一闪而过的灵感慢慢收起来。
+              百川乃大视觉小说研起源于川大校级 ACG 社团中的 Galgame 分群，2017 年开始聚拢同好，
+              2024 年正式确立社团名称。一路从十几人的小群，慢慢扩展到今天的 300+ 社群规模。
             </p>
             <p>
-              有人偏爱写长评，有人更在意场景和音乐，有人只是想在校园里找到可以认真聊 Galgame 的同类。
-              这些差异不会被抹平，反而正是社团最重要的部分。
+              我们把“十二川器”年度评选、征文大赛、招新问答和“百川夜话”访谈做成固定活动，
+              让作品推荐、创作表达和行业交流都能在站内留下可追溯的记录。
             </p>
             <p>
-              如果你也会在深夜里突然冒出一句“我们来做一部视觉小说吧”，
-              那你大概就能明白这个地方为什么会存在。
+              如果你也会在深夜里冒出“我们来做一部视觉小说吧”的念头，
+              这里会是你把热爱变成讨论、稿件、视频和合作的起点。
             </p>
           </div>
         </div>
