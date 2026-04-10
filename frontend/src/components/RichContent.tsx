@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import katex from "katex";
+import { extractMarkdownHeadings } from "../lib/text";
 
 function renderInlineFormattedText(text: string, keyPrefix: string): ReactNode[] {
   const tokens = text.split(
@@ -72,6 +73,16 @@ function renderKatexMath(expression: string, displayMode: boolean, key: string):
   }
 }
 
+function isHorizontalRuleLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  // Markdown horizontal rules: --- / *** / ___ and spaced variants like - - -
+  return /^([-*_])(?:\s*\1){2,}$/.test(trimmed);
+}
+
 interface RichContentProps {
   content: string;
 }
@@ -86,6 +97,8 @@ export default function RichContent({ content }: RichContentProps) {
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean);
+  const headingAnchors = extractMarkdownHeadings(normalized);
+  let headingIndex = 0;
 
   return (
     <>
@@ -109,25 +122,31 @@ export default function RichContent({ content }: RichContentProps) {
           );
         }
 
+        if (lines.length === 1 && isHorizontalRuleLine(lines[0])) {
+          return <hr className="detail-body__divider" key={key} />;
+        }
+
         const headingMatch = block.match(/^(#{1,4})\s+(.+)$/);
         if (headingMatch) {
           const [, marks, title] = headingMatch;
+          const headingAnchorID = headingAnchors[headingIndex]?.anchorID;
+          headingIndex += 1;
           if (marks.length === 1) {
             return (
-              <h2 className="detail-body__heading" key={key}>
+              <h2 className="detail-body__heading" id={headingAnchorID} key={key}>
                 {title}
               </h2>
             );
           }
           if (marks.length === 2) {
             return (
-              <h3 className="detail-body__heading" key={key}>
+              <h3 className="detail-body__heading" id={headingAnchorID} key={key}>
                 {title}
               </h3>
             );
           }
           return (
-            <h4 className="detail-body__heading" key={key}>
+            <h4 className="detail-body__heading" id={headingAnchorID} key={key}>
               {title}
             </h4>
           );

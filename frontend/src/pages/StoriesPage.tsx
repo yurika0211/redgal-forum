@@ -1,6 +1,10 @@
-import type {
-  ChangeEvent,
-  FormEvent,
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent,
 } from "react";
 import type {
   Article as ApiArticle,
@@ -8,13 +12,17 @@ import type {
   Profile as ApiProfile,
   Session,
 } from "../api";
+import { fetchPublicProfile } from "../api";
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
 import type { PagerState } from "../lib/pagination";
+import { buildPublicProfileHref } from "../lib/profile";
 import {
   excerpt,
+  extractMarkdownHeadings,
   extractMarkdownPreviewImage,
+  formatPublishedAgo,
   normalizeVisibilityLabel,
 } from "../lib/text";
 import type { ArticleFormState, FormActionState } from "../types/app";
@@ -70,14 +78,13 @@ function estimateReadMinutes(content: string): number {
   return Math.max(1, Math.ceil(chars / 900));
 }
 
-function extractStoryHeadings(content: string): string[] {
-  const headings = content
-    .split("\n")
-    .map((line) => line.trim())
-    .map((line) => line.match(/^#{1,3}\s+(.+)$/)?.[1]?.trim() || "")
-    .filter(Boolean);
+function toAuthorInitial(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    return "R";
+  }
 
-  return headings.slice(0, 10);
+  return normalized.charAt(0).toUpperCase();
 }
 
 export default function StoriesPage({
@@ -107,6 +114,29 @@ export default function StoriesPage({
   onStartArticleEdit,
   onNavigate,
 }: StoriesPageProps) {
+  function navigateToAuthorSpace(name: string): void {
+    const href = buildPublicProfileHref(name);
+    if (!href) {
+      return;
+    }
+    onNavigate(href);
+  }
+
+  function handleAuthorClickInList(event: MouseEvent<HTMLSpanElement>, name: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    navigateToAuthorSpace(name);
+  }
+
+  function handleAuthorKeyDownInList(event: KeyboardEvent<HTMLSpanElement>, name: string): void {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    navigateToAuthorSpace(name);
+  }
+
   async function handleDeleteArticle(): Promise<void> {
     if (!activeArticle) {
       return;
@@ -133,12 +163,69 @@ export default function StoriesPage({
       activeArticle &&
       profileNames.some((name) => name === activeAuthor),
   );
+  const [authorProfile, setAuthorProfile] = useState<ApiProfile | null>(null);
+  const [authorProfileError, setAuthorProfileError] = useState("");
+  const [isAuthorProfileLoading, setIsAuthorProfileLoading] = useState(false);
+
+  useEffect(() => {
+    const normalizedAuthor = activeArticle?.author.trim().replace(/^@+/, "") ?? "";
+    if (!selectedArticleID || !normalizedAuthor) {
+      setAuthorProfile(null);
+      setAuthorProfileError("");
+      setIsAuthorProfileLoading(false);
+      return;
+    }
+
+    const isCurrentProfileAuthor = Boolean(
+      displayProfile &&
+        [displayProfile.username, displayProfile.nickname]
+          .map((value) => value.trim().replace(/^@+/, "").toLowerCase())
+          .filter(Boolean)
+          .some((value) => value === normalizedAuthor.toLowerCase()),
+    );
+    if (isCurrentProfileAuthor && displayProfile) {
+      setAuthorProfile(displayProfile);
+      setAuthorProfileError("");
+      setIsAuthorProfileLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAuthorProfile(null);
+    setAuthorProfileError("");
+    setIsAuthorProfileLoading(true);
+
+    void fetchPublicProfile(normalizedAuthor)
+      .then((profile) => {
+        if (cancelled) {
+          return;
+        }
+        setAuthorProfile(profile);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        const message = error instanceof Error && error.message ? error.message : "作者资料暂不可用";
+        setAuthorProfileError(message);
+      })
+      .finally(() => {
+        if (cancelled) {
+          return;
+        }
+        setIsAuthorProfileLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeArticle?.author, displayProfile, selectedArticleID]);
 
   if (isStoriesEditorMode) {
     const isEditingMode = Boolean(articleEditingTargetID);
 
     return (
-      <section className="detail-page">
+      <section className="detail-page detail-page--stories-editor">
         <article className="panel detail-hero detail-hero--story detail-hero--compact">
           <div className="detail-hero__top">
             <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/stories")}>
@@ -265,7 +352,23 @@ export default function StoriesPage({
     const readMinutes = estimateReadMinutes(activeArticle?.content || "");
     const commentCount = activeArticle?.comment_count ?? 0;
     const likeCount = activeArticle?.like_count ?? 0;
-    const articleHeadings = activeArticle ? extractStoryHeadings(activeArticle.content) : [];
+    const articleHeadings = activeArticle
+      ? extractMarkdownHeadings(activeArticle.content)
+      : [];
+    const authorName = (
+      authorProfile?.nickname?.trim() ||
+      authorProfile?.username?.trim() ||
+      activeArticle?.author.trim() ||
+      "作者"
+    );
+    const authorUsername = authorProfile?.username?.trim() || "";
+    const authorBio = (
+      authorProfile?.bio?.trim() ||
+      authorProfile?.signature?.trim() ||
+      (isAuthorProfileLoading ? "作者资料加载中..." : "这个作者还没有填写个人简介。")
+    );
+    const authorAvatarURL = authorProfile?.avatar_url?.trim() || "";
+    const authorSpaceTarget = authorUsername || activeArticle?.author.trim() || "";
     const relatedArticles = storyFeed
       .filter((article) => article.id !== selectedArticleID)
       .slice(0, 5);
@@ -292,10 +395,29 @@ export default function StoriesPage({
             <p className="story-article-hero__line">
               {readMinutes} 分钟阅读 · {commentCount} 条评论 · {likeCount} 次点赞
             </p>
+            <p className="story-article-hero__line">
+              作者：
+              {activeArticle?.author ? (
+                <button
+                  className="profile-name-link profile-name-link--inline"
+                  type="button"
+                  onClick={() => navigateToAuthorSpace(activeArticle.author)}
+                >
+                  {activeArticle.author}
+                </button>
+              ) : (
+                "未知"
+              )}
+            </p>
             {activeArticle?.tags.length ? (
               <div className="story-article-hero__tags">
                 {activeArticle.tags.map((tag) => (
-                  <span key={`${activeArticle.id}-hero-${tag}`}>#{tag}</span>
+                  <span
+                    className={tag.trim() === "征文" ? "story-article-hero__tag--plain" : undefined}
+                    key={`${activeArticle.id}-hero-${tag}`}
+                  >
+                    #{tag}
+                  </span>
                 ))}
               </div>
             ) : null}
@@ -330,6 +452,38 @@ export default function StoriesPage({
 
         <section className="story-article-sheet">
           <div className="story-article-sheet__layout">
+            <aside className="story-article-author-card">
+              <p className="story-article-author-card__title">作者介绍</p>
+              <div className="story-article-author-card__identity">
+                {authorAvatarURL ? (
+                  <img
+                    alt={`${authorName} 的头像`}
+                    className="story-article-author-card__avatar"
+                    src={authorAvatarURL}
+                  />
+                ) : (
+                  <div className="story-article-author-card__avatar story-article-author-card__avatar--fallback">
+                    {toAuthorInitial(authorName)}
+                  </div>
+                )}
+                <div className="story-article-author-card__name-block">
+                  <p className="story-article-author-card__name">{authorName}</p>
+                  {authorUsername ? <p className="story-article-author-card__username">@{authorUsername}</p> : null}
+                </div>
+              </div>
+              <p className="story-article-author-card__bio">{authorBio}</p>
+              {buildPublicProfileHref(authorSpaceTarget) ? (
+                <button
+                  className="ghost-button story-article-author-card__link"
+                  type="button"
+                  onClick={() => navigateToAuthorSpace(authorSpaceTarget)}
+                >
+                  查看个人空间
+                </button>
+              ) : null}
+              {authorProfileError ? <p className="panel-empty">资料读取失败，先展示基础信息。</p> : null}
+            </aside>
+
             <article className="story-article-main">
               <p className="story-article-main__date">{articleCreatedAt}</p>
               {articleDetailError ? (
@@ -347,8 +501,15 @@ export default function StoriesPage({
               <p className="story-article-toc__title">目录</p>
               {articleHeadings.length ? (
                 <ul className="story-article-toc__list">
-                  {articleHeadings.map((heading, index) => (
-                    <li key={`${selectedArticleID}-toc-${String(index)}`}>{heading}</li>
+                  {articleHeadings.map((heading) => (
+                    <li
+                      className={`story-article-toc__item story-article-toc__item--level-${String(Math.min(heading.level, 4))}`}
+                      key={`${selectedArticleID}-toc-${heading.anchorID}`}
+                    >
+                      <a className="story-article-toc__link" href={`#${heading.anchorID}`}>
+                        {heading.title}
+                      </a>
+                    </li>
                   ))}
                 </ul>
               ) : (
@@ -442,7 +603,21 @@ export default function StoriesPage({
                       </div>
                       <p className="story-snippet-item__excerpt">{excerpt(article.summary || article.content, 190)}</p>
                       <p className="story-snippet-item__meta">
-                        {article.author} · {article.tags.join(" · ") || "暂无标签"}
+                        {buildPublicProfileHref(article.author) ? (
+                          <span
+                            className="profile-name-link profile-name-link--inline"
+                            role="link"
+                            tabIndex={0}
+                            onClick={(event) => handleAuthorClickInList(event, article.author)}
+                            onKeyDown={(event) => handleAuthorKeyDownInList(event, article.author)}
+                          >
+                            {article.author}
+                          </span>
+                        ) : (
+                          article.author
+                        )}{" "}
+                        · {article.tags.join(" · ") || "暂无标签"} ·{" "}
+                        {formatPublishedAgo(article.created_at)}
                       </p>
                     </div>
                     {previewImage ? (

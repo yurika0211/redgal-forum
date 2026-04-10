@@ -164,6 +164,7 @@ const StoriesPage = lazy(() => import("./pages/StoriesPage"));
 const ForumPage = lazy(() => import("./pages/ForumPage"));
 const AnonymousPage = lazy(() => import("./pages/AnonymousPage"));
 const SpacePage = lazy(() => import("./pages/SpacePage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
 const GalleryPage = lazy(() => import("./pages/GalleryPage"));
 
 type StatusTone = "neutral" | "success" | "warn" | "accent";
@@ -1350,22 +1351,22 @@ function App() {
     }
 
     if (routePath === "/stories" && isStoriesEditorMode) {
-      document.title = "发布文章 | Rubedo Forum";
+      document.title = "发布文章 | redgal forum";
       return;
     }
 
     if (routePath === "/stories" && selectedArticleID && activeArticle) {
-      document.title = `${activeArticle.title} | Rubedo Forum`;
+      document.title = `${activeArticle.title} | redgal forum`;
       return;
     }
 
     if (routePath === "/forum" && selectedForumThreadID && activeForumThread) {
-      document.title = `${activeForumThread.title} | Rubedo Forum`;
+      document.title = `${activeForumThread.title} | redgal forum`;
       return;
     }
 
     if (routePath === "/forum" && isForumEditorMode) {
-      document.title = "发布主题 | Rubedo Forum";
+      document.title = "发布主题 | redgal forum";
       return;
     }
 
@@ -1789,8 +1790,24 @@ function App() {
       return;
     }
 
+    navigateRoute(isAuthenticated ? "/space" : "/login");
+  }, [routePath, canAccessAnonymous, isAuthenticated, navigateRoute]);
+
+  useEffect(() => {
+    if (routePath !== "/space" || isAuthenticated || selectedPublicProfileUsername) {
+      return;
+    }
+
+    navigateRoute("/login");
+  }, [routePath, isAuthenticated, selectedPublicProfileUsername, navigateRoute]);
+
+  useEffect(() => {
+    if (routePath !== "/login" || !isAuthenticated) {
+      return;
+    }
+
     navigateRoute("/space");
-  }, [routePath, canAccessAnonymous, navigateRoute]);
+  }, [routePath, isAuthenticated, navigateRoute]);
 
   useEffect(() => {
     let active = true;
@@ -2174,8 +2191,19 @@ function App() {
         ? new URL(nextHref, window.location.origin)
         : new URL(`http://localhost${nextHref}`);
     const nextPath = normalizePath(resolvedURL.pathname);
+    const nextPublicProfileUsername = readPublicProfileUsername(resolvedURL.pathname);
+
+    if (nextPath === "/space" && !isAuthenticated && !nextPublicProfileUsername) {
+      navigateRoute("/login");
+      return;
+    }
 
     if (nextPath === "/anonymous" && !canAccessAnonymous) {
+      navigateRoute(isAuthenticated ? "/space" : "/login");
+      return;
+    }
+
+    if (nextPath === "/login" && isAuthenticated) {
       navigateRoute("/space");
       return;
     }
@@ -5235,6 +5263,24 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
     );
   }
 
+  function renderLoginPage(): ReactNode {
+    return (
+      <LoginPage
+        authForm={authForm}
+        loginState={loginState}
+        registerForm={registerForm}
+        registerState={registerState}
+        session={session}
+        onAuthFieldChange={handleAuthFieldChange}
+        onLoginSubmit={handleLoginSubmit}
+        onLogout={handleLogout}
+        onNavigate={handleNavigate}
+        onRegisterFieldChange={handleRegisterFieldChange}
+        onRegisterSubmit={handleRegisterSubmit}
+      />
+    );
+  }
+
   function renderGalleryPage(): ReactNode {
     return (
       <GalleryPage
@@ -6363,7 +6409,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       case "/admin":
         return renderAdminPage();
       case "/space":
-        return renderSpacePage();
+        return !isAuthenticated && !selectedPublicProfileUsername
+          ? renderLoginPage()
+          : renderSpacePage();
+      case "/login":
+        return renderLoginPage();
       case "/gallery":
         return renderGalleryPage();
       default:
@@ -6386,6 +6436,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         return selectedAnonymousThreadID ? `anonymous:thread:${selectedAnonymousThreadID}` : "anonymous:list";
       case "/space":
         return selectedPublicProfileUsername ? `space:profile:${selectedPublicProfileUsername}` : "space:mine";
+      case "/login":
+        return "auth:login";
       default:
         return routePath;
     }
@@ -6398,9 +6450,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
     selectedForumThreadID,
     selectedPublicProfileUsername,
   ]);
-  const visibleNavigation = canAdmin
+  const visibleNavigation = (canAdmin
     ? NAV_ITEMS
-    : NAV_ITEMS.filter((item) => item.href !== "/admin");
+    : NAV_ITEMS.filter((item) => item.href !== "/admin"))
+    .filter((item) => isAuthenticated || item.href !== "/space");
   const accessibleNavigation = canAccessAnonymous
     ? visibleNavigation
     : visibleNavigation.filter((item) => item.href !== "/anonymous");
@@ -6408,7 +6461,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
   const groupedNavigation: NavigationGroup[] = [
     {
       id: "browse",
-      label: "浏览",
+      label: "redgal forum",
       items: (["/", "/stories", "/gallery"] as const)
         .map((href) => navigationMap.get(href))
         .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item)),
@@ -6435,6 +6488,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         .filter((item): item is (typeof NAV_ITEMS)[number] => Boolean(item)),
     },
   ].filter((group) => group.items.length > 0);
+  const copyrightYear = new Date().getFullYear();
 
   return (
     <>
@@ -6455,7 +6509,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
       <main className={`app-shell ${isStoryDetailView ? "app-shell--story-detail" : ""}`}>
         <Header
-          authHref="/space"
+          authHref={isAuthenticated ? "/space" : "/login"}
           authLabel={isAuthenticated ? "我的空间" : "登录"}
           currentPath={routePath}
           hidden={isHeaderHidden}
@@ -6484,7 +6538,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     ? "page-shell--anonymous"
                     : routePath === "/admin"
                       ? "page-shell--admin"
-                    : routePath === "/space"
+                    : routePath === "/space" || routePath === "/login"
                       ? "page-shell--space"
                       : "page-shell--gallery"
           } ${isStoryDetailView ? "page-shell--story-detail" : ""}`}
@@ -6502,6 +6556,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
           </Suspense>
         </div>
+        <footer className="site-copyright" role="contentinfo">
+          <p>版权所属：百川乃大视觉小说研 © {copyrightYear}</p>
+        </footer>
       </main>
       {activeHomeNotice ? (
         <div

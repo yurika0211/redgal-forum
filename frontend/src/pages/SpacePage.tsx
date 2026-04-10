@@ -170,6 +170,12 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
   },
 ] as const;
 
+const PUBLIC_PROFILE_VISIBLE_PAGES = new Set<SpaceSidebarPageKey>([
+  "profile",
+  "journal",
+  "friends",
+]);
+
 const SPACE_COLLECTION_STATUS_META: ReadonlyArray<{
   id: SpaceCollectionStatus;
   label: string;
@@ -1021,13 +1027,8 @@ export default function SpacePage({
       return;
     }
 
-    if (spaceActivePage === "bangumi") {
-      setSpaceActivePage("journal");
-      return;
-    }
-
-    if (spaceActivePage === "favorites") {
-      setSpaceActivePage("friends");
+    if (!PUBLIC_PROFILE_VISIBLE_PAGES.has(spaceActivePage)) {
+      setSpaceActivePage("profile");
     }
   }, [isViewingPublicProfile, spaceActivePage]);
 
@@ -1659,16 +1660,12 @@ export default function SpacePage({
             <p className="panel-kicker">{isViewingPublicProfile ? `${viewingProfileLabel} 空间` : "空间侧栏"}</p>
             <h2>{isViewingPublicProfile ? `${viewingProfileLabel} 的工作空间` : "个人空间工作台"}</h2>
           </div>
-          <StatusChip tone="accent">{isViewingPublicProfile ? viewingProfileLabel : "/space"}</StatusChip>
+          <StatusChip tone="accent">{isViewingPublicProfile ? viewingProfileLabel : "个人空间"}</StatusChip>
         </div>
         <div className="stack-list">
           {SPACE_SIDEBAR_SECTIONS.map((section) => {
             const visibleChildren = section.children.filter(
-              (child) =>
-                !(
-                  isViewingPublicProfile &&
-                  (child.id === "bangumi" || child.id === "favorites")
-                ),
+              (child) => !isViewingPublicProfile || PUBLIC_PROFILE_VISIBLE_PAGES.has(child.id),
             );
             if (!visibleChildren.length) {
               return null;
@@ -1682,10 +1679,10 @@ export default function SpacePage({
               : section.title;
             const sectionDescription = isViewingPublicProfile
               ? section.id === "identity"
-                ? `查看 ${viewingProfileLabel} 的资料卡与成长进度。`
+                ? `查看 ${viewingProfileLabel} 的基础资料与作品展示。`
                 : section.id === "creation"
-                  ? `查看 ${viewingProfileLabel} 的展示架与日志区。`
-                  : `查看 ${viewingProfileLabel} 的好友和时间胶囊记录。`
+                  ? `查看 ${viewingProfileLabel} 的日志区。`
+                  : `查看 ${viewingProfileLabel} 的好友关系。`
               : section.description;
 
             const active = section.id === activeSidebarSection;
@@ -1982,7 +1979,7 @@ export default function SpacePage({
           ) : null}
         </section>
 
-        <section style={{ display: spaceActivePage === "progress" ? undefined : "none" }}>
+        <section style={{ display: spaceActivePage === "progress" && !isViewingPublicProfile ? undefined : "none" }}>
           {forumProgressPanel}
         </section>
 
@@ -2487,7 +2484,7 @@ export default function SpacePage({
           </article>
         </section>
 
-        <section style={{ display: spaceActivePage === "favorites" ? undefined : "none" }}>
+        <section style={{ display: spaceActivePage === "favorites" && !isViewingPublicProfile ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>
@@ -2733,7 +2730,7 @@ export default function SpacePage({
           </article>
         </section>
 
-        <section style={{ display: spaceActivePage === "capsules" ? undefined : "none" }}>
+        <section style={{ display: spaceActivePage === "capsules" && !isViewingPublicProfile ? undefined : "none" }}>
           <article className="panel">
             <div className="panel-heading">
               <div>

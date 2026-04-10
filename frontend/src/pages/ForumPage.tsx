@@ -1,6 +1,7 @@
 import type {
   ChangeEvent,
   FormEvent,
+  KeyboardEvent,
   MouseEvent,
   ReactNode,
   RefObject,
@@ -22,7 +23,12 @@ import {
   type ForumReplyNode,
 } from "../lib/forum";
 import type { PagerState } from "../lib/pagination";
-import { excerpt, extractMarkdownPreviewImage, formatDateTime } from "../lib/text";
+import { buildPublicProfileHref } from "../lib/profile";
+import {
+  extractMarkdownPreviewImage,
+  formatDateTime,
+  formatPublishedAgo,
+} from "../lib/text";
 import type {
   FormActionState,
   ReplyFormState,
@@ -126,6 +132,64 @@ export default function ForumPage({
   onThreadSubmit,
   onToggleOnlyShowThreadAuthor,
 }: ForumPageProps) {
+  function navigateToAuthorSpace(name: string): void {
+    const href = buildPublicProfileHref(name);
+    if (!href) {
+      return;
+    }
+    onNavigate(href);
+  }
+
+  function handleAuthorClick(event: MouseEvent<HTMLElement>, name: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+    navigateToAuthorSpace(name);
+  }
+
+  function handleAuthorKeyDown(event: KeyboardEvent<HTMLSpanElement>, name: string): void {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    navigateToAuthorSpace(name);
+  }
+
+  function renderAuthorName(
+    name: string,
+    options: { nestedInClickable?: boolean; withAtPrefix?: boolean } = {},
+  ): ReactNode {
+    const label = `${options.withAtPrefix ? "@" : ""}${name}`;
+    const href = buildPublicProfileHref(name);
+    if (!href) {
+      return <span>{label}</span>;
+    }
+
+    if (options.nestedInClickable) {
+      return (
+        <span
+          className="profile-name-link profile-name-link--inline"
+          role="link"
+          tabIndex={0}
+          onClick={(event) => handleAuthorClick(event, name)}
+          onKeyDown={(event) => handleAuthorKeyDown(event, name)}
+        >
+          {label}
+        </span>
+      );
+    }
+
+    return (
+      <button
+        className="profile-name-link profile-name-link--inline"
+        type="button"
+        onClick={(event) => handleAuthorClick(event, name)}
+      >
+        {label}
+      </button>
+    );
+  }
+
   function handleReplyButtonClick(event: MouseEvent<HTMLButtonElement>, reply: ApiForumReply): void {
     event.preventDefault();
     event.stopPropagation();
@@ -251,10 +315,10 @@ export default function ForumPage({
                 <div>
                   <h3 className="forum-comment-item__floor">{formatForumFloor(node.reply.floor_no)}</h3>
                   <p className="forum-reply-meta">
-                    <span>{node.reply.author}</span>
+                    {renderAuthorName(node.reply.author)}
                     {node.reply.tripcode ? <span>{node.reply.tripcode}</span> : null}
                     <span>{formatDateTime(node.reply.created_at)}</span>
-                    {node.reply.reply_to_author ? <span>@{node.reply.reply_to_author}</span> : null}
+                    {node.reply.reply_to_author ? renderAuthorName(node.reply.reply_to_author, { withAtPrefix: true }) : null}
                   </p>
                 </div>
                 <div className="forum-reply-actions">
@@ -312,7 +376,7 @@ export default function ForumPage({
                 : "正在读取主题内容。"}
             </p>
             <div className="detail-hero__meta">
-              <span>{activeForumThread?.author || "读取中"}</span>
+              {activeForumThread ? renderAuthorName(activeForumThread.author) : <span>读取中</span>}
               <span>{activeForumThread?.board || "分区读取中"}</span>
               <span>{activeForumThread ? `${activeForumThread.view_count} 浏览` : "浏览读取中"}</span>
               <span>{activeForumThread ? `${activeForumThread.reply_count} 回复` : "回复读取中"}</span>
@@ -362,7 +426,8 @@ export default function ForumPage({
             ) : activeForumThread ? (
               <div className="detail-body">
                 <p className="detail-body__meta">
-                  {formatDateTime(activeForumThread.created_at)} 发布 · {formatDateTime(activeForumThread.last_post_at)} 最后活跃
+                  {formatPublishedAgo(activeForumThread.created_at)} ·{" "}
+                  {formatDateTime(activeForumThread.last_post_at)} 最后活跃
                 </p>
                 <RichContent content={activeForumThread.content} />
               </div>
@@ -419,10 +484,10 @@ export default function ForumPage({
                       <div>
                         <h3 className="forum-comment-item__floor">{formatForumFloor(reply.floor_no)}</h3>
                           <p className="forum-reply-meta">
-                            <span>{reply.author}</span>
+                            {renderAuthorName(reply.author)}
                             {reply.tripcode ? <span>{reply.tripcode}</span> : null}
                             <span>{formatDateTime(reply.created_at)}</span>
-                            {reply.reply_to_author ? <span>@{reply.reply_to_author}</span> : null}
+                            {reply.reply_to_author ? renderAuthorName(reply.reply_to_author, { withAtPrefix: true }) : null}
                           </p>
                         </div>
                         <div className="forum-reply-actions">
@@ -452,7 +517,7 @@ export default function ForumPage({
                       <div>
                         <h3 className="forum-comment-item__floor">{formatForumFloor(node.reply.floor_no)}</h3>
                         <p className="forum-reply-meta">
-                          <span>{node.reply.author}</span>
+                          {renderAuthorName(node.reply.author)}
                           {node.reply.tripcode ? <span>{node.reply.tripcode}</span> : null}
                           <span>{formatDateTime(node.reply.created_at)}</span>
                         </p>
@@ -679,7 +744,7 @@ export default function ForumPage({
                 <span className="forum-featured-text-item__kicker">最新活跃主题</span>
                 <strong>{featuredListThread.title}</strong>
                 <span>
-                  {featuredListThread.author} · {featuredListThread.reply_count} 回复 ·{" "}
+                  {renderAuthorName(featuredListThread.author, { nestedInClickable: true })} · {featuredListThread.reply_count} 回复 ·{" "}
                   {formatDateTime(featuredListThread.last_post_at)}
                 </span>
               </button>
@@ -748,18 +813,11 @@ export default function ForumPage({
                     <span className="forum-thread-text-item__board">/{thread.board}</span>
                   </div>
                   <p className="forum-thread-text-item__meta">
-                    <span>{thread.author}</span>
+                    {renderAuthorName(thread.author, { nestedInClickable: true })}
                     {thread.tripcode ? <span>{thread.tripcode}</span> : null}
                     {thread.is_pinned ? <span>置顶</span> : null}
                     {thread.locked ? <span>锁定</span> : null}
                     <span>{formatDateTime(thread.last_post_at)} 最后回复</span>
-                  </p>
-                  <p className="forum-thread-text-item__excerpt">{excerpt(thread.content, 150)}</p>
-                  <p className="forum-thread-text-item__stats">
-                    <span>{thread.reply_count} 条回复</span>
-                    <span>{thread.view_count} 次浏览</span>
-                    <span>{formatDateTime(thread.created_at)} 发帖</span>
-                    {thread.tags.length ? <span>#{thread.tags.join(" #")}</span> : null}
                   </p>
                 </button>
               );
@@ -779,7 +837,7 @@ export default function ForumPage({
               <span className="forum-featured-text-item__kicker">最新活跃主题</span>
               <strong>{featuredListThread.title}</strong>
               <span>
-                {featuredListThread.author} · {featuredListThread.reply_count} 回复 ·{" "}
+                {renderAuthorName(featuredListThread.author, { nestedInClickable: true })} · {featuredListThread.reply_count} 回复 ·{" "}
                 {formatDateTime(featuredListThread.last_post_at)}
               </span>
             </button>

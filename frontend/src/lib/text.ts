@@ -1,6 +1,83 @@
 import type { SiteGalleryEntry } from "../api";
 
 const STANDARD_DATE_LABEL_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const MARKDOWN_HEADING_PATTERN = /^(#{1,4})\s+(.+)$/;
+
+export interface MarkdownHeading {
+  level: number;
+  title: string;
+  anchorID: string;
+}
+
+interface ExtractMarkdownHeadingsOptions {
+  maxCount?: number;
+  maxLevel?: number;
+}
+
+function createHeadingSlug(title: string): string {
+  const normalized = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return normalized || "section";
+}
+
+export function extractMarkdownHeadings(
+  content: string,
+  options: ExtractMarkdownHeadingsOptions = {},
+): MarkdownHeading[] {
+  const normalized = content.replace(/\r/g, "").trim();
+  if (!normalized) {
+    return [];
+  }
+
+  const blocks = normalized
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+  const slugCounter = new Map<string, number>();
+  const maxCount = options.maxCount ?? Number.POSITIVE_INFINITY;
+  const maxLevel = options.maxLevel ?? 4;
+  const headings: MarkdownHeading[] = [];
+
+  for (const block of blocks) {
+    if (headings.length >= maxCount) {
+      break;
+    }
+
+    const headingMatch = block.match(MARKDOWN_HEADING_PATTERN);
+    if (!headingMatch) {
+      continue;
+    }
+
+    const level = headingMatch[1].length;
+    if (level > maxLevel) {
+      continue;
+    }
+
+    const title = headingMatch[2].trim();
+    if (!title) {
+      continue;
+    }
+
+    const baseSlug = createHeadingSlug(title);
+    const currentCount = slugCounter.get(baseSlug) ?? 0;
+    slugCounter.set(baseSlug, currentCount + 1);
+    const suffix = currentCount > 0 ? `-${String(currentCount + 1)}` : "";
+
+    headings.push({
+      level,
+      title,
+      anchorID: `section-${baseSlug}${suffix}`,
+    });
+  }
+
+  return headings;
+}
 
 export function excerpt(value: string, maxLength = 160): string {
   const normalized = value.trim();
@@ -89,6 +166,38 @@ export function formatDateTime(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+export function formatPublishedAgo(value: unknown, nowTimeMs = Date.now()): string {
+  if (typeof value !== "string" || !value.trim()) {
+    return "发布时间未知";
+  }
+
+  const publishedAt = new Date(value);
+  if (Number.isNaN(publishedAt.getTime())) {
+    return "发布时间未知";
+  }
+
+  const diffMs = nowTimeMs - publishedAt.getTime();
+  const absDiffMs = Math.abs(diffMs);
+  const isPast = diffMs >= 0;
+
+  if (absDiffMs < 60_000) {
+    return isPast ? "刚刚发布" : "即将发布";
+  }
+
+  const units = [
+    { limit: 3_600_000, size: 60_000, label: "分钟" },
+    { limit: 86_400_000, size: 3_600_000, label: "小时" },
+    { limit: 604_800_000, size: 86_400_000, label: "天" },
+    { limit: 2_592_000_000, size: 604_800_000, label: "周" },
+    { limit: 31_536_000_000, size: 2_592_000_000, label: "个月" },
+    { limit: Number.POSITIVE_INFINITY, size: 31_536_000_000, label: "年" },
+  ];
+
+  const target = units.find((unit) => absDiffMs < unit.limit) || units[units.length - 1];
+  const amount = Math.max(1, Math.floor(absDiffMs / target.size));
+  return isPast ? `${amount}${target.label}前发布` : `${amount}${target.label}后发布`;
 }
 
 export function extractMarkdownPreviewImage(value: string): string | null {
