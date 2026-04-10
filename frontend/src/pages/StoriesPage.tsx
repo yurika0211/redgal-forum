@@ -381,6 +381,9 @@ export default function StoriesPage({
             articleCover
               ? {
                   backgroundImage: `linear-gradient(180deg, rgba(18, 16, 30, 0.76), rgba(18, 16, 30, 0.8)), url(${articleCover})`,
+                  backgroundSize: "cover",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center",
                 }
               : undefined
           }
@@ -552,17 +555,21 @@ export default function StoriesPage({
 
   return (
     <>
-      <section className="stories-feed-shell">
-        <article className="panel">
-          <div className="panel-heading">
+      <section className="stories-feed-shell grid gap-4">
+        <article className="panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="panel-heading mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">最新文章</p>
-              <h2>专栏内容</h2>
+              <p className="panel-kicker text-xs uppercase tracking-[0.14em] text-[color:var(--text-faint)]">最新文章</p>
+              <h2 className="text-xl font-semibold text-[color:var(--text-strong)]">专栏内容</h2>
             </div>
-            <div className="stories-list-toolbar">
+            <div className="stories-list-toolbar flex items-center gap-2">
               <StatusChip tone="accent">{articlePager.total} 篇</StatusChip>
               <button
-                className={`${canWriteArticle ? "primary-button" : "ghost-button"} small-action-button`}
+                className={`small-action-button inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${
+                  canWriteArticle
+                    ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]"
+                    : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]"
+                }`}
                 type="button"
                 onClick={onStartArticleCreate}
               >
@@ -570,11 +577,11 @@ export default function StoriesPage({
               </button>
             </div>
           </div>
-          <label className="list-search-row" htmlFor="story-list-search">
-            <span>关键词搜索</span>
+          <label className="list-search-row mb-2 grid gap-1" htmlFor="story-list-search">
+            <span className="text-xs text-[color:var(--text-muted)]">关键词搜索</span>
             <input
               id="story-list-search"
-              className="list-search-row__input"
+              className="list-search-row__input w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)]"
               type="search"
               value={articleSearchKeyword}
               onChange={onArticleSearchKeywordChange}
@@ -582,7 +589,7 @@ export default function StoriesPage({
             />
           </label>
           {articlesError ? <p className="panel-error">{articlesError}</p> : null}
-          <div className="story-snippet-list">
+          <div className="story-snippet-list grid gap-2">
             {storyFeed.map((article) => {
               const previewImage = extractMarkdownPreviewImage(article.content);
               const visibleTags = article.tags
@@ -593,21 +600,21 @@ export default function StoriesPage({
 
               return (
                 <button
-                  className="story-snippet-item"
+                  className="story-snippet-item grid w-full rounded-xl border border-[color:var(--line-soft)] bg-white/55 px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-white/80"
                   key={article.id}
                   type="button"
                   onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
                 >
-                  <div className="story-snippet-item__layout">
-                    <div className="story-snippet-item__content">
-                      <div className="story-snippet-item__head">
-                        <h3>{article.title}</h3>
-                        <span className="story-snippet-item__visibility">
+                  <div className="story-snippet-item__layout flex items-start justify-between gap-3">
+                    <div className="story-snippet-item__content min-w-0 flex-1">
+                      <div className="story-snippet-item__head flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-lg font-semibold leading-snug text-[color:var(--text-strong)]">{article.title}</h3>
+                        <span className="story-snippet-item__visibility inline-flex rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">
                           {normalizeVisibilityLabel(article.visibility)}
                         </span>
                       </div>
-                      <p className="story-snippet-item__excerpt">{excerpt(article.summary || article.content, 190)}</p>
-                      <p className="story-snippet-item__meta">
+                      <p className="story-snippet-item__excerpt mt-2 text-sm leading-7 text-[color:var(--text-soft)]">{excerpt(article.summary || article.content, 190)}</p>
+                      <p className="story-snippet-item__meta mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
                         <span className="story-snippet-item__meta-author">
                           {buildPublicProfileHref(article.author) ? (
                             <span
@@ -623,7 +630,7 @@ export default function StoriesPage({
                             authorLabel
                           )}
                         </span>
-                        <span className="story-snippet-item__meta-divider" aria-hidden="true">
+                        <span className="story-snippet-item__meta-divider text-[color:var(--text-faint)]" aria-hidden="true">
                           ·
                         </span>
                         <span className="story-snippet-item__meta-time">
@@ -631,20 +638,20 @@ export default function StoriesPage({
                         </span>
                       </p>
                       {visibleTags.length ? (
-                        <div className="story-snippet-item__tags">
+                        <div className="story-snippet-item__tags mt-2 flex flex-wrap gap-1.5">
                           {visibleTags.map((tag) => (
-                            <span className="story-snippet-item__tag" key={`${article.id}-tag-${tag}`}>
+                            <span className="story-snippet-item__tag rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-[11px] text-[color:var(--text-muted)]" key={`${article.id}-tag-${tag}`}>
                               #{tag}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <p className="story-snippet-item__meta story-snippet-item__meta--empty-tag">暂无标签</p>
+                        <p className="story-snippet-item__meta story-snippet-item__meta--empty-tag mt-2 text-xs text-[color:var(--text-faint)]">暂无标签</p>
                       )}
                     </div>
                     {previewImage ? (
-                      <div className="story-snippet-item__cover">
-                        <img alt={`${article.title} 头图`} src={previewImage} />
+                      <div className="story-snippet-item__cover h-20 w-28 shrink-0 overflow-hidden rounded-lg border border-[color:var(--line-soft)] bg-white/35">
+                        <img alt={`${article.title} 头图`} className="h-full w-full object-cover" src={previewImage} />
                       </div>
                     ) : null}
                   </div>

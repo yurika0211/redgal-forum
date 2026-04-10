@@ -757,17 +757,21 @@ export default function ForumPage({
 
   return (
     <>
-      <section className="page-split-grid forum-list-page forum-list-page--compact">
-        <article className="panel forum-feed-panel">
-          <div className="panel-heading">
+      <section className="page-split-grid forum-list-page forum-list-page--compact grid gap-4">
+        <article className="panel forum-feed-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="panel-heading mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">帖子流</p>
-              <h2>讨论串列表</h2>
+              <p className="panel-kicker text-xs uppercase tracking-[0.14em] text-[color:var(--text-faint)]">帖子流</p>
+              <h2 className="text-xl font-semibold text-[color:var(--text-strong)]">讨论串列表</h2>
             </div>
-            <div className="forum-list-page__toolbar">
+            <div className="forum-list-page__toolbar flex items-center gap-2">
               <StatusChip tone="accent">{threadPager.total} 条主题</StatusChip>
               <button
-                className={`${canCompose ? "primary-button" : "ghost-button"} small-action-button`}
+                className={`small-action-button inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${
+                  canCompose
+                    ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]"
+                    : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]"
+                }`}
                 type="button"
                 onClick={() => onNavigate("/forum/editor")}
               >
@@ -776,12 +780,12 @@ export default function ForumPage({
             </div>
           </div>
           {threadsError ? <p className="panel-error">{threadsError}</p> : null}
-          <div className="forum-board-filter-row">
-            <label className="list-search-row" htmlFor="forum-thread-search">
-              <span>关键词搜索</span>
+          <div className="forum-board-filter-row flex flex-wrap items-center gap-2">
+            <label className="list-search-row min-w-[220px] flex-1 grid gap-1" htmlFor="forum-thread-search">
+              <span className="text-xs text-[color:var(--text-muted)]">关键词搜索</span>
               <input
                 id="forum-thread-search"
-                className="list-search-row__input"
+                className="list-search-row__input w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)]"
                 type="search"
                 value={threadSearchKeyword}
                 onChange={onThreadSearchKeywordChange}
@@ -790,7 +794,11 @@ export default function ForumPage({
             </label>
             {boardFilterOptions.map((board) => (
               <button
-                className={`ghost-button ${selectedForumBoard === board ? "ghost-button--active" : ""}`}
+                className={`ghost-button inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${
+                  selectedForumBoard === board
+                    ? "ghost-button--active border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)]"
+                    : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]"
+                }`}
                 key={board}
                 type="button"
                 onClick={() => onSelectedForumBoardChange(board)}
@@ -799,20 +807,20 @@ export default function ForumPage({
               </button>
             ))}
           </div>
-          <div className="forum-thread-text-list">
+          <div className="forum-thread-text-list mt-2 grid gap-2">
             {filteredThreadFeed.map((thread) => {
               return (
                 <button
-                  className="forum-thread-text-item"
+                  className="forum-thread-text-item grid w-full rounded-xl border border-[color:var(--line-soft)] bg-white/55 px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-white/80"
                   key={thread.id}
                   type="button"
                   onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
                 >
-                  <div className="forum-thread-text-item__head">
-                    <strong>{thread.title}</strong>
-                    <span className="forum-thread-text-item__board">/{thread.board}</span>
+                  <div className="forum-thread-text-item__head flex flex-wrap items-center justify-between gap-2">
+                    <strong className="text-base font-semibold text-[color:var(--text-strong)]">{thread.title}</strong>
+                    <span className="forum-thread-text-item__board rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">/{thread.board}</span>
                   </div>
-                  <p className="forum-thread-text-item__meta">
+                  <p className="forum-thread-text-item__meta mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
                     {renderAuthorName(thread.author, { nestedInClickable: true })}
                     {thread.tripcode ? <span>{thread.tripcode}</span> : null}
                     {thread.is_pinned ? <span>置顶</span> : null}

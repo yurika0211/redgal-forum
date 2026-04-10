@@ -6522,25 +6522,23 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       </div>
 
       <main className={`app-shell ${isStoryDetailView ? "app-shell--story-detail" : ""} ${routePath === "/login" ? "app-shell--auth" : ""}`}>
-        {routePath !== "/login" ? (
-          <Header
-            authHref={isAuthenticated ? "/space" : "/login"}
-            authLabel={isAuthenticated ? "我的空间" : "登录"}
-            currentPath={routePath}
-            hidden={isHeaderHidden}
-            navigationGroups={groupedNavigation}
-            navigation={accessibleNavigation}
-            notifications={headerNotifications}
-            onNotificationClick={handleNotificationClick}
-            onNotificationsMarkAllRead={handleNotificationsMarkAllRead}
-            onNavigate={handleNavigate}
-            onToggleTheme={handleToggleTheme}
-            themeMode={themeMode}
-            unreadNotificationCount={unreadNotificationCount}
-            utilityHref={routePath === "/" ? "/forum" : "/"}
-            utilityLabel={routePath === "/" ? "进入论坛" : "返回首页"}
-          />
-        ) : null}
+        <Header
+          authHref={isAuthenticated ? "/space" : "/login"}
+          authLabel={isAuthenticated ? "我的空间" : "登录"}
+          currentPath={routePath}
+          hidden={isHeaderHidden}
+          navigationGroups={groupedNavigation}
+          navigation={accessibleNavigation}
+          notifications={headerNotifications}
+          onNotificationClick={handleNotificationClick}
+          onNotificationsMarkAllRead={handleNotificationsMarkAllRead}
+          onNavigate={handleNavigate}
+          onToggleTheme={handleToggleTheme}
+          themeMode={themeMode}
+          unreadNotificationCount={unreadNotificationCount}
+          utilityHref={routePath === "/" ? "/forum" : "/"}
+          utilityLabel={routePath === "/" ? "进入论坛" : "返回首页"}
+        />
         <div
           id="main-content"
           className={`page-shell ${
