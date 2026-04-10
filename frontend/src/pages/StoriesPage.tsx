@@ -454,7 +454,7 @@ export default function StoriesPage({
         </header>
 
         <section className="story-article-sheet">
-          <div className="story-article-sheet__layout">
+          <div className={`story-article-sheet__layout ${articleHeadings.length ? "" : "story-article-sheet__layout--no-toc"}`}>
             <aside className="story-article-author-card">
               <p className="story-article-author-card__title">作者介绍</p>
               <div className="story-article-author-card__identity">
@@ -500,9 +500,9 @@ export default function StoriesPage({
               )}
             </article>
 
-            <aside className="story-article-toc">
-              <p className="story-article-toc__title">目录</p>
-              {articleHeadings.length ? (
+            {articleHeadings.length ? (
+              <aside className="story-article-toc">
+                <p className="story-article-toc__title">目录</p>
                 <ul className="story-article-toc__list">
                   {articleHeadings.map((heading) => (
                     <li
@@ -515,10 +515,8 @@ export default function StoriesPage({
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="panel-empty">暂无可展示目录</p>
-              )}
-            </aside>
+              </aside>
+            ) : null}
           </div>
         </section>
 

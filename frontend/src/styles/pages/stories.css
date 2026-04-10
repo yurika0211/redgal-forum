@@ -248,6 +248,10 @@
   align-items: start;
 }
 
+.story-article-sheet__layout--no-toc {
+  grid-template-columns: 208px minmax(0, 1fr);
+}
+
 .story-article-author-card {
   position: sticky;
   top: 96px;
@@ -367,6 +371,10 @@
   .story-article-sheet__layout {
     grid-template-columns: 188px minmax(0, 1fr) 208px;
     gap: 16px;
+  }
+
+  .story-article-sheet__layout--no-toc {
+    grid-template-columns: 188px minmax(0, 1fr);
   }
 }
 

@@ -62,6 +62,13 @@ body {
   width: min(74vw, 1700px);
 }
 
+.page-shell.page-shell--story-detail {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .site-header {
   padding-top: 10px;
   padding-bottom: 10px;

@@ -36,5 +36,5 @@ This directory contains the split stylesheet architecture for the frontend.
 
 ## Notes
 
-- Legacy pre-split files are currently kept in this directory for rollback/reference.
-- New changes should be added to the split files above, not to legacy files.
+- Legacy pre-split files have been removed.
+- New changes should be added to the split files above.
