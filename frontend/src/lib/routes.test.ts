@@ -16,6 +16,7 @@ describe("routes helpers", () => {
     expect(normalizePath("/forum/editor")).toBe("/forum");
     expect(normalizePath("/anonymous/threads/7")).toBe("/anonymous");
     expect(normalizePath("/users/rubedo_room")).toBe("/space");
+    expect(normalizePath("/login")).toBe("/login");
     expect(normalizePath("/portal")).toBe("/");
   });
 

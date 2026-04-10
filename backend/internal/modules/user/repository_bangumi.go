@@ -1098,7 +1098,7 @@ func (r *repository) ListUserBangumiCollections(ctx context.Context, username st
 		return pagination.Slice(scaffoldBangumiCollections(username), params), nil
 	}
 
-	record, err := r.loadUserByUsername(ctx, username)
+	record, err := r.loadUserByPublicIdentifier(ctx, username)
 	if err != nil {
 		return pagination.Result[BangumiCollection]{}, err
 	}

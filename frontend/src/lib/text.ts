@@ -212,7 +212,17 @@ export function extractMarkdownPreviewImage(value: string): string | null {
 
 export function toErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
-    return error.message;
+    const normalized = error.message.trim();
+    const lowercase = normalized.toLowerCase();
+
+    if (
+      lowercase.includes("sql: no rows in result set") ||
+      lowercase.includes("no rows in result set")
+    ) {
+      return "未找到对应用户或公开数据";
+    }
+
+    return normalized;
   }
 
   return "请求失败";

@@ -1794,6 +1794,20 @@ function App() {
   }, [routePath, canAccessAnonymous, isAuthenticated, navigateRoute]);
 
   useEffect(() => {
+    if (!selectedPublicProfileUsername || routePath !== "/space" || !profile?.username) {
+      return;
+    }
+
+    const current = selectedPublicProfileUsername.trim().toLowerCase();
+    const canonical = profile.username.trim().toLowerCase();
+    if (!current || !canonical || current === canonical) {
+      return;
+    }
+
+    navigateRoute(`/users/${encodeURIComponent(profile.username)}`);
+  }, [navigateRoute, profile?.username, routePath, selectedPublicProfileUsername]);
+
+  useEffect(() => {
     if (routePath !== "/space" || isAuthenticated || selectedPublicProfileUsername) {
       return;
     }
@@ -6507,24 +6521,26 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         <span className="scene-ornament scene-ornament--shard" />
       </div>
 
-      <main className={`app-shell ${isStoryDetailView ? "app-shell--story-detail" : ""}`}>
-        <Header
-          authHref={isAuthenticated ? "/space" : "/login"}
-          authLabel={isAuthenticated ? "我的空间" : "登录"}
-          currentPath={routePath}
-          hidden={isHeaderHidden}
-          navigationGroups={groupedNavigation}
-          navigation={accessibleNavigation}
-          notifications={headerNotifications}
-          onNotificationClick={handleNotificationClick}
-          onNotificationsMarkAllRead={handleNotificationsMarkAllRead}
-          onNavigate={handleNavigate}
-          onToggleTheme={handleToggleTheme}
-          themeMode={themeMode}
-          unreadNotificationCount={unreadNotificationCount}
-          utilityHref={routePath === "/" ? "/forum" : "/"}
-          utilityLabel={routePath === "/" ? "进入论坛" : "返回首页"}
-        />
+      <main className={`app-shell ${isStoryDetailView ? "app-shell--story-detail" : ""} ${routePath === "/login" ? "app-shell--auth" : ""}`}>
+        {routePath !== "/login" ? (
+          <Header
+            authHref={isAuthenticated ? "/space" : "/login"}
+            authLabel={isAuthenticated ? "我的空间" : "登录"}
+            currentPath={routePath}
+            hidden={isHeaderHidden}
+            navigationGroups={groupedNavigation}
+            navigation={accessibleNavigation}
+            notifications={headerNotifications}
+            onNotificationClick={handleNotificationClick}
+            onNotificationsMarkAllRead={handleNotificationsMarkAllRead}
+            onNavigate={handleNavigate}
+            onToggleTheme={handleToggleTheme}
+            themeMode={themeMode}
+            unreadNotificationCount={unreadNotificationCount}
+            utilityHref={routePath === "/" ? "/forum" : "/"}
+            utilityLabel={routePath === "/" ? "进入论坛" : "返回首页"}
+          />
+        ) : null}
         <div
           id="main-content"
           className={`page-shell ${
@@ -6538,8 +6554,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     ? "page-shell--anonymous"
                     : routePath === "/admin"
                       ? "page-shell--admin"
-                    : routePath === "/space" || routePath === "/login"
+                    : routePath === "/space"
                       ? "page-shell--space"
+                      : routePath === "/login"
+                        ? "page-shell--login"
                       : "page-shell--gallery"
           } ${isStoryDetailView ? "page-shell--story-detail" : ""}`}
         >
@@ -6556,9 +6574,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
           </Suspense>
         </div>
-        <footer className="site-copyright" role="contentinfo">
-          <p>版权所属：百川乃大视觉小说研 © {copyrightYear}</p>
-        </footer>
+        {routePath !== "/login" ? (
+          <footer className="site-copyright" role="contentinfo">
+            <p>版权所属：百川乃大视觉小说研 © {copyrightYear}</p>
+          </footer>
+        ) : null}
       </main>
       {activeHomeNotice ? (
         <div

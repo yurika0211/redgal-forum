@@ -11,6 +11,7 @@ import {
   parseLines,
   parseStandardDateLabel,
   parseTags,
+  toErrorMessage,
 } from "./text";
 
 describe("text helpers", () => {
@@ -72,5 +73,9 @@ describe("text helpers", () => {
       { level: 2, title: "Intro", anchorID: "section-intro-2" },
       { level: 4, title: "Deep", anchorID: "section-deep" },
     ]);
+  });
+
+  it("normalizes internal sql no rows errors to user-friendly text", () => {
+    expect(toErrorMessage(new Error("sql: no rows in result set"))).toBe("未找到对应用户或公开数据");
   });
 });

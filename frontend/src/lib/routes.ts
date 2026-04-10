@@ -5,16 +5,18 @@ export type RoutePath =
   | "/anonymous"
   | "/admin"
   | "/space"
+  | "/login"
   | "/gallery";
 
 export const TITLE_BY_ROUTE: Record<RoutePath, string> = {
-  "/": "首页总览 | Rubedo Forum",
-  "/stories": "专栏 | Rubedo Forum",
-  "/forum": "讨论板 | Rubedo Forum",
-  "/anonymous": "树洞 | Rubedo Forum",
-  "/admin": "管理后台 | Rubedo Forum",
-  "/space": "个人空间 | Rubedo Forum",
-  "/gallery": "展示墙 | Rubedo Forum",
+  "/": "首页总览 | redgal forum",
+  "/stories": "专栏 | redgal forum",
+  "/forum": "讨论板 | redgal forum",
+  "/anonymous": "树洞 | redgal forum",
+  "/admin": "管理后台 | redgal forum",
+  "/space": "个人空间 | redgal forum",
+  "/login": "登录 | redgal forum",
+  "/gallery": "展示墙 | redgal forum",
 };
 
 export const HEADER_SUMMARY_BY_ROUTE: Record<RoutePath, string> = {
@@ -24,6 +26,7 @@ export const HEADER_SUMMARY_BY_ROUTE: Record<RoutePath, string> = {
   "/anonymous": "匿名频道",
   "/admin": "后台管理",
   "/space": "收藏与空间",
+  "/login": "账号登录",
   "/gallery": "展示与归档",
 };
 
@@ -63,6 +66,8 @@ export function normalizePath(pathname: string): RoutePath {
       return "/admin";
     case "/space":
       return "/space";
+    case "/login":
+      return "/login";
     case "/gallery":
       return "/gallery";
     default:

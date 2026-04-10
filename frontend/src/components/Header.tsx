@@ -120,9 +120,8 @@ function Header({
           <span className="site-header__brand-core" />
         </span>
         <div className="site-header__brand-copy">
-          <p className="site-header__eyebrow">绯月回廊</p>
-          <p className="site-header__title">Rubedo Forum</p>
-          <p className="site-header__subtitle">视觉小说社团与内容归档</p>
+          <p className="site-header__eyebrow">redgal forum</p>
+          <p className="site-header__title">百川乃大视觉小说研</p>
         </div>
       </a>
 

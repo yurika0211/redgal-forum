@@ -1,6 +1,9 @@
 import {
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
+  useState,
   type ChangeEvent,
   type FormEvent,
 } from "react";
@@ -38,6 +41,7 @@ interface AnonymousPageProps {
 }
 
 const ANONYMOUS_MESSAGE_TONE_COUNT = 6;
+const VISIBLE_ANONYMOUS_MESSAGE_COUNT = 10;
 
 function normalizeTimestamp(thread: ApiForumThread): number {
   const created = Date.parse(thread.created_at || "");
@@ -86,6 +90,7 @@ export default function AnonymousPage({
   const messageRefMap = useRef<Record<string, HTMLElement | null>>({});
   const hasAutoScrolledLatestRef = useRef(false);
   const pendingLoadAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const [streamViewportHeight, setStreamViewportHeight] = useState<number | null>(null);
   const pagedMessagesDesc = [...anonymousThreadFeed].sort((left, right) => {
     const leftTime = normalizeTimestamp(left);
     const rightTime = normalizeTimestamp(right);
@@ -102,6 +107,64 @@ export default function AnonymousPage({
     }
     return left.id.localeCompare(right.id);
   });
+  const streamViewportStyle =
+    streamViewportHeight === null
+      ? undefined
+      : {
+          height: `${streamViewportHeight}px`,
+          minHeight: `${streamViewportHeight}px`,
+          maxHeight: `${streamViewportHeight}px`,
+        };
+
+  const measureStreamViewportHeight = useCallback((): void => {
+    const stream = streamRef.current;
+    if (!stream || !chatMessages.length || typeof window === "undefined") {
+      setStreamViewportHeight(null);
+      return;
+    }
+
+    const visibleMessages = chatMessages
+      .slice(-VISIBLE_ANONYMOUS_MESSAGE_COUNT)
+      .map((thread) => messageRefMap.current[thread.id])
+      .filter((node): node is HTMLElement => Boolean(node));
+    if (!visibleMessages.length) {
+      setStreamViewportHeight(null);
+      return;
+    }
+
+    const streamStyles = window.getComputedStyle(stream);
+    const gap = Number.parseFloat(streamStyles.rowGap || streamStyles.gap || "0") || 0;
+    const paddingTop = Number.parseFloat(streamStyles.paddingTop) || 0;
+    const paddingBottom = Number.parseFloat(streamStyles.paddingBottom) || 0;
+    const contentHeight = visibleMessages.reduce((total, messageNode) => total + messageNode.offsetHeight, 0);
+    const nextHeight = Math.ceil(
+      contentHeight +
+        Math.max(visibleMessages.length - 1, 0) * gap +
+        paddingTop +
+        paddingBottom,
+    );
+
+    setStreamViewportHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
+  }, [chatMessages]);
+
+  useLayoutEffect(() => {
+    measureStreamViewportHeight();
+  }, [measureStreamViewportHeight]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    function handleResize(): void {
+      measureStreamViewportHeight();
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [measureStreamViewportHeight]);
 
   useEffect(() => {
     if (!pendingAnonymousScrollMessageID) {
@@ -125,17 +188,23 @@ export default function AnonymousPage({
       return;
     }
 
-    const latest = chatMessages[chatMessages.length - 1];
-    const target = messageRefMap.current[latest.id];
-    if (!target) {
+    const stream = streamRef.current;
+    if (!stream) {
       return;
     }
 
-    target.scrollIntoView({
-      behavior: "auto",
-      block: "end",
+    const frame = window.requestAnimationFrame(() => {
+      const currentStream = streamRef.current;
+      if (!currentStream) {
+        return;
+      }
+      currentStream.scrollTop = currentStream.scrollHeight;
+      hasAutoScrolledLatestRef.current = true;
     });
-    hasAutoScrolledLatestRef.current = true;
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [chatMessages, pendingAnonymousScrollMessageID]);
 
   useEffect(() => {
@@ -189,6 +258,7 @@ export default function AnonymousPage({
         className="anonymous-thread-chat anonymous-chat-room__stream"
         onScroll={handleStreamScroll}
         ref={streamRef}
+        style={streamViewportStyle}
       >
         {chatMessages.map((thread) => {
           const tone = resolveMessageTone(thread);

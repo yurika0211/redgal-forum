@@ -13280,3 +13280,596 @@ html[data-theme="night"] .detail-page--stories-editor .stories-editor :is(input,
     transform: none;
   }
 }
+
+.app-shell--auth {
+  padding-bottom: 0;
+}
+
+.page-shell--login {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.login-layout {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px 16px;
+  overflow: hidden;
+}
+
+.login-layout::before,
+.login-layout::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.login-layout::before {
+  background:
+    radial-gradient(circle at 14% 24%, var(--surface-tint-pink), transparent 36%),
+    radial-gradient(circle at 86% 18%, var(--surface-tint-blue), transparent 38%),
+    radial-gradient(circle at 50% 92%, var(--surface-tint-mint), transparent 42%);
+}
+
+.login-layout::after {
+  opacity: 0.24;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(79, 139, 174, 0.24) 1px, transparent 1px),
+    radial-gradient(circle at 1px 1px, rgba(195, 128, 159, 0.2) 1px, transparent 1px);
+  background-size: 24px 24px, 36px 36px;
+  background-position: 0 0, 14px 10px;
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: min(380px, 100%);
+  border-radius: 22px;
+  padding: 24px 22px 18px;
+  border: 1px solid var(--line-soft);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.86), rgba(249, 247, 250, 0.9)),
+    radial-gradient(circle at 84% 10%, var(--surface-tint-cream), transparent 38%);
+  box-shadow: var(--shadow-large);
+  color: var(--text-main);
+  backdrop-filter: blur(4px);
+}
+
+.login-card__logo {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.38));
+  display: grid;
+  place-items: center;
+}
+
+.login-card__logo span {
+  width: 20px;
+  height: 20px;
+  border-radius: 40% 40% 55% 55%;
+  border: 2px solid rgba(79, 139, 174, 0.7);
+  border-top-color: transparent;
+  border-left-color: transparent;
+  transform: rotate(40deg);
+}
+
+.login-card__title {
+  margin: 0;
+  text-align: center;
+  font-size: 2rem;
+  letter-spacing: 0.03em;
+  font-family: var(--font-display);
+  color: var(--text-strong);
+}
+
+.login-card__subtitle {
+  margin: 4px 0 18px;
+  text-align: center;
+  font-size: 0.96rem;
+  color: var(--text-soft);
+}
+
+.login-card__form {
+  display: grid;
+  gap: 10px;
+}
+
+.login-card__form label {
+  display: grid;
+  gap: 6px;
+}
+
+.login-card__form label > span {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+}
+
+.login-card__form input {
+  width: 100%;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--text-main);
+  padding: 0 12px;
+}
+
+.login-card__form input::placeholder {
+  color: var(--text-faint);
+}
+
+.login-card__form input:focus {
+  outline: none;
+  border-color: rgba(79, 139, 174, 0.56);
+  box-shadow: 0 0 0 3px rgba(79, 139, 174, 0.2);
+}
+
+.login-card__submit {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--button-primary-border);
+  border-radius: 999px;
+  margin-top: 4px;
+  color: var(--button-primary-text);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--button-primary-bg);
+  box-shadow: var(--button-shadow-soft);
+  cursor: pointer;
+}
+
+.login-card__submit:hover {
+  transform: translateY(-1px);
+  border-color: var(--button-primary-border-hover);
+  background: var(--button-primary-bg-hover);
+}
+
+.login-card__submit:focus-visible,
+.login-card__switch:focus-visible {
+  outline: none;
+  box-shadow: var(--button-focus-ring);
+}
+
+.login-card__submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+  box-shadow: none;
+}
+
+.login-card__captcha {
+  margin-top: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  padding: 10px 12px;
+  background: var(--surface-card);
+  color: var(--text-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.login-card__captcha strong {
+  margin-left: auto;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.login-card__captcha-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid var(--color-primary);
+  border-right-color: transparent;
+  animation: login-captcha-spin 1s linear infinite;
+}
+
+.login-card__switch {
+  margin: 12px auto 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.login-card__switch:hover {
+  color: var(--text-strong);
+}
+
+.login-card__message {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+}
+
+.login-card__message--error {
+  color: #b73754;
+}
+
+.login-card__message--success {
+  color: #2f8e62;
+}
+
+.login-card__session {
+  display: grid;
+  gap: 10px;
+}
+
+.login-card__actions {
+  display: grid;
+  gap: 8px;
+}
+
+@keyframes login-captcha-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+html[data-theme="night"] .login-layout::before {
+  background:
+    radial-gradient(circle at 12% 24%, rgba(255, 107, 135, 0.14), transparent 36%),
+    radial-gradient(circle at 88% 12%, rgba(121, 188, 236, 0.16), transparent 40%),
+    linear-gradient(180deg, rgba(9, 6, 11, 0.22), rgba(9, 6, 11, 0.52));
+}
+
+html[data-theme="night"] .login-layout::after {
+  opacity: 0.44;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(181, 223, 255, 0.26) 1px, transparent 1px),
+    radial-gradient(circle at 1px 1px, rgba(255, 166, 188, 0.2) 1px, transparent 1px);
+}
+
+html[data-theme="night"] .login-card {
+  border-color: rgba(141, 186, 231, 0.28);
+  background:
+    linear-gradient(180deg, rgba(18, 29, 42, 0.92), rgba(12, 20, 30, 0.95)),
+    radial-gradient(circle at 84% 10%, rgba(255, 166, 188, 0.14), transparent 42%);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.46);
+  color: var(--text-main);
+}
+
+html[data-theme="night"] .login-card__logo {
+  border-color: rgba(141, 186, 231, 0.34);
+  background: linear-gradient(180deg, rgba(39, 62, 87, 0.72), rgba(16, 28, 41, 0.76));
+}
+
+html[data-theme="night"] .login-card__logo span {
+  border-color: rgba(175, 214, 244, 0.8);
+  border-top-color: transparent;
+  border-left-color: transparent;
+}
+
+html[data-theme="night"] .login-card__form input {
+  border-color: rgba(141, 186, 231, 0.28);
+  background: rgba(10, 18, 28, 0.84);
+  color: var(--text-main);
+}
+
+html[data-theme="night"] .login-card__form input::placeholder {
+  color: var(--text-muted);
+}
+
+html[data-theme="night"] .login-card__form input:focus {
+  border-color: rgba(171, 211, 246, 0.6);
+  box-shadow: 0 0 0 3px rgba(121, 188, 236, 0.18);
+}
+
+html[data-theme="night"] .login-card__captcha {
+  border-color: rgba(141, 186, 231, 0.24);
+  background: rgba(16, 26, 38, 0.9);
+}
+
+html[data-theme="night"] .login-card__captcha-dot {
+  border-color: rgba(171, 211, 246, 0.84);
+  border-right-color: transparent;
+}
+
+html[data-theme="night"] .login-card__message--error {
+  color: #ff9db4;
+}
+
+html[data-theme="night"] .login-card__message--success {
+  color: #9ae7c0;
+}
+
+@media (max-width: 640px) {
+  .login-layout {
+    min-height: 100dvh;
+    padding: 16px 14px;
+  }
+
+  .login-card {
+    border-radius: 16px;
+    padding: 20px 16px 16px;
+  }
+}
+
+/* P2 refine: day=fresh film, night=cyber dusk (stories editor only) */
+.detail-page--stories-editor > .panel {
+  backdrop-filter: blur(1.5px);
+}
+
+.detail-page--stories-editor .stories-editor__toolbar h2 {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+.detail-page--stories-editor .stories-editor__pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-page--stories-editor .stories-editor__pane-head::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.64;
+}
+
+.detail-page--stories-editor .stories-editor__preview {
+  scrollbar-width: thin;
+}
+
+.detail-page--stories-editor .stories-editor__preview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.detail-page--stories-editor .stories-editor__preview::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+}
+
+html[data-theme="day"] .detail-page--stories-editor > .panel::before {
+  filter: blur(5px) saturate(110%);
+}
+
+html[data-theme="day"] .detail-page--stories-editor > .panel::after {
+  opacity: 0.42;
+  mix-blend-mode: soft-light;
+}
+
+html[data-theme="day"] .detail-page--stories-editor .stories-editor__pane--preview .stories-editor__preview {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(226, 244, 252, 0.12) 68%, rgba(255, 239, 210, 0.2)),
+    radial-gradient(circle at 78% 8%, rgba(78, 166, 194, 0.14), transparent 42%);
+}
+
+html[data-theme="day"] .detail-page--stories-editor .stories-editor .primary-button {
+  border-color: rgba(31, 121, 162, 0.62);
+  background: linear-gradient(140deg, #2988b7, #2f6fa4);
+  box-shadow:
+    0 10px 18px rgba(36, 102, 141, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="day"] .detail-page--stories-editor .stories-editor .primary-button:hover {
+  border-color: rgba(31, 121, 162, 0.7);
+  background: linear-gradient(140deg, #287ca8, #2f6897);
+}
+
+html[data-theme="day"] .detail-page--stories-editor .stories-editor__preview::-webkit-scrollbar-thumb {
+  background: rgba(58, 104, 144, 0.34);
+}
+
+html[data-theme="night"] .detail-page--stories-editor > .panel::before {
+  filter: blur(7px) saturate(116%);
+}
+
+html[data-theme="night"] .detail-page--stories-editor > .panel::after {
+  opacity: 0.32;
+  mix-blend-mode: screen;
+}
+
+html[data-theme="night"] .detail-page--stories-editor .stories-editor__pane--preview .stories-editor__preview {
+  background:
+    linear-gradient(180deg, rgba(150, 216, 255, 0.09), rgba(120, 180, 220, 0.03) 66%, rgba(255, 178, 106, 0.06)),
+    radial-gradient(circle at 80% 8%, rgba(110, 203, 233, 0.12), transparent 42%);
+}
+
+html[data-theme="night"] .detail-page--stories-editor .stories-editor .primary-button {
+  border-color: rgba(117, 189, 236, 0.68);
+  background: linear-gradient(140deg, rgba(42, 120, 165, 0.98), rgba(36, 89, 136, 0.98));
+  box-shadow:
+    0 14px 24px rgba(5, 17, 31, 0.5),
+    0 0 0 1px rgba(149, 211, 249, 0.24),
+    inset 0 1px 0 rgba(214, 242, 255, 0.2);
+}
+
+html[data-theme="night"] .detail-page--stories-editor .stories-editor .primary-button:hover {
+  border-color: rgba(145, 209, 248, 0.78);
+  background: linear-gradient(140deg, rgba(46, 132, 182, 1), rgba(38, 96, 147, 1));
+  box-shadow:
+    0 16px 28px rgba(5, 17, 31, 0.56),
+    0 0 0 1px rgba(149, 211, 249, 0.36),
+    inset 0 1px 0 rgba(214, 242, 255, 0.28);
+}
+
+html[data-theme="night"] .detail-page--stories-editor .stories-editor__preview::-webkit-scrollbar-thumb {
+  background: rgba(146, 204, 240, 0.38);
+}
+
+/* P2 global: apply day/night art-card system to other pages */
+:root,
+html[data-theme="day"] {
+  --global-art-card-border: rgba(57, 103, 142, 0.24);
+  --global-art-card-border-strong: rgba(57, 124, 170, 0.42);
+  --global-art-card-bg-top: rgba(255, 255, 255, 0.96);
+  --global-art-card-bg-mid: rgba(243, 249, 252, 0.92);
+  --global-art-card-bg-bottom: rgba(249, 244, 234, 0.9);
+  --global-art-card-cool-glow: rgba(88, 165, 197, 0.2);
+  --global-art-card-warm-glow: rgba(236, 176, 98, 0.16);
+  --global-art-card-dot: rgba(68, 123, 161, 0.13);
+  --global-art-card-shadow:
+    0 18px 30px rgba(24, 58, 87, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  --global-art-card-shadow-hover:
+    0 22px 36px rgba(24, 58, 87, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  --global-art-input-border: rgba(58, 104, 144, 0.28);
+  --global-art-input-bg: rgba(255, 255, 255, 0.86);
+  --global-art-input-focus: rgba(58, 134, 180, 0.56);
+  --global-art-input-ring: rgba(58, 134, 180, 0.16);
+}
+
+html[data-theme="night"] {
+  --global-art-card-border: rgba(124, 169, 205, 0.34);
+  --global-art-card-border-strong: rgba(144, 198, 236, 0.6);
+  --global-art-card-bg-top: rgba(12, 23, 34, 0.95);
+  --global-art-card-bg-mid: rgba(8, 18, 29, 0.98);
+  --global-art-card-bg-bottom: rgba(8, 14, 24, 0.99);
+  --global-art-card-cool-glow: rgba(98, 188, 220, 0.24);
+  --global-art-card-warm-glow: rgba(237, 170, 88, 0.14);
+  --global-art-card-dot: rgba(178, 225, 252, 0.14);
+  --global-art-card-shadow:
+    0 22px 38px rgba(0, 6, 12, 0.56),
+    inset 0 1px 0 rgba(204, 230, 255, 0.08);
+  --global-art-card-shadow-hover:
+    0 26px 44px rgba(0, 6, 12, 0.62),
+    inset 0 1px 0 rgba(204, 230, 255, 0.12);
+  --global-art-input-border: rgba(124, 169, 205, 0.42);
+  --global-art-input-bg: rgba(10, 18, 28, 0.88);
+  --global-art-input-focus: rgba(144, 198, 236, 0.72);
+  --global-art-input-ring: rgba(102, 167, 214, 0.24);
+}
+
+:is(
+  .page-shell:not(.page-shell--stories) .page-scene .panel,
+  .page-shell--stories .page-scene .stories-feed-shell .panel,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-reading-article,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-article-author-card,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-article-toc,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-article-main__body,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-comment-item,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-thread-text-item,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-featured-text-item,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-thread-card,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-wall__column,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-board-card,
+  .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item,
+  .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item__editor-panel,
+  .page-shell:not(.page-shell--stories) .page-scene .space-capsule-card,
+  .page-shell:not(.page-shell--stories) .page-scene .space-side-card,
+  .page-shell:not(.page-shell--stories) .page-scene .space-job-box,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-section,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-notes,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-card,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-photo-card,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-inline-admin__card,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-entry-inline-item,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-lightbox__panel,
+  .page-shell--login .login-card
+) {
+  border-color: var(--global-art-card-border);
+  background:
+    linear-gradient(162deg, var(--global-art-card-bg-top), var(--global-art-card-bg-mid) 60%, var(--global-art-card-bg-bottom)),
+    radial-gradient(circle at 86% 12%, var(--global-art-card-cool-glow), transparent 42%),
+    radial-gradient(circle at 10% -6%, var(--global-art-card-warm-glow), transparent 40%),
+    radial-gradient(circle at 1px 1px, var(--global-art-card-dot) 1px, transparent 1px);
+  background-size: auto, auto, auto, 15px 15px;
+  box-shadow: var(--global-art-card-shadow);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background-position 240ms ease;
+}
+
+:is(
+  .page-shell:not(.page-shell--stories) .page-scene .panel,
+  .page-shell--stories .page-scene .stories-feed-shell .panel,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-reading-article,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-article-author-card,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-article-toc,
+  .page-shell--stories.page-shell--story-detail .page-scene .story-article-main__body,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-comment-item,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-thread-text-item,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-featured-text-item,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-thread-card,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-wall__column,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-board-card,
+  .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item,
+  .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item__editor-panel,
+  .page-shell:not(.page-shell--stories) .page-scene .space-capsule-card,
+  .page-shell:not(.page-shell--stories) .page-scene .space-side-card,
+  .page-shell:not(.page-shell--stories) .page-scene .space-job-box,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-section,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-notes,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-card,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-photo-card,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-inline-admin__card,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-entry-inline-item,
+  .page-shell:not(.page-shell--stories) .page-scene .gallery-lightbox__panel,
+  .page-shell--login .login-card
+):is(:hover, :focus-within) {
+  border-color: var(--global-art-card-border-strong);
+  box-shadow: var(--global-art-card-shadow-hover);
+  background-position: 0 0, 82% 8%, 14% -2%, 0 0;
+}
+
+:is(
+  .page-shell:not(.page-shell--stories) .page-scene .space-form,
+  .page-shell:not(.page-shell--stories) .page-scene .stories-editor,
+  .page-shell:not(.page-shell--stories) .page-scene .auth-form,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-sticky-reply__form,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-chat-room__composer,
+  .page-shell--login .login-card__form
+) :is(input, textarea, select) {
+  border-color: var(--global-art-input-border);
+  background: var(--global-art-input-bg);
+}
+
+:is(
+  .page-shell:not(.page-shell--stories) .page-scene .space-form,
+  .page-shell:not(.page-shell--stories) .page-scene .stories-editor,
+  .page-shell:not(.page-shell--stories) .page-scene .auth-form,
+  .page-shell:not(.page-shell--stories) .page-scene .forum-sticky-reply__form,
+  .page-shell:not(.page-shell--stories) .page-scene .anonymous-chat-room__composer,
+  .page-shell--login .login-card__form
+) :is(input, textarea, select):focus {
+  border-color: var(--global-art-input-focus);
+  box-shadow: 0 0 0 3px var(--global-art-input-ring);
+}
+
+@media (max-width: 640px) {
+  :is(
+    .page-shell:not(.page-shell--stories) .page-scene .panel,
+    .page-shell--stories .page-scene .stories-feed-shell .panel,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-reading-article,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-article-author-card,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-article-toc,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-article-main__body,
+    .page-shell:not(.page-shell--stories) .page-scene .forum-comment-item,
+    .page-shell:not(.page-shell--stories) .page-scene .forum-thread-text-item,
+    .page-shell:not(.page-shell--stories) .page-scene .forum-featured-text-item,
+    .page-shell:not(.page-shell--stories) .page-scene .anonymous-thread-card,
+    .page-shell:not(.page-shell--stories) .page-scene .anonymous-wall__column,
+    .page-shell:not(.page-shell--stories) .page-scene .anonymous-board-card,
+    .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item,
+    .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item__editor-panel,
+    .page-shell:not(.page-shell--stories) .page-scene .space-capsule-card,
+    .page-shell:not(.page-shell--stories) .page-scene .space-side-card,
+    .page-shell:not(.page-shell--stories) .page-scene .space-job-box,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-section,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-notes,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-card,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-photo-card,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-inline-admin__card,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-entry-inline-item,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-lightbox__panel,
+    .page-shell--login .login-card
+  ) {
+    background-size: auto, auto, auto, 18px 18px;
+  }
+}
