@@ -13873,3 +13873,35 @@ html[data-theme="night"] {
     background-size: auto, auto, auto, 18px 18px;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .page-shell:not(.page-shell--stories) .page-scene .panel,
+    .page-shell--stories .page-scene .stories-feed-shell .panel,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-reading-article,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-article-author-card,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-article-toc,
+    .page-shell--stories.page-shell--story-detail .page-scene .story-article-main__body,
+    .page-shell:not(.page-shell--stories) .page-scene .forum-comment-item,
+    .page-shell:not(.page-shell--stories) .page-scene .forum-thread-text-item,
+    .page-shell:not(.page-shell--stories) .page-scene .forum-featured-text-item,
+    .page-shell:not(.page-shell--stories) .page-scene .anonymous-thread-card,
+    .page-shell:not(.page-shell--stories) .page-scene .anonymous-wall__column,
+    .page-shell:not(.page-shell--stories) .page-scene .anonymous-board-card,
+    .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item,
+    .page-shell:not(.page-shell--stories) .page-scene .space-bgm-item__editor-panel,
+    .page-shell:not(.page-shell--stories) .page-scene .space-capsule-card,
+    .page-shell:not(.page-shell--stories) .page-scene .space-side-card,
+    .page-shell:not(.page-shell--stories) .page-scene .space-job-box,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-section,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-notes,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-curation-card,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-photo-card,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-inline-admin__card,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-entry-inline-item,
+    .page-shell:not(.page-shell--stories) .page-scene .gallery-lightbox__panel,
+    .page-shell--login .login-card
+  ) {
+    transition: none;
+  }
+}
