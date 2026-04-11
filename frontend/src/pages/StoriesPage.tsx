@@ -225,47 +225,47 @@ export default function StoriesPage({
     const isEditingMode = Boolean(articleEditingTargetID);
 
     return (
-      <section className="detail-page detail-page--stories-editor">
-        <article className="panel detail-hero detail-hero--story detail-hero--compact">
-          <div className="detail-hero__top">
-            <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/stories")}>
+      <section className="grid gap-4">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-2 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/stories")}>
               返回文章列表
             </button>
           </div>
-          <div className="detail-hero__meta detail-hero__meta--compact">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)] gap-x-2">
             <span>/ 文章编辑</span>
             <span>{session ? "已登录" : "游客模式"}</span>
             <span>{isEditingMode ? `编辑 #${articleEditingTargetID}` : "新建模式"}</span>
           </div>
-          <h1 className="detail-hero__title detail-hero__title--compact">{isEditingMode ? "编辑文章" : "发布文章"}</h1>
-          <p className="detail-hero__lede detail-hero__lede--compact">
+          <h1 className="text-2xl font-semibold text-[color:var(--text-strong)] text-xl">{isEditingMode ? "编辑文章" : "发布文章"}</h1>
+          <p className="text-sm leading-7 text-[color:var(--text-soft)]">
             在这里独立编辑标题、摘要、正文与可见范围，不再挤在文章详情面板里。
           </p>
         </article>
 
         {!session ? (
-          <article className="panel">
-            <p className="panel-empty">登录并通过认证后，这里可以直接发布新的专栏文章。</p>
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <p className="text-sm text-[color:var(--text-muted)]">登录并通过认证后，这里可以直接发布新的专栏文章。</p>
           </article>
         ) : !hasVerifiedSpaceAccess ? (
-          <article className="panel">
-            <p className="panel-empty">当前账号还没有写作权限，需要通过认证后才能发文。</p>
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有写作权限，需要通过认证后才能发文。</p>
           </article>
         ) : (
-          <form className="panel stories-editor" onSubmit={(event) => void onArticleSubmit(event)}>
-            <div className="stories-editor__toolbar">
+          <form className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-3" onSubmit={(event) => void onArticleSubmit(event)}>
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">编辑器</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">编辑器</p>
                 <h2>Markdown 编辑器</h2>
               </div>
-              <div className="stories-editor__toolbar-actions">
-                {articleActionState.success ? <span className="panel-empty">{articleActionState.success}</span> : null}
+              <div className="flex flex-wrap items-center gap-2">
+                {articleActionState.success ? <span className="text-sm text-[color:var(--text-muted)]">{articleActionState.success}</span> : null}
                 {isEditingMode ? (
-                  <button className="ghost-button" type="button" onClick={onStartArticleCreate}>
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={onStartArticleCreate}>
                     新建文章
                   </button>
                 ) : null}
-                <button className="primary-button" type="submit" disabled={articleActionState.pending}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={articleActionState.pending}>
                   {articleActionState.pending ? (isEditingMode ? "保存中..." : "发布中...") : isEditingMode ? "保存修改" : "发布文章"}
                 </button>
               </div>
@@ -283,7 +283,7 @@ export default function StoriesPage({
               />
             </label>
 
-            <div className="stories-editor__meta-grid">
+            <div className="grid gap-3 md:grid-cols-2">
               <label>
                 <span>摘要</span>
                 <input
@@ -314,9 +314,9 @@ export default function StoriesPage({
               </label>
             </div>
 
-            <div className="stories-editor__split">
-              <section className="stories-editor__pane">
-                <div className="stories-editor__pane-head">Markdown 源文本</div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
+                <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
                 <textarea
                   name="content"
                   rows={14}
@@ -326,19 +326,19 @@ export default function StoriesPage({
                   required
                 />
               </section>
-              <section className="stories-editor__pane stories-editor__pane--preview">
-                <div className="stories-editor__pane-head">实时预览</div>
-                <div className="stories-editor__preview">
+              <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3 bg-[color:var(--surface-card)]">
+                <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">实时预览</div>
+                <div className="min-h-[220px] overflow-auto rounded-lg border border-[color:var(--line-soft)] bg-white/55 p-3">
                   {articleForm.content.trim() ? (
                     <RichContent content={articleForm.content} />
                   ) : (
-                    <p className="panel-empty">预览区：输入 Markdown 后会实时显示。</p>
+                    <p className="text-sm text-[color:var(--text-muted)]">预览区：输入 Markdown 后会实时显示。</p>
                   )}
                 </div>
               </section>
             </div>
 
-            {articleActionState.error ? <p className="panel-error">{articleActionState.error}</p> : null}
+            {articleActionState.error ? <p className="text-sm text-rose-500/90">{articleActionState.error}</p> : null}
           </form>
         )}
       </section>
@@ -389,7 +389,7 @@ export default function StoriesPage({
           }
         >
           <div className="story-article-hero__inner">
-            <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/stories")}>
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/stories")}>
               ← 返回列表
             </button>
             <h1>{activeArticle?.title || "文章详情"}</h1>
@@ -402,7 +402,7 @@ export default function StoriesPage({
               作者：
               {activeArticle?.author ? (
                 <button
-                  className="profile-name-link profile-name-link--inline"
+                  className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium"
                   type="button"
                   onClick={() => navigateToAuthorSpace(activeArticle.author)}
                 >
@@ -428,7 +428,7 @@ export default function StoriesPage({
               <div className="story-article-hero__actions">
                 {canEditActiveArticle && activeArticle ? (
                   <button
-                    className="ghost-button"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
                     onClick={() => onStartArticleEdit(activeArticle)}
                     disabled={articleManageActionState.pending || articleActionState.pending}
@@ -438,7 +438,7 @@ export default function StoriesPage({
                 ) : null}
                 {canDeleteArticle ? (
                   <button
-                    className="ghost-button story-reading-delete-button"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 story-reading-delete-button"
                     type="button"
                     onClick={() => void handleDeleteArticle()}
                     disabled={articleManageActionState.pending}
@@ -448,8 +448,8 @@ export default function StoriesPage({
                 ) : null}
               </div>
             ) : null}
-            {articleManageActionState.error ? <p className="panel-error">{articleManageActionState.error}</p> : null}
-            {articleManageActionState.success ? <p className="panel-empty">{articleManageActionState.success}</p> : null}
+            {articleManageActionState.error ? <p className="text-sm text-rose-500/90">{articleManageActionState.error}</p> : null}
+            {articleManageActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{articleManageActionState.success}</p> : null}
           </div>
         </header>
 
@@ -477,26 +477,26 @@ export default function StoriesPage({
               <p className="story-article-author-card__bio">{authorBio}</p>
               {buildPublicProfileHref(authorSpaceTarget) ? (
                 <button
-                  className="ghost-button story-article-author-card__link"
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 story-article-author-card__link"
                   type="button"
                   onClick={() => navigateToAuthorSpace(authorSpaceTarget)}
                 >
                   查看个人空间
                 </button>
               ) : null}
-              {authorProfileError ? <p className="panel-empty">资料读取失败，先展示基础信息。</p> : null}
+              {authorProfileError ? <p className="text-sm text-[color:var(--text-muted)]">资料读取失败，先展示基础信息。</p> : null}
             </aside>
 
             <article className="story-article-main">
               <p className="story-article-main__date">{articleCreatedAt}</p>
               {articleDetailError ? (
-                <p className="panel-error">{articleDetailError}</p>
+                <p className="text-sm text-rose-500/90">{articleDetailError}</p>
               ) : activeArticle ? (
-                <div className="detail-body story-article-main__body">
+                <div className="grid gap-3 text-sm leading-7 text-[color:var(--text-main)] story-article-main__body">
                   <RichContent content={activeArticle.content} />
                 </div>
               ) : (
-                <p className="panel-empty">文章详情加载中。</p>
+                <p className="text-sm text-[color:var(--text-muted)]">文章详情加载中。</p>
               )}
             </article>
 
@@ -541,7 +541,7 @@ export default function StoriesPage({
                 ))}
               </ul>
             ) : (
-              <p className="panel-empty">暂无可跳转的其他文章。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">暂无可跳转的其他文章。</p>
             )}
           </div>
         </section>
@@ -554,20 +554,16 @@ export default function StoriesPage({
   return (
     <>
       <section className="stories-feed-shell grid gap-4">
-        <article className="panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-          <div className="panel-heading mb-3 flex flex-wrap items-start justify-between gap-3">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker text-xs uppercase tracking-[0.14em] text-[color:var(--text-faint)]">最新文章</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)] text-xs tracking-[0.14em] text-[color:var(--text-faint)]">最新文章</p>
               <h2 className="text-xl font-semibold text-[color:var(--text-strong)]">专栏内容</h2>
             </div>
             <div className="stories-list-toolbar flex items-center gap-2">
               <StatusChip tone="accent">{articlePager.total} 篇</StatusChip>
               <button
-                className={`small-action-button inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${
-                  canWriteArticle
-                    ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]"
-                    : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]"
-                }`}
+                className={`px-2.5 py-1 text-xs inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${ canWriteArticle ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]" : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]" }`}
                 type="button"
                 onClick={onStartArticleCreate}
               >
@@ -575,18 +571,18 @@ export default function StoriesPage({
               </button>
             </div>
           </div>
-          <label className="list-search-row mb-2 grid gap-1" htmlFor="story-list-search">
+          <label className="grid gap-1 mb-2" htmlFor="story-list-search">
             <span className="text-xs text-[color:var(--text-muted)]">关键词搜索</span>
             <input
               id="story-list-search"
-              className="list-search-row__input w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)]"
+              className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)]"
               type="search"
               value={articleSearchKeyword}
               onChange={onArticleSearchKeywordChange}
               placeholder="按标题、摘要、正文、作者、标签搜索文章"
             />
           </label>
-          {articlesError ? <p className="panel-error">{articlesError}</p> : null}
+          {articlesError ? <p className="text-sm text-rose-500/90">{articlesError}</p> : null}
           <div className="story-snippet-list grid gap-2">
             {storyFeed.map((article) => {
               const previewImage = extractMarkdownPreviewImage(article.content);
@@ -616,7 +612,7 @@ export default function StoriesPage({
                         <span className="story-snippet-item__meta-author">
                           {buildPublicProfileHref(article.author) ? (
                             <span
-                              className="profile-name-link profile-name-link--inline"
+                              className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium"
                               role="link"
                               tabIndex={0}
                               onClick={(event) => handleAuthorClickInList(event, article.author)}
@@ -657,7 +653,7 @@ export default function StoriesPage({
               );
             })}
             {!storyFeed.length ? (
-              <p className="panel-empty">
+              <p className="text-sm text-[color:var(--text-muted)]">
                 {isLoadingData ? "文章数据加载中。" : "当前没有可展示的文章数据。"}
               </p>
             ) : null}

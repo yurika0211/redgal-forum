@@ -168,7 +168,7 @@ export default function ForumPage({
     if (options.nestedInClickable) {
       return (
         <span
-          className="profile-name-link profile-name-link--inline"
+          className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium"
           role="link"
           tabIndex={0}
           onClick={(event) => handleAuthorClick(event, name)}
@@ -181,7 +181,7 @@ export default function ForumPage({
 
     return (
       <button
-        className="profile-name-link profile-name-link--inline"
+        className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium"
         type="button"
         onClick={(event) => handleAuthorClick(event, name)}
       >
@@ -242,7 +242,7 @@ export default function ForumPage({
               <span>
                 正在回复 {formatForumFloor(replyTarget.floor_no)} · {replyTarget.author}
               </span>
-              <button className="ghost-button" type="button" onClick={onClearReplyTarget}>
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={onClearReplyTarget}>
                 取消
               </button>
             </div>
@@ -257,7 +257,7 @@ export default function ForumPage({
             required
           />
           <div className="forum-sticky-reply__actions">
-            <label className="gallery-admin__toggle">
+            <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
               <input
                 checked={replyForm.sage}
                 name="sage"
@@ -266,12 +266,12 @@ export default function ForumPage({
               />
               <span>不顶帖 (Sage)</span>
             </label>
-            <button className="primary-button" type="submit" disabled={replyActionState.pending}>
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={replyActionState.pending}>
               {replyActionState.pending ? "提交中..." : "提交回复"}
             </button>
           </div>
-          {replyActionState.error ? <p className="panel-error">{replyActionState.error}</p> : null}
-          {replyActionState.success ? <p className="panel-empty">{replyActionState.success}</p> : null}
+          {replyActionState.error ? <p className="text-sm text-rose-500/90">{replyActionState.error}</p> : null}
+          {replyActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{replyActionState.success}</p> : null}
         </form>
       );
     }
@@ -282,13 +282,13 @@ export default function ForumPage({
       }
 
       if (!session) {
-        return <p className="panel-empty">登录并通过认证后可在此楼层直接回复。</p>;
+        return <p className="text-sm text-[color:var(--text-muted)]">登录并通过认证后可在此楼层直接回复。</p>;
       }
       if (!hasVerifiedSpaceAccess) {
-        return <p className="panel-empty">当前账号还没有回复权限，需要通过认证后才能参与讨论。</p>;
+        return <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有回复权限，需要通过认证后才能参与讨论。</p>;
       }
       if (activeForumThread?.locked) {
-        return <p className="panel-empty">当前主题已锁定，暂时不能继续回复。</p>;
+        return <p className="text-sm text-[color:var(--text-muted)]">当前主题已锁定，暂时不能继续回复。</p>;
       }
 
       return (
@@ -307,14 +307,14 @@ export default function ForumPage({
         <div className="forum-comment-sublist">
           {nodes.map((node) => (
             <article
-              className="forum-comment-item forum-comment-item--nested"
+              className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 ml-4"
               key={node.reply.id}
               style={{ marginLeft: `${Math.min(depth, 4) * 14}px` }}
             >
-              <div className="forum-comment-item__head">
+              <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h3 className="forum-comment-item__floor">{formatForumFloor(node.reply.floor_no)}</h3>
-                  <p className="forum-reply-meta">
+                  <h3 className="text-sm font-semibold text-[color:var(--text-strong)]">{formatForumFloor(node.reply.floor_no)}</h3>
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                     {renderAuthorName(node.reply.author)}
                     {node.reply.tripcode ? <span>{node.reply.tripcode}</span> : null}
                     <span>{formatDateTime(node.reply.created_at)}</span>
@@ -323,7 +323,7 @@ export default function ForumPage({
                 </div>
                 <div className="forum-reply-actions">
                   <button
-                    className="ghost-button"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
                     onClick={(event) => handleReplyButtonClick(event, node.reply)}
                   >
@@ -331,7 +331,7 @@ export default function ForumPage({
                   </button>
                 </div>
               </div>
-              <div className="forum-comment-item__body detail-body detail-body--reply">
+              <div className="grid gap-2 gap-3 text-sm leading-7 text-[color:var(--text-main)]">
                 <RichContent content={node.reply.content} />
               </div>
               {renderInlineReplyComposer(node.reply)}
@@ -344,19 +344,19 @@ export default function ForumPage({
 
     return (
       <>
-        <section className="detail-page detail-page--forum detail-page--forum-compact">
-          <article className="panel detail-hero detail-hero--forum">
-            <div className="detail-hero__top">
-              <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/forum")}>
+        <section className="grid gap-4">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/forum")}>
                 返回讨论板
               </button>
               <div className="forum-reply-actions">
-                <button className="ghost-button" type="button" onClick={() => void onShareThread()}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void onShareThread()}>
                   分享主题
                 </button>
                 {canDeleteThread ? (
                   <button
-                    className="ghost-button story-reading-delete-button"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 story-reading-delete-button"
                     type="button"
                     onClick={() => void handleDeleteThread()}
                     disabled={threadManageActionState.pending}
@@ -366,16 +366,16 @@ export default function ForumPage({
                 ) : null}
               </div>
             </div>
-            {threadManageActionState.error ? <p className="panel-error">{threadManageActionState.error}</p> : null}
-            {threadManageActionState.success ? <p className="panel-empty">{threadManageActionState.success}</p> : null}
-            <p className="eyebrow">主题详情</p>
-            <h1 className="detail-hero__title">{activeForumThread?.title || "论坛主题详情"}</h1>
-            <p className="detail-hero__lede">
+            {threadManageActionState.error ? <p className="text-sm text-rose-500/90">{threadManageActionState.error}</p> : null}
+            {threadManageActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{threadManageActionState.success}</p> : null}
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">主题详情</p>
+            <h1 className="text-2xl font-semibold text-[color:var(--text-strong)]">{activeForumThread?.title || "论坛主题详情"}</h1>
+            <p className="text-sm leading-7 text-[color:var(--text-soft)]">
               {activeForumThread
                 ? "像单独帖子页一样阅读主楼、楼层和楼中楼，不再挤在列表旁边。"
                 : "正在读取主题内容。"}
             </p>
-            <div className="detail-hero__meta">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
               {activeForumThread ? renderAuthorName(activeForumThread.author) : <span>读取中</span>}
               <span>{activeForumThread?.board || "分区读取中"}</span>
               <span>{activeForumThread ? `${activeForumThread.view_count} 浏览` : "浏览读取中"}</span>
@@ -395,7 +395,7 @@ export default function ForumPage({
             {activeForumThread?.tags.length ? (
               <div className="tag-row">
                 {activeForumThread.tags.map((tag) => (
-                  <span className="module-tag" key={`${activeForumThread.id}-hero-${tag}`}>
+                  <span className="inline-flex items-center rounded-full border border-[color:var(--line-soft)] bg-white/45 px-2 py-0.5 text-xs text-[color:var(--text-muted)]" key={`${activeForumThread.id}-hero-${tag}`}>
                     {tag}
                   </span>
                 ))}
@@ -404,15 +404,15 @@ export default function ForumPage({
           </article>
 
           {threadPreviewImage ? (
-            <section className="panel detail-cover">
+            <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm detail-cover">
               <img alt={activeForumThread?.title || "主题封面"} src={threadPreviewImage} />
             </section>
           ) : null}
 
-          <section className="panel detail-main detail-main--thread forum-thread-reading">
-            <div className="panel-heading">
+          <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm detail-main detail-main--thread forum-thread-reading">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">正文</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">正文</p>
                 <h2>{activeForumThread?.title || "讨论主题"}</h2>
               </div>
               {activeForumThread ? (
@@ -422,36 +422,36 @@ export default function ForumPage({
               ) : null}
             </div>
             {threadDetailError ? (
-              <p className="panel-error">{threadDetailError}</p>
+              <p className="text-sm text-rose-500/90">{threadDetailError}</p>
             ) : activeForumThread ? (
-              <div className="detail-body">
-                <p className="detail-body__meta">
+              <div className="grid gap-3 text-sm leading-7 text-[color:var(--text-main)]">
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                   {formatPublishedAgo(activeForumThread.created_at)} ·{" "}
                   {formatDateTime(activeForumThread.last_post_at)} 最后活跃
                 </p>
                 <RichContent content={activeForumThread.content} />
               </div>
             ) : (
-              <p className="panel-empty">主题详情加载中。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">主题详情加载中。</p>
             )}
           </section>
 
-          <section className="panel detail-thread-replies">
-            <div className="panel-heading">
+          <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm detail-thread-replies">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">回复区</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">回复区</p>
                 <h2>正文评论列表</h2>
               </div>
               <div className="forum-thread-toolbar">
                 <button
-                  className={`ghost-button ${onlyShowThreadAuthor ? "ghost-button--active" : ""}`}
+                  className={`inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 ${onlyShowThreadAuthor ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)]" : ""}`}
                   type="button"
                   onClick={onToggleOnlyShowThreadAuthor}
                 >
                   {onlyShowThreadAuthor ? "恢复全部楼层" : "只看楼主"}
                 </button>
                 <button
-                  className="ghost-button"
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
                   onClick={handleCollapseButtonClick}
                 >
@@ -460,15 +460,15 @@ export default function ForumPage({
               </div>
             </div>
             <div className="forum-thread-replies__helper">
-              <p className="panel-empty">
+              <p className="text-sm text-[color:var(--text-muted)]">
                 阅读模式：{onlyShowThreadAuthor ? "只看楼主" : "全部楼层"}。
               </p>
-              <p className="panel-empty">
+              <p className="text-sm text-[color:var(--text-muted)]">
                 回复目标：{replyTarget ? `${formatForumFloor(replyTarget.floor_no)} · ${replyTarget.author}` : "主楼"}。
                 {replyTarget ? (
                   <>
                     {" "}
-                    <button className="detail-inline-button" type="button" onClick={onClearReplyTarget}>
+                    <button className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-2 py-1 text-xs text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80" type="button" onClick={onClearReplyTarget}>
                       改为回复主楼
                     </button>
                   </>
@@ -479,11 +479,11 @@ export default function ForumPage({
               {onlyShowThreadAuthor ? (
                 opReplies.length ? (
                 opReplies.map((reply) => (
-                  <article className="forum-comment-item forum-comment-item--op" key={reply.id}>
-                    <div className="forum-comment-item__head">
+                  <article className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)]" key={reply.id}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <h3 className="forum-comment-item__floor">{formatForumFloor(reply.floor_no)}</h3>
-                          <p className="forum-reply-meta">
+                        <h3 className="text-sm font-semibold text-[color:var(--text-strong)]">{formatForumFloor(reply.floor_no)}</h3>
+                          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                             {renderAuthorName(reply.author)}
                             {reply.tripcode ? <span>{reply.tripcode}</span> : null}
                             <span>{formatDateTime(reply.created_at)}</span>
@@ -493,7 +493,7 @@ export default function ForumPage({
                         <div className="forum-reply-actions">
                           <StatusChip tone="accent">楼主</StatusChip>
                           <button
-                            className="ghost-button"
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                             type="button"
                             onClick={(event) => handleReplyButtonClick(event, reply)}
                           >
@@ -501,22 +501,22 @@ export default function ForumPage({
                           </button>
                         </div>
                       </div>
-                    <div className="forum-comment-item__body detail-body detail-body--reply">
+                    <div className="grid gap-2 gap-3 text-sm leading-7 text-[color:var(--text-main)]">
                       <RichContent content={reply.content} />
                     </div>
                     {renderInlineReplyComposer(reply)}
                   </article>
                 ))
                 ) : (
-                  <p className="panel-empty">楼主暂时还没有后续跟帖。</p>
+                  <p className="text-sm text-[color:var(--text-muted)]">楼主暂时还没有后续跟帖。</p>
                 )
               ) : replyRoots.length ? (
                 replyRoots.map((node) => (
-                  <article className="forum-comment-item" key={node.reply.id}>
-                    <div className="forum-comment-item__head">
+                  <article className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={node.reply.id}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <h3 className="forum-comment-item__floor">{formatForumFloor(node.reply.floor_no)}</h3>
-                        <p className="forum-reply-meta">
+                        <h3 className="text-sm font-semibold text-[color:var(--text-strong)]">{formatForumFloor(node.reply.floor_no)}</h3>
+                        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                           {renderAuthorName(node.reply.author)}
                           {node.reply.tripcode ? <span>{node.reply.tripcode}</span> : null}
                           <span>{formatDateTime(node.reply.created_at)}</span>
@@ -527,7 +527,7 @@ export default function ForumPage({
                           <StatusChip tone="accent">楼主</StatusChip>
                         ) : null}
                         <button
-                          className="ghost-button"
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
                           onClick={(event) => handleReplyButtonClick(event, node.reply)}
                         >
@@ -535,7 +535,7 @@ export default function ForumPage({
                         </button>
                         {node.descendantCount ? (
                           <button
-                            className="ghost-button"
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                             type="button"
                             onClick={(event) => handleExpandButtonClick(event, node.reply.id)}
                           >
@@ -546,7 +546,7 @@ export default function ForumPage({
                         ) : null}
                       </div>
                     </div>
-                    <div className="forum-comment-item__body detail-body detail-body--reply">
+                    <div className="grid gap-2 gap-3 text-sm leading-7 text-[color:var(--text-main)]">
                       <RichContent content={node.reply.content} />
                     </div>
                     {renderInlineReplyComposer(node.reply)}
@@ -556,29 +556,29 @@ export default function ForumPage({
                   </article>
                 ))
               ) : (
-                <p className="panel-empty">这个主题暂时还没有回复。</p>
+                <p className="text-sm text-[color:var(--text-muted)]">这个主题暂时还没有回复。</p>
               )}
             </div>
           </section>
 
-          <section className="panel forum-sticky-reply forum-sticky-reply--plain">
+          <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm forum-sticky-reply forum-sticky-reply--plain">
             <div className="forum-sticky-reply__header">
               <div>
-                <p className="panel-kicker">底部互动区</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">底部互动区</p>
                 <h2>{replyTarget ? `回复 ${formatForumFloor(replyTarget.floor_no)}` : "快捷回复"}</h2>
               </div>
               <div className="forum-reply-actions">
-                <button className="ghost-button" type="button" onClick={() => onInsertReplySnippet("\n![](https://)")}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onInsertReplySnippet("\n![](https://)")}>
                   图片
                 </button>
-                <button className="ghost-button" type="button" onClick={() => onInsertReplySnippet(" (´・ω・`) ")}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onInsertReplySnippet(" (´・ω・`) ")}>
                   表情
                 </button>
-                <button className="ghost-button" type="button" onClick={() => void onShareThread()}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void onShareThread()}>
                   分享
                 </button>
                 <button
-                  className={`ghost-button ${activeForumThread?.favorited ? "ghost-button--active" : ""}`}
+                  className={`inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 ${activeForumThread?.favorited ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)]" : ""}`}
                   type="button"
                   onClick={onToggleThreadFavorite}
                   disabled={!session || !hasVerifiedSpaceAccess || threadEngagementActionState.pending}
@@ -586,7 +586,7 @@ export default function ForumPage({
                   {activeForumThread?.favorited ? "取消收藏" : "收藏"} · {activeForumThread?.favorite_count ?? 0}
                 </button>
                 <button
-                  className={`ghost-button ${activeForumThread?.liked ? "ghost-button--active" : ""}`}
+                  className={`inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 ${activeForumThread?.liked ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)]" : ""}`}
                   type="button"
                   onClick={onToggleThreadLike}
                   disabled={!session || !hasVerifiedSpaceAccess || threadEngagementActionState.pending}
@@ -595,19 +595,19 @@ export default function ForumPage({
                 </button>
               </div>
             </div>
-            {threadEngagementActionState.error ? <p className="panel-error">{threadEngagementActionState.error}</p> : null}
-            {threadEngagementActionState.success ? <p className="panel-empty">{threadEngagementActionState.success}</p> : null}
+            {threadEngagementActionState.error ? <p className="text-sm text-rose-500/90">{threadEngagementActionState.error}</p> : null}
+            {threadEngagementActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{threadEngagementActionState.success}</p> : null}
 
             {!session ? (
-              <p className="panel-empty">登录并通过认证后，可以直接在详情页底部快速回复当前主题。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">登录并通过认证后，可以直接在详情页底部快速回复当前主题。</p>
             ) : !hasVerifiedSpaceAccess ? (
-              <p className="panel-empty">当前账号还没有回复权限，需要通过认证后才能参与讨论。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有回复权限，需要通过认证后才能参与讨论。</p>
             ) : activeForumThread?.locked ? (
-              <p className="panel-empty">当前主题已锁定，暂时不能继续回复。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">当前主题已锁定，暂时不能继续回复。</p>
             ) : replyTarget ? (
-              <p className="panel-empty">
+              <p className="text-sm text-[color:var(--text-muted)]">
                 正在回复 {formatForumFloor(replyTarget.floor_no)} · {replyTarget.author}，输入框已在对应楼层展开。
-                <button className="detail-inline-button" type="button" onClick={onClearReplyTarget}>
+                <button className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-2 py-1 text-xs text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80" type="button" onClick={onClearReplyTarget}>
                   改为回复主楼
                 </button>
               </p>
@@ -626,42 +626,42 @@ export default function ForumPage({
 
   if (isForumEditorMode) {
     return (
-      <section className="detail-page">
-        <article className="panel detail-hero detail-hero--forum detail-hero--compact">
-          <div className="detail-hero__top">
-            <button className="ghost-button detail-back-link" type="button" onClick={() => onNavigate("/forum")}>
+      <section className="grid gap-4">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-2 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/forum")}>
               返回讨论列表
             </button>
           </div>
-          <div className="detail-hero__meta detail-hero__meta--compact">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)] gap-x-2">
             <span>/ 主题编辑</span>
             <span>{session ? "已登录" : "游客模式"}</span>
             <span>{boardCount} 个分区</span>
           </div>
-          <h1 className="detail-hero__title detail-hero__title--compact">发布主题</h1>
-          <p className="detail-hero__lede detail-hero__lede--compact">
+          <h1 className="text-2xl font-semibold text-[color:var(--text-strong)] text-xl">发布主题</h1>
+          <p className="text-sm leading-7 text-[color:var(--text-soft)]">
             在这里独立编辑标题、分区、标签与正文。发布后会自动跳到主题详情页继续互动。
           </p>
         </article>
 
         {!session ? (
-          <article className="panel">
-            <p className="panel-empty">登录并通过认证后，这里可以直接发布新的讨论主题。</p>
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <p className="text-sm text-[color:var(--text-muted)]">登录并通过认证后，这里可以直接发布新的讨论主题。</p>
           </article>
         ) : !hasVerifiedSpaceAccess ? (
-          <article className="panel">
-            <p className="panel-empty">当前账号还没有论坛写权限，需要通过认证后才能发帖。</p>
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有论坛写权限，需要通过认证后才能发帖。</p>
           </article>
         ) : (
-          <form className="panel stories-editor" onSubmit={(event) => void onThreadSubmit(event)}>
-            <div className="stories-editor__toolbar">
+          <form className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-3" onSubmit={(event) => void onThreadSubmit(event)}>
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">编辑器</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">编辑器</p>
                 <h2>主题编辑器</h2>
               </div>
-              <div className="stories-editor__toolbar-actions">
-                {threadActionState.success ? <span className="panel-empty">{threadActionState.success}</span> : null}
-                <button className="primary-button" type="submit" disabled={threadActionState.pending}>
+              <div className="flex flex-wrap items-center gap-2">
+                {threadActionState.success ? <span className="text-sm text-[color:var(--text-muted)]">{threadActionState.success}</span> : null}
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={threadActionState.pending}>
                   {threadActionState.pending ? "发布中..." : "发布主题"}
                 </button>
               </div>
@@ -679,7 +679,7 @@ export default function ForumPage({
               />
             </label>
 
-            <div className="stories-editor__meta-grid">
+            <div className="grid gap-3 md:grid-cols-2">
               <label>
                 <span>所属分区</span>
                 <input
@@ -709,9 +709,9 @@ export default function ForumPage({
               </label>
             </div>
 
-            <div className="stories-editor__split">
-              <section className="stories-editor__pane">
-                <div className="stories-editor__pane-head">Markdown 源文本</div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
+                <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
                 <textarea
                   name="content"
                   rows={14}
@@ -721,19 +721,19 @@ export default function ForumPage({
                   required
                 />
               </section>
-              <section className="stories-editor__pane stories-editor__pane--preview">
-                <div className="stories-editor__pane-head">实时预览</div>
-                <div className="stories-editor__preview">
+              <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3 bg-[color:var(--surface-card)]">
+                <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">实时预览</div>
+                <div className="min-h-[220px] overflow-auto rounded-lg border border-[color:var(--line-soft)] bg-white/55 p-3">
                   {threadForm.content.trim() ? (
                     <RichContent content={threadForm.content} />
                   ) : (
-                    <p className="panel-empty">预览区：输入主题内容后会实时显示。</p>
+                    <p className="text-sm text-[color:var(--text-muted)]">预览区：输入主题内容后会实时显示。</p>
                   )}
                 </div>
               </section>
             </div>
 
-            {threadActionState.error ? <p className="panel-error">{threadActionState.error}</p> : null}
+            {threadActionState.error ? <p className="text-sm text-rose-500/90">{threadActionState.error}</p> : null}
 
             {featuredListThread ? (
               <button
@@ -757,21 +757,17 @@ export default function ForumPage({
 
   return (
     <>
-      <section className="page-split-grid forum-list-page forum-list-page--compact grid gap-4">
-        <article className="panel forum-feed-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-          <div className="panel-heading mb-3 flex flex-wrap items-start justify-between gap-3">
+      <section className="grid gap-4 forum-list-page forum-list-page--compact">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm forum-feed-panel">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker text-xs uppercase tracking-[0.14em] text-[color:var(--text-faint)]">帖子流</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)] text-xs tracking-[0.14em] text-[color:var(--text-faint)]">帖子流</p>
               <h2 className="text-xl font-semibold text-[color:var(--text-strong)]">讨论串列表</h2>
             </div>
             <div className="forum-list-page__toolbar flex items-center gap-2">
               <StatusChip tone="accent">{threadPager.total} 条主题</StatusChip>
               <button
-                className={`small-action-button inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${
-                  canCompose
-                    ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]"
-                    : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]"
-                }`}
+                className={`px-2.5 py-1 text-xs inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${ canCompose ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]" : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]" }`}
                 type="button"
                 onClick={() => onNavigate("/forum/editor")}
               >
@@ -779,13 +775,13 @@ export default function ForumPage({
               </button>
             </div>
           </div>
-          {threadsError ? <p className="panel-error">{threadsError}</p> : null}
+          {threadsError ? <p className="text-sm text-rose-500/90">{threadsError}</p> : null}
           <div className="forum-board-filter-row flex flex-wrap items-center gap-2">
-            <label className="list-search-row min-w-[220px] flex-1 grid gap-1" htmlFor="forum-thread-search">
+            <label className="grid gap-1 min-w-[220px] flex-1" htmlFor="forum-thread-search">
               <span className="text-xs text-[color:var(--text-muted)]">关键词搜索</span>
               <input
                 id="forum-thread-search"
-                className="list-search-row__input w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)]"
+                className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)]"
                 type="search"
                 value={threadSearchKeyword}
                 onChange={onThreadSearchKeywordChange}
@@ -794,9 +790,9 @@ export default function ForumPage({
             </label>
             {boardFilterOptions.map((board) => (
               <button
-                className={`ghost-button inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${
+                className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${
                   selectedForumBoard === board
-                    ? "ghost-button--active border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)]"
+                    ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)]"
                     : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]"
                 }`}
                 key={board}
@@ -831,7 +827,7 @@ export default function ForumPage({
               );
             })}
             {!filteredThreadFeed.length ? (
-              <p className="panel-empty">
+              <p className="text-sm text-[color:var(--text-muted)]">
                 {isLoadingData ? "讨论数据加载中。" : "当前筛选条件下没有可展示的讨论主题。"}
               </p>
             ) : null}

@@ -497,7 +497,7 @@ export default function GalleryPage({
         </div>
         {canManageGallery ? (
           <div className="gallery-photo-shell__head-actions">
-            <button className="ghost-button" onClick={() => setIsEditorOpen((current) => !current)} type="button">
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => setIsEditorOpen((current) => !current)} type="button">
               {isEditorOpen ? "收起前台编辑" : "前台编辑"}
             </button>
           </div>
@@ -506,14 +506,14 @@ export default function GalleryPage({
 
       {canManageGallery && isEditorOpen ? (
         <section className="gallery-inline-admin">
-          <article className="content-card gallery-inline-admin__card">
-            <div className="content-card__header">
+          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 gallery-inline-admin__card">
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
               <h3>{editingGalleryEntryID ? "编辑展示条目" : "新建展示条目"}</h3>
               <StatusChip tone="accent">{editingGalleryEntryID ? "编辑模式" : "创建模式"}</StatusChip>
             </div>
-            {galleryActionState.error ? <p className="panel-error">{galleryActionState.error}</p> : null}
-            {galleryActionState.success ? <p className="panel-empty">{galleryActionState.success}</p> : null}
-            <form className="space-form gallery-inline-admin__form" onSubmit={(event) => void onGallerySubmit(event)}>
+            {galleryActionState.error ? <p className="text-sm text-rose-500/90">{galleryActionState.error}</p> : null}
+            {galleryActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{galleryActionState.success}</p> : null}
+            <form className="grid gap-3 gallery-inline-admin__form" onSubmit={(event) => void onGallerySubmit(event)}>
               <label>
                 <span>条目类型</span>
                 <select
@@ -578,11 +578,11 @@ export default function GalleryPage({
                       多图上传会自动按当前类型与排序批量创建条目。
                     </p>
                   ) : null}
-                  {galleryUploadState.error ? <p className="panel-error">{galleryUploadState.error}</p> : null}
-                  {galleryUploadState.success ? <p className="panel-empty">{galleryUploadState.success}</p> : null}
-                  <div className="gallery-admin__actions gallery-inline-admin__upload-actions">
+                  {galleryUploadState.error ? <p className="text-sm text-rose-500/90">{galleryUploadState.error}</p> : null}
+                  {galleryUploadState.success ? <p className="text-sm text-[color:var(--text-muted)]">{galleryUploadState.success}</p> : null}
+                  <div className="flex flex-wrap items-center gap-2 gallery-inline-admin__upload-actions">
                     <button
-                      className="ghost-button"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={galleryUploadState.pending || uploadFileCount <= 0}
                       onClick={() => void onGalleryUploadFiles(pendingUploadFiles)}
                       type="button"
@@ -590,7 +590,7 @@ export default function GalleryPage({
                       {galleryUploadState.pending ? "上传中..." : "上传图片"}
                     </button>
                     <button
-                      className="ghost-button"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={galleryUploadState.pending || uploadFileCount <= 0}
                       onClick={() => setPendingUploadFiles([])}
                       type="button"
@@ -604,27 +604,27 @@ export default function GalleryPage({
                 <span>排序</span>
                 <input name="sort_order" onChange={onGalleryFieldChange} value={galleryForm.sort_order} />
               </label>
-              <label className="gallery-admin__toggle">
+              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
                 <input checked={galleryForm.active} name="active" onChange={onGalleryFieldChange} type="checkbox" />
                 <span>设为公开展示</span>
               </label>
-              <div className="gallery-admin__actions">
-                <button className="primary-button" disabled={galleryActionState.pending} type="submit">
+              <div className="flex flex-wrap items-center gap-2">
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" disabled={galleryActionState.pending} type="submit">
                   {galleryActionState.pending ? "保存中..." : editingGalleryEntryID ? "更新展示条目" : "创建展示条目"}
                 </button>
-                <button className="ghost-button" onClick={onGalleryEditorReset} type="button">
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={onGalleryEditorReset} type="button">
                   清空表单
                 </button>
               </div>
             </form>
             <div className="gallery-inline-admin__preview">
-              <p className="panel-kicker">实时预览</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">实时预览</p>
               <figure className="gallery-photo-card">
                 <div className="gallery-photo-card__media">
                   {editorPreviewImage ? (
                     <img alt={galleryForm.title || "未命名条目"} src={editorPreviewImage} />
                   ) : (
-                    <p className="panel-empty">暂无图片预览</p>
+                    <p className="text-sm text-[color:var(--text-muted)]">暂无图片预览</p>
                   )}
                 </div>
                 <figcaption className="gallery-photo-card__caption">
@@ -639,14 +639,14 @@ export default function GalleryPage({
             </div>
           </article>
 
-          <article className="content-card gallery-inline-admin__card">
-            <div className="content-card__header">
+          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 gallery-inline-admin__card">
+            <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
               <h3>布局与条目列表</h3>
               <StatusChip tone="neutral">{adminGalleryPager.total} 条</StatusChip>
             </div>
             <p className="gallery-inline-admin__hint">布局设置保存到当前浏览器，条目编辑会直接写入站点数据。</p>
             <form
-              className="space-form gallery-inline-admin__layout"
+              className="grid gap-3 gallery-inline-admin__layout"
               onSubmit={(event) => {
                 event.preventDefault();
               }}
@@ -684,9 +684,9 @@ export default function GalleryPage({
                   <option value="portrait">竖向</option>
                 </select>
               </label>
-              <div className="gallery-admin__actions">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  className="ghost-button"
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
                   onClick={() => setLayoutState(DEFAULT_GALLERY_LAYOUT)}
                 >
@@ -695,8 +695,8 @@ export default function GalleryPage({
               </div>
             </form>
 
-            <div className="gallery-admin__actions gallery-inline-admin__bulk-actions">
-              <label className="gallery-admin__toggle">
+            <div className="flex flex-wrap items-center gap-2 gallery-inline-admin__bulk-actions">
+              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
                 <input
                   type="checkbox"
                   checked={allCurrentPageSelected}
@@ -707,7 +707,7 @@ export default function GalleryPage({
                 <span>本页全选（{selectedEntryIDs.length}/{localAdminEntries.length}）</span>
               </label>
               <button
-                className="ghost-button"
+                className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 disabled={!selectedEntryIDs.length}
                 onClick={() => void onGalleryBulkSetActive(selectedEntryIDs, true)}
@@ -715,7 +715,7 @@ export default function GalleryPage({
                 批量公开
               </button>
               <button
-                className="ghost-button"
+                className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 disabled={!selectedEntryIDs.length}
                 onClick={() => void onGalleryBulkSetActive(selectedEntryIDs, false)}
@@ -723,7 +723,7 @@ export default function GalleryPage({
                 批量隐藏
               </button>
               <button
-                className="ghost-button gallery-admin__danger"
+                className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30"
                 type="button"
                 disabled={!selectedEntryIDs.length}
                 onClick={() => {
@@ -740,10 +740,10 @@ export default function GalleryPage({
               </button>
             </div>
 
-            <div className="stack-list gallery-entry-inline-list">
+            <div className="grid gap-3 gallery-entry-inline-list">
               {localAdminEntries.map((entry) => (
                 <div
-                  className={`content-card gallery-entry-inline-item ${
+                  className={`rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 gallery-entry-inline-item ${
                     selectedEntryIDs.includes(entry.id) ? "gallery-entry-inline-item--selected" : ""
                   }`}
                   key={entry.id}
@@ -761,7 +761,7 @@ export default function GalleryPage({
                     void onGalleryReorder(nextEntries.map((item) => item.id));
                   }}
                 >
-                  <div className="content-card__header">
+                  <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                     <h3>
                       <label className="gallery-entry-inline-item__check">
                         <input
@@ -783,39 +783,39 @@ export default function GalleryPage({
                     </StatusChip>
                   </div>
                   <p>{entry.body || "暂无描述。"}</p>
-                  <div className="meta-row">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                     <span>{galleryEntryTypeLabel(entry.entry_type)}</span>
                     <span>排序: {entry.sort_order}</span>
                     <span>别名: {entry.slug}</span>
                   </div>
-                  <div className="gallery-admin__actions">
-                    <button className="ghost-button" onClick={() => void onGallerySortNudge(entry, -1)} type="button">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => void onGallerySortNudge(entry, -1)} type="button">
                       上移
                     </button>
-                    <button className="ghost-button" onClick={() => void onGallerySortNudge(entry, 1)} type="button">
+                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => void onGallerySortNudge(entry, 1)} type="button">
                       下移
                     </button>
-                    <button className="ghost-button" onClick={() => onGalleryEditStart(entry)} type="button">
+                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => onGalleryEditStart(entry)} type="button">
                       编辑
                     </button>
-                    <button className="ghost-button gallery-admin__danger" onClick={() => void onGalleryDelete(entry)} type="button">
+                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30" onClick={() => void onGalleryDelete(entry)} type="button">
                       删除
                     </button>
                   </div>
                 </div>
               ))}
-              {!localAdminEntries.length ? <p className="panel-empty">当前还没有可管理的展示条目。</p> : null}
+              {!localAdminEntries.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有可管理的展示条目。</p> : null}
             </div>
             {adminGalleryPager.total <= 0 ? (
-              <p className="panel-empty">暂无可管理条目。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">暂无可管理条目。</p>
             ) : (
-              <div className="pagination-bar gallery-inline-admin__pager">
-                <span className="pagination-bar__meta">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2">
+                <span className="text-xs text-[color:var(--text-muted)]">
                   第 {adminGalleryPager.page} / {Math.max(adminGalleryPager.totalPages, 1)} 页，共 {adminGalleryPager.total} 条
                 </span>
-                <div className="pagination-bar__actions">
+                <div className="flex items-center gap-2">
                   <button
-                    className="ghost-button"
+                    className="inline-flex min-h-8 items-center justify-center rounded-full border border-[color:var(--line-soft)] bg-white/60 px-3 py-1 text-xs font-semibold text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
                     disabled={adminGalleryPager.page <= 1}
                     onClick={() => onGalleryPageChange(adminGalleryPager.page - 1)}
                     type="button"
@@ -823,7 +823,7 @@ export default function GalleryPage({
                     上一页
                   </button>
                   <button
-                    className="ghost-button"
+                    className="inline-flex min-h-8 items-center justify-center rounded-full border border-[color:var(--line-soft)] bg-white/60 px-3 py-1 text-xs font-semibold text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
                     disabled={adminGalleryPager.totalPages === 0 || adminGalleryPager.page >= adminGalleryPager.totalPages}
                     onClick={() => onGalleryPageChange(adminGalleryPager.page + 1)}
                     type="button"
@@ -878,7 +878,7 @@ export default function GalleryPage({
             </article>
           ))}
           {!curationSections.length ? (
-            <p className="panel-empty">当前还没有展示图片，管理员可在上方直编中创建条目并填写图片链接。</p>
+            <p className="text-sm text-[color:var(--text-muted)]">当前还没有展示图片，管理员可在上方直编中创建条目并填写图片链接。</p>
           ) : null}
         </div>
       </div>
@@ -894,10 +894,10 @@ export default function GalleryPage({
           <article className="gallery-lightbox__panel">
             <div className="gallery-lightbox__head">
               <div>
-                <p className="panel-kicker">{activeLightboxPhoto.sectionKicker}</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{activeLightboxPhoto.sectionKicker}</p>
                 <h3>{activeLightboxPhoto.title}</h3>
               </div>
-              <button className="ghost-button" onClick={() => setLightboxIndex(-1)} type="button">
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => setLightboxIndex(-1)} type="button">
                 关闭
               </button>
             </div>
@@ -924,7 +924,7 @@ export default function GalleryPage({
                 {canManageGallery && activeLightboxPhoto.entryID ? (
                   <div className="gallery-lightbox__annotation-actions">
                     <button
-                      className="ghost-button"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isAnnotationSaving}
                       onClick={() => void handleLightboxAnnotationSave()}
                       type="button"
@@ -933,7 +933,7 @@ export default function GalleryPage({
                     </button>
                   </div>
                 ) : null}
-                {lightboxAnnotationFeedback ? <p className="panel-empty">{lightboxAnnotationFeedback}</p> : null}
+                {lightboxAnnotationFeedback ? <p className="text-sm text-[color:var(--text-muted)]">{lightboxAnnotationFeedback}</p> : null}
               </div>
               <div className="gallery-lightbox__meta">
                 <span>{activeLightboxPhoto.sectionTitle}</span>
@@ -944,7 +944,7 @@ export default function GalleryPage({
               </div>
               <div className="gallery-lightbox__actions">
                 <button
-                  className="ghost-button"
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={lightboxPhotos.length <= 1}
                   onClick={() =>
                     setLightboxIndex((current) => (current - 1 + lightboxPhotos.length) % lightboxPhotos.length)
@@ -954,7 +954,7 @@ export default function GalleryPage({
                   上一张
                 </button>
                 <button
-                  className="ghost-button"
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={lightboxPhotos.length <= 1}
                   onClick={() =>
                     setLightboxIndex((current) => (current + 1 + lightboxPhotos.length) % lightboxPhotos.length)

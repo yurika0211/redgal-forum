@@ -397,17 +397,17 @@ export default function HomePage({
   return (
     <>
       {canAdmin ? (
-        <section className="panel home-admin-toolbar-panel">
-          <div className="panel-heading">
+        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-admin-toolbar-panel">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">前台编辑</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">前台编辑</p>
               <h2>点卡片右上角直接编辑</h2>
             </div>
             <StatusChip tone="accent">Inline Edit</StatusChip>
           </div>
-          <p className="panel-empty">首页每个卡片都支持右上角小按钮快速编辑并保存。</p>
-          {editorState.error ? <p className="panel-error">{editorState.error}</p> : null}
-          {editorState.success ? <p className="panel-empty">{editorState.success}</p> : null}
+          <p className="text-sm text-[color:var(--text-muted)]">首页每个卡片都支持右上角小按钮快速编辑并保存。</p>
+          {editorState.error ? <p className="text-sm text-rose-500/90">{editorState.error}</p> : null}
+          {editorState.success ? <p className="text-sm text-[color:var(--text-muted)]">{editorState.success}</p> : null}
         </section>
       ) : null}
 
@@ -420,9 +420,9 @@ export default function HomePage({
             onClick={handleCloseCardEditor}
           />
           <article className="home-card-editor-modal__panel">
-            <div className="panel-heading">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">卡片编辑</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">卡片编辑</p>
                 <h2 id="home-card-editor-title">{cardEditor.title}</h2>
               </div>
             </div>
@@ -461,10 +461,10 @@ export default function HomePage({
                 ))}
               </div>
               <div className="home-card-editor-form__actions">
-                <button className="primary-button" type="submit" disabled={editorState.pending}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={editorState.pending}>
                   {editorState.pending ? "保存中..." : "保存"}
                 </button>
-                <button className="ghost-button" type="button" onClick={handleCloseCardEditor} disabled={editorState.pending}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={handleCloseCardEditor} disabled={editorState.pending}>
                   取消
                 </button>
               </div>
@@ -498,14 +498,14 @@ export default function HomePage({
           </div>
 
           <div className="hero-action-row">
-            <button className="primary-button" type="button" onClick={() => onNavigate("/forum")}>
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onNavigate("/forum")}>
               {homeConfig.hero.forumButtonLabel}
             </button>
-            <button className="ghost-button hero-action-button" type="button" onClick={() => onNavigate("/gallery")}>
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 min-w-[120px]" type="button" onClick={() => onNavigate("/gallery")}>
               {homeConfig.hero.galleryButtonLabel}
             </button>
             <button
-              className="ghost-button hero-action-button"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 min-w-[120px]"
               type="button"
               onClick={() => setShowExtendedSections((current) => !current)}
             >
@@ -555,38 +555,38 @@ export default function HomePage({
         </div>
       </section>
 
-      <section className="panel home-focus-strip">
-        <div className="panel-heading">
+      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-focus-strip">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="panel-kicker">推荐浏览</p>
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">推荐浏览</p>
             <h2>首页先看核心，再展开扩展</h2>
           </div>
           <StatusChip tone="accent">{showExtendedSections ? "完整浏览" : "聚焦浏览"}</StatusChip>
         </div>
         <div className="home-focus-strip__grid">
-          <article className="content-card">
-            <p className="panel-kicker">核心模块</p>
+          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">核心模块</p>
             <h3>沿革 + 入口卡片</h3>
             <p>先完成站点定位与关键入口扫描，再决定是否进入规则与展示区。</p>
           </article>
-          <article className="content-card">
-            <p className="panel-kicker">扩展模块</p>
+          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">扩展模块</p>
             <h3>规则 + 展示墙</h3>
             <p>移动端默认折叠，减少首屏过长与信息拥挤。</p>
           </article>
-          <article className="content-card">
-            <p className="panel-kicker">当前状态</p>
+          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">当前状态</p>
             <h3>{showExtendedSections ? "扩展区已展开" : "扩展区已折叠"}</h3>
             <p>{showExtendedSections ? "你正在浏览完整首页内容。" : "你正在按聚焦路径浏览首页。"}</p>
           </article>
         </div>
       </section>
 
-      <section className="page-split-grid home-history-grid">
-        <article className="panel home-history-panel">
-          <div className="panel-heading">
+      <section className="grid gap-4 lg:grid-cols-2 home-history-grid">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-history-panel">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">{homeConfig.history.kicker}</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{homeConfig.history.kicker}</p>
               <h2>{homeConfig.history.title}</h2>
             </div>
           </div>
@@ -597,22 +597,22 @@ export default function HomePage({
           </div>
         </article>
 
-        <article className="panel home-history-side">
-          <div className="panel-heading">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-history-side">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">{homeConfig.history.sideKicker}</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{homeConfig.history.sideKicker}</p>
               <h2>{homeConfig.history.sideTitle}</h2>
             </div>
           </div>
-          <ul className="home-text-list">
+          <ul className="grid gap-2">
             {historyCards.map((item) => (
-              <li className={`home-text-list__item ${canAdmin ? "home-editable-card" : ""}`} key={item.key}>
+              <li className={`grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 ${canAdmin ? "home-editable-card" : ""}`} key={item.key}>
                 {canAdmin ? (
                   <button className="home-card-edit" type="button" onClick={() => openHistoryItemEditor(item.key)}>
                     编辑
                   </button>
                 ) : null}
-                <p className="home-text-list__heading">
+                <p className="flex items-center justify-between gap-2 text-sm font-semibold text-[color:var(--text-strong)]">
                   <span>{item.heading}</span>
                   <span>{item.value}</span>
                 </p>
@@ -623,10 +623,10 @@ export default function HomePage({
         </article>
       </section>
 
-      <section className="panel home-link-list-panel">
-        <div className="panel-heading">
+      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-link-list-panel">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="panel-kicker">{homeConfig.links.kicker}</p>
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{homeConfig.links.kicker}</p>
             <h2>{homeConfig.links.title}</h2>
           </div>
         </div>
@@ -660,16 +660,16 @@ export default function HomePage({
       </section>
 
       {!showExtendedSections ? (
-        <section className="panel home-sections-gate">
-          <div className="panel-heading">
+        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-sections-gate">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">More Modules</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">More Modules</p>
               <h2>还有 2 个扩展模块</h2>
             </div>
             <StatusChip tone="neutral">按需展开</StatusChip>
           </div>
-          <p className="panel-empty">规则区与展示墙已折叠，点击按钮展开完整首页。</p>
-          <button className="ghost-button" type="button" onClick={() => setShowExtendedSections(true)}>
+          <p className="text-sm text-[color:var(--text-muted)]">规则区与展示墙已折叠，点击按钮展开完整首页。</p>
+          <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => setShowExtendedSections(true)}>
             展开扩展模块
           </button>
         </section>
@@ -677,22 +677,22 @@ export default function HomePage({
 
       {showExtendedSections ? (
         <>
-          <section className="panel home-rules-list-panel">
-            <div className="panel-heading">
+          <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-rules-list-panel">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">{homeConfig.rules.kicker}</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{homeConfig.rules.kicker}</p>
                 <h2>{homeConfig.rules.title}</h2>
               </div>
             </div>
-            <ul className="home-text-list home-text-list--rules">
+            <ul className="grid gap-2 gap-3">
               {homeConfig.rules.items.map((card, index) => (
-                <li className={`home-text-list__item ${canAdmin ? "home-editable-card" : ""}`} key={card.id}>
+                <li className={`grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 ${canAdmin ? "home-editable-card" : ""}`} key={card.id}>
                   {canAdmin ? (
                     <button className="home-card-edit" type="button" onClick={() => openRuleEditor(index)}>
                       编辑
                     </button>
                   ) : null}
-                  <p className="home-text-list__heading">
+                  <p className="flex items-center justify-between gap-2 text-sm font-semibold text-[color:var(--text-strong)]">
                     <span>{card.title}</span>
                   </p>
                   <p>{card.body}</p>
@@ -701,10 +701,10 @@ export default function HomePage({
             </ul>
           </section>
 
-          <section className="panel home-gallery-bottom">
-            <div className="panel-heading">
+          <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm home-gallery-bottom">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">{homeConfig.gallery.kicker}</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{homeConfig.gallery.kicker}</p>
                 <h2>{homeConfig.gallery.title}</h2>
               </div>
               <StatusChip tone="neutral">{wallPager.total} 条公开内容</StatusChip>

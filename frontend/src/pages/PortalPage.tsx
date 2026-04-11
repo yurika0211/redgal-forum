@@ -144,9 +144,9 @@ export default function PortalPage({
 
   return (
     <>
-      <section className="panel portal-manifesto">
+      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-manifesto">
         <div className="portal-manifesto__head">
-          <p className="eyebrow">社团介绍 / manifesto</p>
+          <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">社团介绍 / manifesto</p>
           <h1>从 2017 到现在，我们把热爱写进了持续发生的社团活动。</h1>
         </div>
         <div className="portal-manifesto__body portal-manifesto__body--single">
@@ -167,11 +167,11 @@ export default function PortalPage({
         </div>
       </section>
 
-      <section className="page-split-grid portal-brief-grid">
-        <article className="panel">
-          <div className="panel-heading">
+      <section className="grid gap-4 lg:grid-cols-2 portal-brief-grid">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">站内公告</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">站内公告</p>
               <h2>最新公告栏</h2>
             </div>
           </div>
@@ -183,14 +183,14 @@ export default function PortalPage({
                 <p>{notice.description || notice.body}</p>
               </div>
             ))}
-            {!notices.length ? <p className="panel-empty">当前还没有发布公告。</p> : null}
+            {!notices.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有发布公告。</p> : null}
           </div>
         </article>
 
-        <article className="panel">
-          <div className="panel-heading">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">先从哪里看起</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">先从哪里看起</p>
               <h2>板块导航</h2>
             </div>
           </div>
@@ -211,15 +211,15 @@ export default function PortalPage({
         </article>
       </section>
 
-      <section className="panel portal-activity-panel">
-        <div className="panel-heading">
+      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-activity-panel">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="panel-kicker">活动与聚会</p>
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动与聚会</p>
             <h2>最近会遇到的事情</h2>
           </div>
           {canAdmin ? (
             <button
-              className="ghost-button small-action-button"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs"
               type="button"
               disabled={activityActionState.pending}
               onClick={startCreateActivity}
@@ -228,8 +228,8 @@ export default function PortalPage({
             </button>
           ) : null}
         </div>
-        {canAdmin && activityActionState.error ? <p className="panel-error">{activityActionState.error}</p> : null}
-        {canAdmin && activityActionState.success ? <p className="panel-empty">{activityActionState.success}</p> : null}
+        {canAdmin && activityActionState.error ? <p className="text-sm text-rose-500/90">{activityActionState.error}</p> : null}
+        {canAdmin && activityActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{activityActionState.success}</p> : null}
         <div className="portal-timeline">
           <span className="portal-timeline__line" aria-hidden="true" />
           {societyActivities.map((activity, index) => (
@@ -244,7 +244,7 @@ export default function PortalPage({
                   {canAdmin ? (
                     <div className="portal-timeline-item__actions">
                       <button
-                        className="ghost-button small-action-button"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs"
                         type="button"
                         disabled={activityActionState.pending}
                         onClick={() => startEditActivity(activity)}
@@ -252,7 +252,7 @@ export default function PortalPage({
                         编辑
                       </button>
                       <button
-                        className="ghost-button small-action-button gallery-admin__danger"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30"
                         type="button"
                         disabled={activityActionState.pending}
                         onClick={() => void handleDeleteActivity(activity)}
@@ -267,13 +267,13 @@ export default function PortalPage({
               </div>
             </article>
           ))}
-          {!societyActivities.length ? <p className="panel-empty">当前还没有活动安排。</p> : null}
+          {!societyActivities.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有活动安排。</p> : null}
         </div>
         {canAdmin && activityEditorMode ? (
-          <form className="space-form portal-timeline-editor" onSubmit={(event) => void handleActivityEditorSubmit(event)}>
-            <div className="panel-heading">
+          <form className="grid gap-3 portal-timeline-editor" onSubmit={(event) => void handleActivityEditorSubmit(event)}>
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">时间轴编辑</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">时间轴编辑</p>
                 <h3>{activityEditorMode === "create" ? "新增时间轴节点" : "编辑时间轴节点"}</h3>
               </div>
             </div>
@@ -303,10 +303,10 @@ export default function PortalPage({
               />
             </label>
             <div className="portal-timeline-editor__actions">
-              <button className="primary-button" type="submit" disabled={activityActionState.pending}>
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={activityActionState.pending}>
                 {activityActionState.pending ? "保存中..." : "保存"}
               </button>
-              <button className="ghost-button" type="button" disabled={activityActionState.pending} onClick={closeActivityEditor}>
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={activityActionState.pending} onClick={closeActivityEditor}>
                 取消
               </button>
             </div>
@@ -314,14 +314,14 @@ export default function PortalPage({
         ) : null}
       </section>
 
-      <section className="panel">
-        <div className="panel-heading">
+      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="panel-kicker">一句实话</p>
+            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">一句实话</p>
             <h2>我们并不完美，但一直有人还想继续做下去</h2>
           </div>
         </div>
-        <p className="panel-empty">
+        <p className="text-sm text-[color:var(--text-muted)]">
           百川乃大未必已经完成过属于自己的视觉小说，站点也还在一点点长出来。
           但社团真正重要的并不是“已经做成了什么”，而是每一年总会有人重新把热情接过来。
         </p>

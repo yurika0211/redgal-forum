@@ -118,7 +118,7 @@ function Header({
 
   return (
     <header
-      className={`sticky top-0 z-50 mx-auto mt-0.5 w-[calc(100%-12px)] md:w-[min(70vw,1600px)] rounded-b-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/95 shadow-[0_10px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-all duration-200 ${
+      className={`sticky top-0 z-50 mx-auto mt-0.5 w-[calc(100%-16px)] md:w-[min(68vw,1520px)] rounded-b-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/95 shadow-[0_10px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-all duration-200 ${
         hidden ? "pointer-events-none md:-translate-y-[112%] md:opacity-0" : "translate-y-0 opacity-100"
       }`}
     >

@@ -14,7 +14,7 @@ function renderInlineFormattedText(text: string, keyPrefix: string): ReactNode[]
       const [, label, href] = linkMatch;
       return (
         <a
-          className="detail-body__link"
+          className="text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)]"
           href={href}
           key={key}
           rel={href.startsWith("http") ? "noreferrer" : undefined}
@@ -63,7 +63,11 @@ function renderKatexMath(expression: string, displayMode: boolean, key: string):
 
     return (
       <span
-        className={`detail-body__math-katex ${displayMode ? "detail-body__math-katex--block" : "detail-body__math-katex--inline"}`}
+        className={
+          displayMode
+            ? "my-2 block overflow-x-auto rounded-lg border border-[color:var(--line-soft)] bg-white/45 px-2 py-1"
+            : "inline-block align-baseline"
+        }
         dangerouslySetInnerHTML={{ __html: html }}
         key={key}
       />
@@ -90,7 +94,7 @@ interface RichContentProps {
 export default function RichContent({ content }: RichContentProps) {
   const normalized = content.replace(/\r/g, "").trim();
   if (!normalized) {
-    return <p className="panel-empty">内容暂时为空。</p>;
+    return <p className="text-sm text-[color:var(--text-muted)]">内容暂时为空。</p>;
   }
 
   const blocks = normalized
@@ -111,9 +115,9 @@ export default function RichContent({ content }: RichContentProps) {
 
         if (imageLines.length === lines.length && imageLines.length > 0) {
           return (
-            <div className="detail-body__gallery" key={key}>
+            <div className="grid gap-3 sm:grid-cols-2" key={key}>
               {imageLines.map((match, imageIndex) => (
-                <figure className="detail-body__figure" key={`${key}-image-${imageIndex}`}>
+                <figure className="grid gap-1 rounded-lg border border-[color:var(--line-soft)] bg-white/45 p-2" key={`${key}-image-${imageIndex}`}>
                   <img alt={match[1] || "详情图片"} src={match[2]} />
                   {match[1] ? <figcaption>{match[1]}</figcaption> : null}
                 </figure>
@@ -123,7 +127,7 @@ export default function RichContent({ content }: RichContentProps) {
         }
 
         if (lines.length === 1 && isHorizontalRuleLine(lines[0])) {
-          return <hr className="detail-body__divider" key={key} />;
+          return <hr className="my-3 border-0 border-t border-dashed border-[color:var(--line-soft)]" key={key} />;
         }
 
         const headingMatch = block.match(/^(#{1,4})\s+(.+)$/);
@@ -133,20 +137,20 @@ export default function RichContent({ content }: RichContentProps) {
           headingIndex += 1;
           if (marks.length === 1) {
             return (
-              <h2 className="detail-body__heading" id={headingAnchorID} key={key}>
+              <h2 className="mt-2 text-2xl font-semibold text-[color:var(--text-strong)]" id={headingAnchorID} key={key}>
                 {title}
               </h2>
             );
           }
           if (marks.length === 2) {
             return (
-              <h3 className="detail-body__heading" id={headingAnchorID} key={key}>
+              <h3 className="mt-2 text-xl font-semibold text-[color:var(--text-strong)]" id={headingAnchorID} key={key}>
                 {title}
               </h3>
             );
           }
           return (
-            <h4 className="detail-body__heading" id={headingAnchorID} key={key}>
+            <h4 className="mt-2 text-lg font-semibold text-[color:var(--text-strong)]" id={headingAnchorID} key={key}>
               {title}
             </h4>
           );
@@ -154,7 +158,7 @@ export default function RichContent({ content }: RichContentProps) {
 
         if (lines.every((line) => /^\d+\.\s+/.test(line.trim()))) {
           return (
-            <ol className="detail-body__list" key={key}>
+            <ol className="grid list-decimal gap-1 pl-5 text-sm text-[color:var(--text-main)]" key={key}>
               {lines.map((line, index) => (
                 <li key={`${key}-li-${index}`}>
                   {renderInlineFormattedText(
@@ -169,7 +173,7 @@ export default function RichContent({ content }: RichContentProps) {
 
         if (lines.every((line) => /^[-*+]\s+/.test(line.trim()))) {
           return (
-            <ul className="detail-body__list" key={key}>
+            <ul className="grid list-disc gap-1 pl-5 text-sm text-[color:var(--text-main)]" key={key}>
               {lines.map((line, index) => (
                 <li key={`${key}-li-${index}`}>
                   {renderInlineFormattedText(
@@ -184,7 +188,7 @@ export default function RichContent({ content }: RichContentProps) {
 
         if (lines.every((line) => /^>\s?/.test(line.trim()))) {
           return (
-            <blockquote className="detail-body__quote" key={key}>
+            <blockquote className="grid gap-2 border-l-2 border-[color:var(--line-strong)] bg-white/35 px-3 py-2 text-sm text-[color:var(--text-soft)]" key={key}>
               {lines.map((line, index) => (
                 <p key={`${key}-quote-${index}`}>
                   {renderInlineFormattedText(
@@ -200,7 +204,7 @@ export default function RichContent({ content }: RichContentProps) {
         if (block.startsWith("```") && block.endsWith("```")) {
           const code = block.replace(/^```[^\n]*\n?/, "").replace(/\n?```$/, "");
           return (
-            <pre className="detail-body__code" key={key}>
+            <pre className="overflow-x-auto rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 text-sm" key={key}>
               <code>{code}</code>
             </pre>
           );
@@ -209,7 +213,7 @@ export default function RichContent({ content }: RichContentProps) {
         const displayMathDollarMatch = block.match(/^\$\$\n?([\s\S]*?)\n?\$\$$/);
         if (displayMathDollarMatch) {
           return (
-            <div className="detail-body__math-block" key={key}>
+            <div className="my-2 overflow-x-auto rounded-lg border border-[color:var(--line-soft)] bg-white/45 p-2" key={key}>
               {renderKatexMath(displayMathDollarMatch[1], true, `${key}-math`)}
             </div>
           );
@@ -218,14 +222,14 @@ export default function RichContent({ content }: RichContentProps) {
         const displayMathBracketMatch = block.match(/^\\\[\n?([\s\S]*?)\n?\\\]$/);
         if (displayMathBracketMatch) {
           return (
-            <div className="detail-body__math-block" key={key}>
+            <div className="my-2 overflow-x-auto rounded-lg border border-[color:var(--line-soft)] bg-white/45 p-2" key={key}>
               {renderKatexMath(displayMathBracketMatch[1], true, `${key}-math`)}
             </div>
           );
         }
 
         return (
-          <p className="detail-body__paragraph" key={key}>
+          <p className="text-sm leading-7 text-[color:var(--text-main)]" key={key}>
             {lines.map((line, lineIndex) => (
               <span key={`${key}-line-${lineIndex}`}>
                 {renderInlineFormattedText(line, `${key}-line-${lineIndex}`)}

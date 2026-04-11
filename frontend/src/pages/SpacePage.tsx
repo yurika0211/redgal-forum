@@ -32,6 +32,10 @@ import type {
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
+import WorkspaceSidebar, {
+  type WorkspaceSidebarIconName,
+  type WorkspaceSidebarSection,
+} from "../components/WorkspaceSidebar";
 import { createPagerState, type PagerState } from "../lib/pagination";
 import { excerpt, extractMarkdownPreviewImage, formatDateTime, normalizeVisibilityLabel } from "../lib/text";
 import type {
@@ -169,6 +173,16 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
     ],
   },
 ] as const;
+
+const SPACE_PAGE_ICONS: Record<SpaceSidebarPageKey, WorkspaceSidebarIconName> = {
+  bangumi: "sparkles",
+  capsules: "capsule",
+  favorites: "heart",
+  friends: "users",
+  journal: "pen",
+  profile: "user",
+  progress: "pulse",
+};
 
 const PUBLIC_PROFILE_VISIBLE_PAGES = new Set<SpaceSidebarPageKey>([
   "profile",
@@ -884,6 +898,53 @@ export default function SpacePage({
   const viewingProfileLabel = viewingPublicProfileUsername ? `@${viewingPublicProfileUsername}` : "当前账号";
   const canManageBangumiImport = canUseBangumiImport && !isViewingPublicProfile;
   const activeSidebarSection = spaceSidebarSectionFromPage(spaceActivePage);
+  const spaceSidebarSections: WorkspaceSidebarSection[] = SPACE_SIDEBAR_SECTIONS.reduce<WorkspaceSidebarSection[]>(
+    (result, section) => {
+      const visibleChildren = section.children.filter(
+        (child) => !isViewingPublicProfile || PUBLIC_PROFILE_VISIBLE_PAGES.has(child.id),
+      );
+      if (!visibleChildren.length) {
+        return result;
+      }
+
+      result.push({
+        id: section.id,
+        kicker: section.kicker,
+        title: isViewingPublicProfile
+          ? section.id === "identity"
+            ? `${viewingProfileLabel} 主页`
+            : section.id === "creation"
+              ? "内容浏览"
+              : "社交归档"
+          : section.title,
+        description: isViewingPublicProfile
+          ? section.id === "identity"
+            ? `查看 ${viewingProfileLabel} 的基础资料与作品展示。`
+            : section.id === "creation"
+              ? `查看 ${viewingProfileLabel} 的日志区。`
+              : `查看 ${viewingProfileLabel} 的好友关系。`
+          : section.description,
+        items: visibleChildren.map((child) => ({
+          id: child.id,
+          label:
+            isViewingPublicProfile && child.id === "profile"
+              ? `${viewingProfileLabel} 资料卡`
+              : isViewingPublicProfile && child.id === "journal"
+                ? `${viewingProfileLabel} 日志`
+                : child.label,
+          icon: SPACE_PAGE_ICONS[child.id],
+        })),
+      });
+      return result;
+    },
+    [],
+  );
+  const activeSpaceSectionTitle =
+    spaceSidebarSections.find((section) => section.id === activeSidebarSection)?.title ?? "空间主控";
+  const activeSpacePageLabel =
+    spaceSidebarSections
+      .flatMap((section) => section.items)
+      .find((item) => item.id === spaceActivePage)?.label ?? "个人资料卡";
   const spaceIDEditable = displayProfile?.space_id_editable !== false;
   const [spaceFriends, setSpaceFriends] = useState<SpaceFriend[]>(() => {
     const storedFriends = readStoredSpaceFriends();
@@ -1654,86 +1715,38 @@ export default function SpacePage({
 
   return (
     <section className="admin-shell space-shell">
-      <aside className="panel admin-sidebar space-sidebar">
-        <div className="panel-heading">
-          <div>
-            <p className="panel-kicker">{isViewingPublicProfile ? `${viewingProfileLabel} 空间` : "空间侧栏"}</p>
-            <h2>{isViewingPublicProfile ? `${viewingProfileLabel} 的工作空间` : "个人空间工作台"}</h2>
-          </div>
-          <StatusChip tone="accent">{isViewingPublicProfile ? viewingProfileLabel : "个人空间"}</StatusChip>
-        </div>
-        <div className="stack-list">
-          {SPACE_SIDEBAR_SECTIONS.map((section) => {
-            const visibleChildren = section.children.filter(
-              (child) => !isViewingPublicProfile || PUBLIC_PROFILE_VISIBLE_PAGES.has(child.id),
-            );
-            if (!visibleChildren.length) {
-              return null;
-            }
-            const sectionTitle = isViewingPublicProfile
-              ? section.id === "identity"
-                ? `${viewingProfileLabel} 主页`
-                : section.id === "creation"
-                  ? "内容浏览"
-                  : "社交归档"
-              : section.title;
-            const sectionDescription = isViewingPublicProfile
-              ? section.id === "identity"
-                ? `查看 ${viewingProfileLabel} 的基础资料与作品展示。`
-                : section.id === "creation"
-                  ? `查看 ${viewingProfileLabel} 的日志区。`
-                  : `查看 ${viewingProfileLabel} 的好友关系。`
-              : section.description;
-
-            const active = section.id === activeSidebarSection;
-            return (
-              <section
-                className={`admin-sidebar__section ${active ? "admin-sidebar__section--active" : ""}`}
-                key={section.id}
-              >
-                <button
-                  className="admin-sidebar__button"
-                  type="button"
-                  onClick={() => setSpaceActivePage(visibleChildren[0].id)}
-                >
-                  <span>{section.kicker}</span>
-                  <strong>{sectionTitle}</strong>
-                  <p>{sectionDescription}</p>
-                </button>
-                <div className="admin-sidebar__children">
-                  {visibleChildren.map((child) => (
-                    <button
-                      className={`admin-sidebar__child ${
-                        child.id === spaceActivePage ? "admin-sidebar__child--active" : ""
-                      }`}
-                      key={child.id}
-                      type="button"
-                      onClick={() => setSpaceActivePage(child.id)}
-                    >
-                      {isViewingPublicProfile && child.id === "profile"
-                        ? `${viewingProfileLabel} 资料卡`
-                        : isViewingPublicProfile && child.id === "journal"
-                          ? `${viewingProfileLabel} 日志`
-                          : child.label}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      </aside>
+      <WorkspaceSidebar
+        activeItemId={spaceActivePage}
+        footerAvatarLabel={displayProfile?.nickname || displayProfile?.username || viewingProfileLabel}
+        footerAvatarUrl={displayProfile?.avatar_url || undefined}
+        footerBadge={displayProfile?.verified ? "已认证" : isViewingPublicProfile ? "公开页" : "未认证"}
+        footerSubtitle={
+          displayProfile
+            ? `@${displayProfile.username}${displayProfile.signature ? ` · ${displayProfile.signature}` : ""}`
+            : "空间资料加载中"
+        }
+        footerTitle={displayProfile?.nickname || viewingProfileLabel}
+        headerAvatarLabel={displayProfile?.nickname || displayProfile?.username || viewingProfileLabel}
+        headerAvatarUrl={displayProfile?.avatar_url || undefined}
+        headerBadge={isViewingPublicProfile ? "访客视图" : "工作台"}
+        headerKicker={isViewingPublicProfile ? `${viewingProfileLabel} Space` : "My Space"}
+        headerSubtitle={`${activeSpaceSectionTitle} · ${activeSpacePageLabel}`}
+        headerTitle={isViewingPublicProfile ? `${viewingProfileLabel} 的空间` : "个人空间工作台"}
+        onItemSelect={(itemId) => setSpaceActivePage(itemId as SpaceSidebarPageKey)}
+        sections={spaceSidebarSections}
+        tone="space"
+      />
 
       <div className="admin-content space-content">
         <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
-          <article className="panel space-master-panel">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm space-master-panel">
             {viewingPublicProfileUsername ? (
               <div className="space-visitor-banner">
                 <div>
-                  <p className="panel-kicker">访客模式</p>
+                  <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">访客模式</p>
                   <strong>正在查看 @{viewingPublicProfileUsername} 的主页</strong>
                 </div>
-                <button className="ghost-button" type="button" onClick={() => onNavigate("/space")}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onNavigate("/space")}>
                   返回我的空间
                 </button>
               </div>
@@ -1753,7 +1766,7 @@ export default function SpacePage({
                     </div>
                   )}
                   <div className="space-master-panel__copy">
-                    <p className="panel-kicker">{isViewingPublicProfile ? `${viewingProfileLabel} 资料卡` : "个人资料卡"}</p>
+                    <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{isViewingPublicProfile ? `${viewingProfileLabel} 资料卡` : "个人资料卡"}</p>
                     <h2 className="space-master-panel__title">{displayProfile.nickname}</h2>
                     <p className="profile-meta">
                       @{displayProfile.username} · {displayProfile.signature}
@@ -1777,24 +1790,24 @@ export default function SpacePage({
                 </div>
                 {canEditProfile ? (
                   <form
-                    className={`space-form space-profile-editor ${isProfileEditorCollapsed ? "space-profile-editor--collapsed" : ""}`}
+                    className={`grid gap-3 space-profile-editor ${isProfileEditorCollapsed ? "space-profile-editor--collapsed" : ""}`}
                     onSubmit={(event) => void onProfileSubmit(event)}
                   >
-                    <div className="panel-heading">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="panel-kicker">资料编辑</p>
+                        <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">资料编辑</p>
                         <h3>空间身份设置</h3>
                       </div>
                       <div className="space-profile-editor__head-actions">
                         <button
-                          className="ghost-button"
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
                           onClick={() => setIsProfileEditorCollapsed((current) => !current)}
                         >
                           {isProfileEditorCollapsed ? "展开编辑" : "收起"}
                         </button>
                         {!isProfileEditorCollapsed ? (
-                          <button className="primary-button" type="submit" disabled={profileActionState.pending}>
+                          <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={profileActionState.pending}>
                             {profileActionState.pending ? "保存中..." : "保存资料"}
                           </button>
                         ) : null}
@@ -1864,30 +1877,30 @@ export default function SpacePage({
                               {getAvatarFallback(displayProfile)}
                             </div>
                           )}
-                          <p className="panel-empty">
+                          <p className="text-sm text-[color:var(--text-muted)]">
                             预览：@{profileForm.username || displayProfile.username}
                             {profileForm.signature.trim() ? ` · ${profileForm.signature.trim()}` : ""}
                           </p>
                         </div>
                         {!spaceIDEditable ? (
-                          <p className="panel-empty">空间 ID 仅允许修改一次，当前账号已用完修改次数。</p>
+                          <p className="text-sm text-[color:var(--text-muted)]">空间 ID 仅允许修改一次，当前账号已用完修改次数。</p>
                         ) : null}
-                        {profileActionState.error ? <p className="panel-error">{profileActionState.error}</p> : null}
-                        {profileActionState.success ? <p className="panel-empty">{profileActionState.success}</p> : null}
+                        {profileActionState.error ? <p className="text-sm text-rose-500/90">{profileActionState.error}</p> : null}
+                        {profileActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{profileActionState.success}</p> : null}
                       </>
                     ) : null}
                   </form>
                 ) : null}
               </>
             ) : (
-              <p className="panel-empty">{profileError || "空间资料加载中。"}</p>
+              <p className="text-sm text-[color:var(--text-muted)]">{profileError || "空间资料加载中。"}</p>
             )}
           </article>
           {!isViewingPublicProfile ? (
-            <article className="panel space-auth-panel">
-            <div className="panel-heading">
+            <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm space-auth-panel">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">账号会话</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">账号会话</p>
                 <h2>{session ? "当前已登录" : "登录 / 注册"}</h2>
               </div>
               <StatusChip tone={session ? "success" : "neutral"}>
@@ -1896,31 +1909,33 @@ export default function SpacePage({
             </div>
 
             {session ? (
-              <div className="session-box">
-                <p className="panel-empty">当前账号会话已生效，空间、收藏导入与投稿能力按账号权限开放。</p>
-                {profileError ? <p className="panel-error">{profileError}</p> : null}
-                <button className="ghost-button" type="button" onClick={onLogout}>
+              <div className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4">
+                <p className="text-sm text-[color:var(--text-muted)]">当前账号会话已生效，空间、收藏导入与投稿能力按账号权限开放。</p>
+                {profileError ? <p className="text-sm text-rose-500/90">{profileError}</p> : null}
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={onLogout}>
                   退出当前会话
                 </button>
               </div>
             ) : (
               <div className="space-auth-grid">
-                <form className="auth-form" onSubmit={(event) => void onLoginSubmit(event)}>
-                  <p className="panel-empty">登录后会同步当前空间会话。</p>
-                  <label>
-                    <span>账号</span>
+                <form className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onLoginSubmit(event)}>
+                  <p className="text-sm text-[color:var(--text-muted)]">登录后会同步当前空间会话。</p>
+                  <label className="grid gap-1.5">
+                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">账号</span>
                     <input
                       autoComplete="username"
+                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
                       name="account"
                       onChange={onAuthFieldChange}
                       placeholder="用户名 / 学号 / 邮箱"
                       value={authForm.account}
                     />
                   </label>
-                  <label>
-                    <span>密码</span>
+                  <label className="grid gap-1.5">
+                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">密码</span>
                     <input
                       autoComplete="current-password"
+                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
                       name="password"
                       onChange={onAuthFieldChange}
                       placeholder="输入账号密码"
@@ -1928,38 +1943,41 @@ export default function SpacePage({
                       value={authForm.password}
                     />
                   </label>
-                  {loginState.error ? <p className="panel-error">{loginState.error}</p> : null}
-                  <button className="primary-button" disabled={loginState.pending} type="submit">
+                  {loginState.error ? <p className="text-sm text-rose-500/90">{loginState.error}</p> : null}
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" disabled={loginState.pending} type="submit">
                     {loginState.pending ? "登录中..." : "登录"}
                   </button>
                 </form>
 
-                <form className="auth-form" onSubmit={(event) => void onRegisterSubmit(event)}>
-                  <p className="panel-empty">注册完成后可直接用账号登录。</p>
-                  <label>
-                    <span>学号</span>
+                <form className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onRegisterSubmit(event)}>
+                  <p className="text-sm text-[color:var(--text-muted)]">注册完成后可直接用账号登录。</p>
+                  <label className="grid gap-1.5">
+                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">学号</span>
                     <input
                       autoComplete="off"
+                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
                       name="student_id"
                       onChange={onRegisterFieldChange}
                       placeholder="例如：20260001"
                       value={registerForm.student_id}
                     />
                   </label>
-                  <label>
-                    <span>用户名</span>
+                  <label className="grid gap-1.5">
+                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">用户名</span>
                     <input
                       autoComplete="username"
+                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
                       name="username"
                       onChange={onRegisterFieldChange}
                       placeholder="3-32 位字母/数字/下划线"
                       value={registerForm.username}
                     />
                   </label>
-                  <label>
-                    <span>密码</span>
+                  <label className="grid gap-1.5">
+                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">密码</span>
                     <input
                       autoComplete="new-password"
+                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
                       name="password"
                       onChange={onRegisterFieldChange}
                       placeholder="设置登录密码"
@@ -1967,9 +1985,9 @@ export default function SpacePage({
                       value={registerForm.password}
                     />
                   </label>
-                  {registerState.error ? <p className="panel-error">{registerState.error}</p> : null}
-                  {registerState.success ? <p className="panel-empty">{registerState.success}</p> : null}
-                  <button className="ghost-button" disabled={registerState.pending} type="submit">
+                  {registerState.error ? <p className="text-sm text-rose-500/90">{registerState.error}</p> : null}
+                  {registerState.success ? <p className="text-sm text-[color:var(--text-muted)]">{registerState.success}</p> : null}
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" disabled={registerState.pending} type="submit">
                     {registerState.pending ? "注册中..." : "注册"}
                   </button>
                 </form>
@@ -1984,10 +2002,10 @@ export default function SpacePage({
         </section>
 
         <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
-          <article className="panel space-showcase-panel">
-            <div className="panel-heading">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm space-showcase-panel">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">作品展示</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">作品展示</p>
                 <h2>Bangumi 风格收藏页</h2>
               </div>
               <StatusChip tone="accent">{activeSpaceShelf.label}</StatusChip>
@@ -2004,7 +2022,7 @@ export default function SpacePage({
                 </button>
               ))}
             </div>
-            {bangumiCollectionsError ? <p className="panel-error">{bangumiCollectionsError}</p> : null}
+            {bangumiCollectionsError ? <p className="text-sm text-rose-500/90">{bangumiCollectionsError}</p> : null}
             <div className="space-bgm-status-tabs">
               {spaceCollectionStatusCounts.map((statusItem) => (
                 <button
@@ -2076,7 +2094,7 @@ export default function SpacePage({
                       {canEditShowcase ? (
                         <div className="space-bgm-item__toolbar">
                           <button
-                            className="ghost-button space-bgm-item__toggle-button"
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 space-bgm-item__toggle-button"
                             type="button"
                             onClick={() => handleShowcaseEditorToggle(item)}
                           >
@@ -2088,7 +2106,7 @@ export default function SpacePage({
                   );
                 })}
                 {!filteredSpaceShelfItems.length ? (
-                  <p className="panel-empty">
+                  <p className="text-sm text-[color:var(--text-muted)]">
                     {canEditShowcase ? "这个分类下还没有同步条目，可先去 Bangumi 导入页提交任务。" : "这个用户在该分类还没有公开条目。"}
                   </p>
                 ) : null}
@@ -2102,7 +2120,7 @@ export default function SpacePage({
                     <div className="space-bgm-item__editor-head">
                       <p className="space-bgm-item__editor-title">正在编辑：{expandedShowcaseItem.title}</p>
                       <button
-                        className="ghost-button space-bgm-item__editor-cancel"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 space-bgm-item__editor-cancel"
                         type="button"
                         onClick={handleShowcaseEditorClose}
                       >
@@ -2154,7 +2172,7 @@ export default function SpacePage({
                     </div>
                     <div className="space-bgm-item__editor-actions">
                       <button
-                        className="ghost-button"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                         type="button"
                         onClick={() => handleShowcaseDraftReset(expandedShowcaseItem)}
                         disabled={Boolean(expandedShowcaseActionState?.pending)}
@@ -2162,7 +2180,7 @@ export default function SpacePage({
                         重置
                       </button>
                       <button
-                        className="primary-button"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                         type="button"
                         onClick={() => void handleShowcaseDraftSave(expandedShowcaseItem)}
                         disabled={Boolean(expandedShowcaseActionState?.pending)}
@@ -2170,8 +2188,8 @@ export default function SpacePage({
                         {expandedShowcaseActionState?.pending ? "保存中..." : "保存"}
                       </button>
                     </div>
-                    {expandedShowcaseActionState?.error ? <p className="panel-error">{expandedShowcaseActionState.error}</p> : null}
-                    {expandedShowcaseActionState?.success ? <p className="panel-empty">{expandedShowcaseActionState.success}</p> : null}
+                    {expandedShowcaseActionState?.error ? <p className="text-sm text-rose-500/90">{expandedShowcaseActionState.error}</p> : null}
+                    {expandedShowcaseActionState?.success ? <p className="text-sm text-[color:var(--text-muted)]">{expandedShowcaseActionState.success}</p> : null}
                   </div>
                 </div>
               ) : null}
@@ -2190,10 +2208,10 @@ export default function SpacePage({
         </section>
 
         <section style={{ display: spaceActivePage === "journal" ? undefined : "none" }}>
-          <article className="panel">
-            <div className="panel-heading">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">{isViewingPublicProfile ? `${viewingProfileLabel} 日志` : "个人日志"}</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{isViewingPublicProfile ? `${viewingProfileLabel} 日志` : "个人日志"}</p>
                 <h2>{isViewingPublicProfile ? `${viewingProfileLabel} 的 Markdown 日志区` : "Markdown 日志区"}</h2>
               </div>
               <StatusChip tone={isViewingPublicProfile ? "neutral" : hasVerifiedSpaceAccess ? "success" : "warn"}>
@@ -2201,21 +2219,21 @@ export default function SpacePage({
               </StatusChip>
             </div>
             {isViewingPublicProfile ? (
-              <p className="panel-empty">正在浏览 {viewingProfileLabel} 的日志归档，当前模式仅支持阅读。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">正在浏览 {viewingProfileLabel} 的日志归档，当前模式仅支持阅读。</p>
             ) : !session ? (
-              <p className="panel-empty">登录并通过认证后，可以在这里写个人日志。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">登录并通过认证后，可以在这里写个人日志。</p>
             ) : !hasVerifiedSpaceAccess ? (
-              <p className="panel-empty">当前账号还没有日志发布权限，需要通过认证后才能写日志。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有日志发布权限，需要通过认证后才能写日志。</p>
             ) : (
-              <form className="space-form stories-editor" onSubmit={(event) => void onArticleSubmit(event)}>
-                <div className="stories-editor__toolbar">
+              <form className="grid gap-3" onSubmit={(event) => void onArticleSubmit(event)}>
+                <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="panel-kicker">空间编辑器</p>
+                    <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">空间编辑器</p>
                     <h2>Markdown 日志编辑器</h2>
                   </div>
-                  <div className="stories-editor__toolbar-actions">
-                    {articleActionState.success ? <span className="panel-empty">{articleActionState.success}</span> : null}
-                    <button className="primary-button" type="submit" disabled={articleActionState.pending}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {articleActionState.success ? <span className="text-sm text-[color:var(--text-muted)]">{articleActionState.success}</span> : null}
+                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={articleActionState.pending}>
                       {articleActionState.pending ? "发布中..." : "发布日志"}
                     </button>
                   </div>
@@ -2233,7 +2251,7 @@ export default function SpacePage({
                   />
                 </label>
 
-                <div className="stories-editor__meta-grid">
+                <div className="grid gap-3 md:grid-cols-2">
                   <label>
                     <span>可见范围</span>
                     <select name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
@@ -2264,9 +2282,9 @@ export default function SpacePage({
                   </label>
                 </div>
 
-                <div className="stories-editor__split">
-                  <section className="stories-editor__pane">
-                    <div className="stories-editor__pane-head">Markdown 源文本</div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
+                    <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
                     <textarea
                       name="content"
                       rows={14}
@@ -2276,42 +2294,42 @@ export default function SpacePage({
                       required
                     />
                   </section>
-                  <section className="stories-editor__pane stories-editor__pane--preview">
-                    <div className="stories-editor__pane-head">实时预览</div>
-                    <div className="stories-editor__preview">
+                  <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3 bg-[color:var(--surface-card)]">
+                    <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">实时预览</div>
+                    <div className="min-h-[220px] overflow-auto rounded-lg border border-[color:var(--line-soft)] bg-white/55 p-3">
                       {articleForm.content.trim() ? (
                         <RichContent content={articleForm.content} />
                       ) : (
-                        <p className="panel-empty">预览区：输入 Markdown 后会实时显示。</p>
+                        <p className="text-sm text-[color:var(--text-muted)]">预览区：输入 Markdown 后会实时显示。</p>
                       )}
                     </div>
                   </section>
                 </div>
 
-                <p className="panel-empty">
+                <p className="text-sm text-[color:var(--text-muted)]">
                   当前后端还没有独立图片上传接口，所以日志里的图片先通过 Markdown 图片链接插入。
                 </p>
-                {articleActionState.error ? <p className="panel-error">{articleActionState.error}</p> : null}
+                {articleActionState.error ? <p className="text-sm text-rose-500/90">{articleActionState.error}</p> : null}
               </form>
             )}
             <div className="space-log-list">
-              <div className="space-log-list__header">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <strong>最近日志</strong>
                 <span>{spaceLogEntries.length} 篇</span>
               </div>
-              <div className="stack-list">
+              <div className="grid gap-3">
                 {spaceLogEntries.length ? (
                   spaceLogEntries.slice(0, 4).map((article, index) => {
                     const previewImage = pickSpaceLogPreviewImage(article, index);
                     return (
                       <button
-                        className="content-card thread-card-button space-log-card"
+                        className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 w-full text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-white/80 space-log-card"
                         key={article.id}
                         type="button"
                         onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
                       >
                         <div className="space-log-card__copy">
-                          <div className="content-card__header">
+                          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                             <h3>{article.title}</h3>
                             <StatusChip tone="accent">
                               {normalizeVisibilityLabel(article.visibility)}
@@ -2326,7 +2344,7 @@ export default function SpacePage({
                     );
                   })
                 ) : (
-                  <p className="panel-empty">还没有匹配到这个空间的日志内容。</p>
+                  <p className="text-sm text-[color:var(--text-muted)]">还没有匹配到这个空间的日志内容。</p>
                 )}
               </div>
             </div>
@@ -2334,10 +2352,10 @@ export default function SpacePage({
         </section>
 
         <section style={{ display: spaceActivePage === "bangumi" && !isViewingPublicProfile ? undefined : "none" }}>
-          <article className="panel">
-            <div className="panel-heading">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">Bangumi 导入</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">Bangumi 导入</p>
                 <h2>作品与帐号同步</h2>
               </div>
               <StatusChip tone={canManageBangumiImport ? "accent" : "warn"}>
@@ -2345,11 +2363,11 @@ export default function SpacePage({
               </StatusChip>
             </div>
             {!session ? (
-              <p className="panel-empty">登录后可按作品 ID 导入，或按 Bangumi 登录帐号批量同步收藏。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">登录后可按作品 ID 导入，或按 Bangumi 登录帐号批量同步收藏。</p>
             ) : !canManageBangumiImport ? (
-              <p className="panel-empty">当前账号无法发起导入，请重新登录后重试。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">当前账号无法发起导入，请重新登录后重试。</p>
             ) : (
-              <form className="space-form" onSubmit={(event) => void onBangumiImportSubmit(event)}>
+              <form className="grid gap-3" onSubmit={(event) => void onBangumiImportSubmit(event)}>
                 <label>
                   <span>同步模式</span>
                   <select name="sync_mode" value={bangumiForm.sync_mode} onChange={onBangumiFieldChange}>
@@ -2413,8 +2431,8 @@ export default function SpacePage({
                     <option value="private">仅自己可见</option>
                   </select>
                 </label>
-                {bangumiActionState.error ? <p className="panel-error">{bangumiActionState.error}</p> : null}
-                {bangumiActionState.success ? <p className="panel-empty">{bangumiActionState.success}</p> : null}
+                {bangumiActionState.error ? <p className="text-sm text-rose-500/90">{bangumiActionState.error}</p> : null}
+                {bangumiActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{bangumiActionState.success}</p> : null}
                 {bangumiActionState.data ? (
                   <div className="space-job-box">
                     <strong>任务已创建</strong>
@@ -2423,7 +2441,7 @@ export default function SpacePage({
                     <p>Channel: {bangumiActionState.data.channel}</p>
                   </div>
                 ) : null}
-                <button className="primary-button" type="submit" disabled={bangumiActionState.pending}>
+                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={bangumiActionState.pending}>
                   {bangumiActionState.pending
                     ? "提交中..."
                     : bangumiForm.sync_mode === "account"
@@ -2434,15 +2452,15 @@ export default function SpacePage({
             )}
             {canManageBangumiImport ? (
               <div className="space-job-list">
-                <div className="space-log-list__header">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <strong>我的导入任务</strong>
                   <span>{bangumiJobsPager.total} 条</span>
                 </div>
-                {bangumiJobsError ? <p className="panel-error">{bangumiJobsError}</p> : null}
-                <div className="stack-list">
+                {bangumiJobsError ? <p className="text-sm text-rose-500/90">{bangumiJobsError}</p> : null}
+                <div className="grid gap-3">
                   {bangumiJobs.map((job) => (
-                    <div className="content-card" key={job.job_id}>
-                      <div className="content-card__header">
+                    <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={job.job_id}>
+                      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                         <h3>任务 #{job.job_id}</h3>
                         <StatusChip
                           tone={
@@ -2456,12 +2474,12 @@ export default function SpacePage({
                           {job.status}
                         </StatusChip>
                       </div>
-                      <div className="meta-row">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                         <span>{job.job_type || "collection_sync"}</span>
                         {job.created_at ? <span>{job.created_at}</span> : null}
                       </div>
                       {job.request_payload ? (
-                        <p className="panel-empty">
+                        <p className="text-sm text-[color:var(--text-muted)]">
                           {String(job.request_payload.sync_mode || "subject_ids") === "account"
                             ? `account: ${String(job.request_payload.bangumi_username || "")} / max_items: ${String(
                                 job.request_payload.max_items || "",
@@ -2469,10 +2487,10 @@ export default function SpacePage({
                             : `subject_ids: ${JSON.stringify(job.request_payload.subject_ids || [])}`}
                         </p>
                       ) : null}
-                      {job.error_message ? <p className="panel-error">{job.error_message}</p> : null}
+                      {job.error_message ? <p className="text-sm text-rose-500/90">{job.error_message}</p> : null}
                     </div>
                   ))}
-                  {!bangumiJobs.length ? <p className="panel-empty">当前还没有导入任务记录。</p> : null}
+                  {!bangumiJobs.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有导入任务记录。</p> : null}
                 </div>
                 <PaginationBar
                   pager={bangumiJobsPager}
@@ -2485,33 +2503,33 @@ export default function SpacePage({
         </section>
 
         <section style={{ display: spaceActivePage === "favorites" && !isViewingPublicProfile ? undefined : "none" }}>
-          <article className="panel">
-            <div className="panel-heading">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">论坛收藏夹</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">论坛收藏夹</p>
                 <h2>我收藏的帖子</h2>
               </div>
               <StatusChip tone="accent">{favoritedThreadsPager.total} 条</StatusChip>
             </div>
             {!session ? (
-              <p className="panel-empty">登录后可在这里查看并管理收藏的论坛主题。</p>
+              <p className="text-sm text-[color:var(--text-muted)]">登录后可在这里查看并管理收藏的论坛主题。</p>
             ) : (
               <>
-                {favoritedThreadsError ? <p className="panel-error">{favoritedThreadsError}</p> : null}
-                <div className="stack-list">
+                {favoritedThreadsError ? <p className="text-sm text-rose-500/90">{favoritedThreadsError}</p> : null}
+                <div className="grid gap-3">
                   {favoritedThreads.map((thread) => (
                     <button
-                      className="content-card thread-card-button"
+                      className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 w-full text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-white/80"
                       key={thread.id}
                       type="button"
                       onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
                     >
-                      <div className="content-card__header">
+                      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                         <h3>{thread.title}</h3>
                         <StatusChip tone="accent">/{thread.board}</StatusChip>
                       </div>
                       <p>{excerpt(thread.content, 140)}</p>
-                      <div className="meta-row">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                         <span>{thread.author}</span>
                         <span>{formatDateTime(thread.created_at)} 发布</span>
                         <span>{thread.reply_count} 回复</span>
@@ -2521,7 +2539,7 @@ export default function SpacePage({
                       </div>
                     </button>
                   ))}
-                  {!favoritedThreads.length ? <p className="panel-empty">当前没有收藏的帖子。</p> : null}
+                  {!favoritedThreads.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有收藏的帖子。</p> : null}
                 </div>
                 <PaginationBar
                   pager={favoritedThreadsPager}
@@ -2534,15 +2552,15 @@ export default function SpacePage({
         </section>
 
         <section style={{ display: spaceActivePage === "friends" ? undefined : "none" }}>
-          <article className="panel">
-            <div className="panel-heading">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">好友模块</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">好友模块</p>
                 <h2>空间好友</h2>
               </div>
               <StatusChip tone="accent">{spaceFriends.length} 位</StatusChip>
             </div>
-            <p className="panel-empty">
+            <p className="text-sm text-[color:var(--text-muted)]">
               {isViewingPublicProfile
                 ? `仅展示 ${viewingProfileLabel} 的好友列表。`
                 : session
@@ -2550,10 +2568,10 @@ export default function SpacePage({
                 : "游客模式仅本地维护好友列表；登录后可使用真实好友审核流程。"}
             </p>
             {isViewingPublicProfile && spaceFriendActionState.error ? (
-              <p className="panel-error">{spaceFriendActionState.error}</p>
+              <p className="text-sm text-rose-500/90">{spaceFriendActionState.error}</p>
             ) : null}
             {!isViewingPublicProfile ? (
-              <form className="space-form space-friend-form" onSubmit={(event) => void handleSpaceFriendSubmit(event)}>
+              <form className="grid gap-3 space-friend-form" onSubmit={(event) => void handleSpaceFriendSubmit(event)}>
                 <div className="space-friend-form__row">
                   <label>
                     <span>好友用户名</span>
@@ -2587,15 +2605,15 @@ export default function SpacePage({
                     placeholder={session ? "可选：给对方留一句话" : "可选：给好友写一句介绍"}
                   />
                 </label>
-                {spaceFriendActionState.error ? <p className="panel-error">{spaceFriendActionState.error}</p> : null}
-                {spaceFriendActionState.success ? <p className="panel-empty">{spaceFriendActionState.success}</p> : null}
+                {spaceFriendActionState.error ? <p className="text-sm text-rose-500/90">{spaceFriendActionState.error}</p> : null}
+                {spaceFriendActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{spaceFriendActionState.success}</p> : null}
                 <div className="space-friend-form__actions">
-                  <button className="primary-button" type="submit" disabled={spaceFriendActionState.pending}>
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={spaceFriendActionState.pending}>
                     {spaceFriendActionState.pending
                       ? session ? "发送中..." : "添加中..."
                       : session ? "发送好友申请" : "添加真实好友"}
                   </button>
-                  <button className="ghost-button" type="button" onClick={handleResetSpaceFriends}>
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={handleResetSpaceFriends}>
                     {session ? "刷新列表" : "清空列表"}
                   </button>
                 </div>
@@ -2603,26 +2621,26 @@ export default function SpacePage({
             ) : null}
             {!isViewingPublicProfile && session ? (
               <div className="space-friend-request-panels">
-                <div className="space-side-card">
-                  <div className="space-side-card__header">
+                <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
                     <strong>收到的好友申请</strong>
                     <StatusChip tone="warn">{incomingFriendRequests.length} 条</StatusChip>
                   </div>
                   {incomingFriendRequests.length ? (
-                    <div className="space-side-list">
+                    <div className="grid gap-2">
                       {incomingFriendRequests.map((request) => (
-                        <div className="space-side-card" key={`incoming-${request.request_id}`}>
-                          <div className="space-side-card__header">
+                        <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={`incoming-${request.request_id}`}>
+                          <div className="flex flex-wrap items-start justify-between gap-2">
                             <strong>@{request.requester_username}</strong>
                             <StatusChip tone="accent">待审核</StatusChip>
                           </div>
                           <p>{request.message || "对方没有填写申请备注。"}</p>
-                          <div className="space-friend-card__meta">
+                          <div className="grid gap-1 text-xs text-[color:var(--text-muted)]">
                             <span>{formatRequestTime(request.created_at)}</span>
                           </div>
-                          <div className="space-friend-card__actions">
+                          <div className="flex flex-wrap items-center gap-2">
                             <button
-                              className="primary-button"
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                               type="button"
                               disabled={spaceFriendActionState.pending}
                               onClick={() => void handleReviewIncomingFriendRequest(request, "approve")}
@@ -2630,7 +2648,7 @@ export default function SpacePage({
                               同意
                             </button>
                             <button
-                              className="ghost-button"
+                              className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                               type="button"
                               disabled={spaceFriendActionState.pending}
                               onClick={() => void handleReviewIncomingFriendRequest(request, "reject")}
@@ -2642,44 +2660,44 @@ export default function SpacePage({
                       ))}
                     </div>
                   ) : (
-                    <p className="panel-empty">暂无待审核申请。</p>
+                    <p className="text-sm text-[color:var(--text-muted)]">暂无待审核申请。</p>
                   )}
                 </div>
-                <div className="space-side-card">
-                  <div className="space-side-card__header">
+                <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
                     <strong>我发出的申请</strong>
                     <StatusChip tone="neutral">{outgoingFriendRequests.length} 条</StatusChip>
                   </div>
                   {outgoingFriendRequests.length ? (
-                    <div className="space-side-list">
+                    <div className="grid gap-2">
                       {outgoingFriendRequests.map((request) => (
-                        <div className="space-side-card" key={`outgoing-${request.request_id}`}>
-                          <div className="space-side-card__header">
+                        <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={`outgoing-${request.request_id}`}>
+                          <div className="flex flex-wrap items-start justify-between gap-2">
                             <strong>@{request.receiver_username}</strong>
                             <StatusChip tone="neutral">等待审核</StatusChip>
                           </div>
                           <p>{request.message || "你没有填写申请备注。"}</p>
-                          <div className="space-friend-card__meta">
+                          <div className="grid gap-1 text-xs text-[color:var(--text-muted)]">
                             <span>{formatRequestTime(request.created_at)}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="panel-empty">暂无发出的申请。</p>
+                    <p className="text-sm text-[color:var(--text-muted)]">暂无发出的申请。</p>
                   )}
                 </div>
               </div>
             ) : null}
-            <div className="space-side-list">
+            <div className="grid gap-2">
               {spaceFriends.map((friend) => (
-                <div className="space-side-card" key={friend.id}>
-                  <div className="space-side-card__header">
-                    <div className="space-friend-card__identity">
+                <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={friend.id}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
                       {friend.avatarURL ? (
-                        <img alt={`${friend.name} 的头像`} className="space-friend-card__avatar" src={friend.avatarURL} />
+                        <img alt={`${friend.name} 的头像`} className="h-8 w-8 rounded-full object-cover" src={friend.avatarURL} />
                       ) : (
-                        <div className="space-friend-card__avatar space-friend-card__avatar--fallback">
+                        <div className="h-8 w-8 rounded-full object-cover inline-flex items-center justify-center bg-[color:var(--surface-tint-blue)] text-[color:var(--text-main)] font-semibold">
                           {getSpaceFriendAvatarFallback(friend)}
                         </div>
                       )}
@@ -2688,17 +2706,17 @@ export default function SpacePage({
                     <StatusChip tone={getSpaceFriendTone(friend.status)}>{friend.status}</StatusChip>
                   </div>
                   <p>{friend.note}</p>
-                  <div className="space-friend-card__meta">
+                  <div className="grid gap-1 text-xs text-[color:var(--text-muted)]">
                     <span>@{friend.username}</span>
                     <StatusChip tone={friend.isReal ? "success" : "neutral"}>
                       {friend.isReal ? "真实账号" : "本地好友"}
                     </StatusChip>
                   </div>
                   {!isViewingPublicProfile ? (
-                    <div className="space-friend-card__actions">
+                    <div className="flex flex-wrap items-center gap-2">
                       {!session ? (
                         <button
-                          className="ghost-button"
+                          className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
                           onClick={() => handleRotateSpaceFriendStatus(friend.id)}
                         >
@@ -2706,7 +2724,7 @@ export default function SpacePage({
                         </button>
                       ) : null}
                       <button
-                        className="ghost-button"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                         type="button"
                         onClick={() => void handleViewSpaceFriendProfile(friend)}
                         disabled={spaceFriendActionState.pending}
@@ -2714,7 +2732,7 @@ export default function SpacePage({
                         查看主页
                       </button>
                       {!session ? (
-                        <button className="ghost-button" type="button" onClick={() => handleRemoveSpaceFriend(friend.id)}>
+                        <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => handleRemoveSpaceFriend(friend.id)}>
                           移除好友
                         </button>
                       ) : null}
@@ -2722,19 +2740,19 @@ export default function SpacePage({
                   ) : null}
                 </div>
               ))}
-              {spaceFriendsLoading ? <p className="panel-empty">好友关系同步中...</p> : null}
+              {spaceFriendsLoading ? <p className="text-sm text-[color:var(--text-muted)]">好友关系同步中...</p> : null}
               {!spaceFriendsLoading && !spaceFriends.length ? (
-                <p className="panel-empty">{isViewingPublicProfile ? "这个空间暂时没有公开好友。" : "好友列表为空，先添加一个真实好友吧。"}</p>
+                <p className="text-sm text-[color:var(--text-muted)]">{isViewingPublicProfile ? "这个空间暂时没有公开好友。" : "好友列表为空，先添加一个真实好友吧。"}</p>
               ) : null}
             </div>
           </article>
         </section>
 
         <section style={{ display: spaceActivePage === "capsules" && !isViewingPublicProfile ? undefined : "none" }}>
-          <article className="panel">
-            <div className="panel-heading">
+          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">时间胶囊</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">时间胶囊</p>
                 <h2>用户行为记录</h2>
               </div>
             </div>
@@ -2749,7 +2767,7 @@ export default function SpacePage({
                 </article>
               ))}
               {!spaceCapsules.length ? (
-                <p className="panel-empty">
+                <p className="text-sm text-[color:var(--text-muted)]">
                   还没有行为记录。先发布日志或发起一次 Bangumi 导入，时间胶囊会自动生成。
                 </p>
               ) : null}

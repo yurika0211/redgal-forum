@@ -241,12 +241,12 @@ export default function AnonymousPage({
   }
 
   return (
-    <section className="panel anonymous-chat-room">
-      {anonymousThreadsError ? <p className="panel-error">{anonymousThreadsError}</p> : null}
+    <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm anonymous-chat-room">
+      {anonymousThreadsError ? <p className="text-sm text-rose-500/90">{anonymousThreadsError}</p> : null}
 
-      <div className="panel-heading">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="panel-kicker">聊天室</p>
+          <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">聊天室</p>
           <h2>聊天室</h2>
         </div>
         <StatusChip tone="neutral">{anonymousThreadPager.total} 条消息</StatusChip>
@@ -275,26 +275,26 @@ export default function AnonymousPage({
                 {thread.tripcode ? <span>{thread.tripcode}</span> : null}
                 <span>{formatDateTime(thread.created_at || thread.last_post_at)}</span>
               </div>
-              <div className="detail-body detail-body--reply anonymous-thread-chat__body">
+              <div className="grid gap-3 text-sm leading-7 text-[color:var(--text-main)] anonymous-thread-chat__body">
                 <RichContent content={thread.content} />
               </div>
             </article>
           );
         })}
         {!chatMessages.length && !isLoadingData ? (
-          <p className="panel-empty">聊天室还没有消息，发一条试试。</p>
+          <p className="text-sm text-[color:var(--text-muted)]">聊天室还没有消息，发一条试试。</p>
         ) : null}
-        {isLoadingData && !chatMessages.length ? <p className="panel-empty">消息加载中...</p> : null}
-        {anonymousLoadingMore ? <p className="panel-empty">加载更早消息中...</p> : null}
+        {isLoadingData && !chatMessages.length ? <p className="text-sm text-[color:var(--text-muted)]">消息加载中...</p> : null}
+        {anonymousLoadingMore ? <p className="text-sm text-[color:var(--text-muted)]">加载更早消息中...</p> : null}
         {!anonymousLoadingMore && hasMoreAnonymousMessages ? (
-          <p className="panel-empty">上滑可继续查看更早消息</p>
+          <p className="text-sm text-[color:var(--text-muted)]">上滑可继续查看更早消息</p>
         ) : null}
       </div>
 
       {!session ? (
         <div className="anonymous-chat-room__guest">
-          <p className="panel-empty">登录后可发送聊天室消息。</p>
-          <button className="primary-button" type="button" onClick={() => onNavigate("/space")}>
+          <p className="text-sm text-[color:var(--text-muted)]">登录后可发送聊天室消息。</p>
+          <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onNavigate("/space")}>
             去登录
           </button>
         </div>
@@ -310,12 +310,12 @@ export default function AnonymousPage({
           />
           <div className="anonymous-chat-room__composer-row">
             <p className="anonymous-chat-room__composer-tip">聊天室</p>
-            <button className="primary-button" type="submit" disabled={anonymousThreadActionState.pending}>
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={anonymousThreadActionState.pending}>
               {anonymousThreadActionState.pending ? "发送中..." : "发送消息"}
             </button>
           </div>
-          {anonymousThreadActionState.error ? <p className="panel-error">{anonymousThreadActionState.error}</p> : null}
-          {anonymousThreadActionState.success ? <p className="panel-empty">{anonymousThreadActionState.success}</p> : null}
+          {anonymousThreadActionState.error ? <p className="text-sm text-rose-500/90">{anonymousThreadActionState.error}</p> : null}
+          {anonymousThreadActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{anonymousThreadActionState.success}</p> : null}
         </form>
       )}
     </section>
