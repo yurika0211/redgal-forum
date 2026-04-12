@@ -91,3 +91,68 @@ body {
     grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   }
 }
+
+.admin-cms-form {
+  gap: 16px;
+}
+
+.admin-cms-form .form-field {
+  gap: 8px;
+}
+
+.admin-cms-form .form-field > span {
+  letter-spacing: 0.06em;
+  color: var(--text-soft);
+}
+
+.admin-cms-form .form-control {
+  min-height: 42px;
+  border-color: color-mix(in srgb, var(--line-soft) 74%, rgba(140, 152, 170, 0.46) 26%);
+  background: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(41, 56, 74, 0.08);
+}
+
+.admin-cms-form textarea.form-control {
+  min-height: 112px;
+}
+
+.admin-cms-form .form-control:focus-visible {
+  border-color: var(--line-strong);
+  background: #fff;
+}
+
+.admin-cms-form__check {
+  font-size: 0.88rem;
+}
+
+.admin-cms-form__actions {
+  margin-top: 2px;
+}
+
+.admin-cms-form__submit {
+  border-color: rgba(79, 139, 174, 0.42);
+  background: linear-gradient(135deg, #4f8bae, #6fa7c6);
+}
+
+.admin-cms-form__reset {
+  border-color: transparent;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.admin-cms-form__reset:hover {
+  border-color: var(--line-soft);
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.admin-cms-item__actions {
+  justify-content: flex-end;
+}
+
+.admin-cms-item__action {
+  min-height: 26px;
+  line-height: 1;
+}

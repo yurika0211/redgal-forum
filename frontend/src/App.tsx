@@ -5923,10 +5923,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             {contentBlockActionState.error ? <p className="text-sm text-rose-500/90">{contentBlockActionState.error}</p> : null}
             {contentBlockActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{contentBlockActionState.success}</p> : null}
-            <form className="grid gap-3" onSubmit={(event) => void handleContentBlockSubmit(event)}>
-              <label>
+            <form className="form-layout admin-cms-form" onSubmit={(event) => void handleContentBlockSubmit(event)}>
+              <label className="form-field">
                 <span>内容块类型</span>
-                <select name="block_type" value={contentBlockForm.block_type} onChange={handleContentBlockFieldChange}>
+                <select className="form-control" name="block_type" value={contentBlockForm.block_type} onChange={handleContentBlockFieldChange}>
                   <option value="portal_page">首页页面</option>
                   <option value="portal_highlight">首页亮点</option>
                   <option value="portal_pillar">栏目支柱</option>
@@ -5936,52 +5936,53 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   <option value="hero_object">主视觉对象</option>
                 </select>
               </label>
-              <label>
+              <label className="form-field">
                 <span>标题</span>
-                <input name="title" value={contentBlockForm.title} onChange={handleContentBlockFieldChange} required />
+                <input className="form-control" name="title" value={contentBlockForm.title} onChange={handleContentBlockFieldChange} required />
               </label>
-              <label>
+              <label className="form-field">
                 <span>别名（slug）</span>
-                <input name="slug" value={contentBlockForm.slug} onChange={handleContentBlockFieldChange} />
+                <input className="form-control" name="slug" value={contentBlockForm.slug} onChange={handleContentBlockFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>路由路径</span>
-                <input name="path" value={contentBlockForm.path} onChange={handleContentBlockFieldChange} placeholder="/forum" />
+                <input className="form-control" name="path" value={contentBlockForm.path} onChange={handleContentBlockFieldChange} placeholder="/forum" />
               </label>
-              <label>
+              <label className="form-field">
                 <span>角标 / 小标题</span>
-                <input name="kicker" value={contentBlockForm.kicker} onChange={handleContentBlockFieldChange} />
+                <input className="form-control" name="kicker" value={contentBlockForm.kicker} onChange={handleContentBlockFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>标签</span>
                 <input
+                  className="form-control"
                   name="label"
                   value={contentBlockForm.label}
                   onChange={handleContentBlockFieldChange}
                   placeholder={contentBlockForm.block_type === "portal_activity" ? "活动建议使用日期，如 2026-04-06" : "用于前台识别，如 公告 / 置顶 / 报名中"}
                 />
               </label>
-              <label>
+              <label className="form-field">
                 <span>摘要</span>
-                <textarea name="description" rows={3} value={contentBlockForm.description} onChange={handleContentBlockFieldChange} />
+                <textarea className="form-control" name="description" rows={3} value={contentBlockForm.description} onChange={handleContentBlockFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>正文</span>
-                <textarea name="body" rows={4} value={contentBlockForm.body} onChange={handleContentBlockFieldChange} />
+                <textarea className="form-control" name="body" rows={4} value={contentBlockForm.body} onChange={handleContentBlockFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>排序权重</span>
-                <input name="sort_order" value={contentBlockForm.sort_order} onChange={handleContentBlockFieldChange} />
+                <input className="form-control" name="sort_order" value={contentBlockForm.sort_order} onChange={handleContentBlockFieldChange} />
               </label>
-              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+              <label className="form-check admin-cms-form__check">
                 <input name="active" checked={contentBlockForm.active} onChange={handleContentBlockFieldChange} type="checkbox" />
                 <span>保存后立即在前台生效</span>
               </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={contentBlockActionState.pending}>
+              <div className="form-actions admin-cms-form__actions">
+                <button className="admin-cms-form__submit inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={contentBlockActionState.pending}>
                   {contentBlockActionState.pending ? "保存中..." : editingContentBlockID ? "更新内容块" : "创建内容块"}
                 </button>
-                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={resetContentBlockEditor}>
+                <button className="admin-cms-form__reset inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={resetContentBlockEditor}>
                   清空表单
                 </button>
               </div>
@@ -6012,11 +6013,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     <span>排序: {block.sort_order}</span>
                     {block.path ? <span>路径: {block.path}</span> : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => handleContentBlockEditStart(block)}>
+                  <div className="admin-cms-item__actions flex flex-wrap items-center gap-1.5">
+                    <button className="admin-cms-item__action inline-flex items-center justify-center rounded-md border border-[color:var(--line-soft)] bg-transparent px-2 py-1 text-xs font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/70" type="button" onClick={() => handleContentBlockEditStart(block)}>
                       编辑
                     </button>
-                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30" type="button" onClick={() => void handleContentBlockDelete(block)}>
+                    <button className="admin-cms-item__action admin-cms-item__action--danger inline-flex items-center justify-center rounded-md border border-rose-300 bg-transparent px-2 py-1 text-xs font-medium text-rose-500 transition hover:border-rose-400 hover:bg-rose-50/40" type="button" onClick={() => void handleContentBlockDelete(block)}>
                       删除
                     </button>
                   </div>
