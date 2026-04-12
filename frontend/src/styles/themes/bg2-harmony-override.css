@@ -317,6 +317,39 @@ html[data-theme="night"] .home-notice-modal__body * {
   color: #fce8f2 !important;
 }
 
+/* 2026-04-13 P0 hotfix: keep notice modal high-contrast across palette overrides */
+html[data-theme] .home-notice-modal__panel {
+  border-color: rgba(92, 128, 162, 0.34) !important;
+  background: #f4f9ff !important;
+}
+
+html[data-theme] .home-notice-modal__head p,
+html[data-theme] .home-notice-modal__panel h2,
+html[data-theme] .home-notice-modal__summary,
+html[data-theme] .home-notice-modal__body,
+html[data-theme] .home-notice-modal__body * {
+  color: #13273c !important;
+  text-shadow: none !important;
+}
+
+html[data-theme] .home-notice-modal__body p {
+  font-weight: 600;
+  line-height: 1.84;
+}
+
+html[data-theme] .home-notice-modal__body p::before {
+  color: #2f5d85 !important;
+}
+
+html[data-theme] .story-snippet-item__excerpt {
+  color: rgba(35, 57, 82, 0.92);
+}
+
+html[data-theme] .story-snippet-item__meta,
+html[data-theme] .story-snippet-item__date {
+  color: rgba(49, 74, 102, 0.86);
+}
+
 html[data-theme="day"] .forum-feed-panel::before,
 html[data-theme="day"] .forum-feed-panel__hero::after {
   background: rgba(162, 46, 50, 0.12);
@@ -431,31 +464,24 @@ html[data-theme="night"] .gallery-photo-shell__head-note {
   opacity: 0.96;
 }
 
-html[data-theme="day"] .gallery-photo-shell__hero-stat {
-  border-color: rgba(162, 46, 50, 0.28);
-  background: linear-gradient(180deg, rgba(255, 252, 254, 0.92), rgba(252, 240, 246, 0.86));
-  box-shadow: 0 10px 22px rgba(80, 34, 36, 0.1);
-}
-
-html[data-theme="day"] .gallery-photo-shell__hero-stat span {
-  color: #7a4c42;
-}
-
-html[data-theme="day"] .gallery-photo-shell__hero-stat strong {
-  color: #6d3036;
-}
-
+html[data-theme="day"] .gallery-photo-shell__hero-stat,
 html[data-theme="night"] .gallery-photo-shell__hero-stat {
-  border-color: rgba(240, 176, 200, 0.32);
-  background: linear-gradient(180deg, rgba(54, 27, 35, 0.92), rgba(37, 19, 25, 0.94));
+  border-color: rgba(246, 228, 236, 0.34);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(5px);
 }
 
+html[data-theme="day"] .gallery-photo-shell__hero-stat span,
 html[data-theme="night"] .gallery-photo-shell__hero-stat span {
-  color: rgba(244, 217, 228, 0.8);
+  color: rgba(248, 233, 241, 0.84);
 }
 
+html[data-theme="day"] .gallery-photo-shell__hero-stat strong,
 html[data-theme="night"] .gallery-photo-shell__hero-stat strong {
-  color: #ffeaf4;
+  color: #fff4de;
 }
 
 html[data-theme="day"] .gallery-photo-shell__hero-type-label,
@@ -592,6 +618,14 @@ html[data-theme] .workspace-sidebar__meta-badge {
   background: var(--workspace-sidebar-tint-strong);
 }
 
+html[data-theme] .workspace-sidebar__meta-badge,
+html[data-theme] .status-chip {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 html[data-theme] .workspace-sidebar__body::-webkit-scrollbar-thumb {
   background: var(--workspace-sidebar-border);
 }
@@ -677,4 +711,50 @@ html[data-theme] .space-bgm-item__toggle-button:disabled {
   opacity: 0.52;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Gallery tag system: keep one visual language across nav/type/count tags. */
+html[data-theme] :is(.gallery-topic-nav__button, .gallery-topic-tag, .gallery-curation-section__meta .status-chip) {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(170, 94, 116, 0.34);
+  border-radius: 999px;
+  color: #6b2f3a;
+  background: rgba(251, 238, 244, 0.94);
+  box-shadow:
+    0 4px 10px rgba(94, 45, 41, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.54);
+  transform: none;
+}
+
+html[data-theme] .gallery-topic-tag {
+  justify-self: start;
+  width: fit-content;
+  min-height: 30px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+html[data-theme] .gallery-curation-section__meta .status-chip {
+  min-height: 30px;
+  padding-inline: 12px;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+html[data-theme] .gallery-topic-nav__button:hover {
+  border-color: rgba(170, 94, 116, 0.52);
+  background: rgba(255, 245, 250, 0.98);
+}
+
+html[data-theme="night"] :is(.gallery-topic-nav__button, .gallery-topic-tag, .gallery-curation-section__meta .status-chip) {
+  border-color: rgba(240, 176, 200, 0.34);
+  color: #ffe6f1;
+  background: rgba(79, 39, 51, 0.7);
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
