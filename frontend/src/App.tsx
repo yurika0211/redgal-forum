@@ -180,6 +180,20 @@ const THEME_STORAGE_KEY = "rubedo_theme_mode";
 const HOME_NOTICE_SEEN_KEY = "rubedo_home_notice_seen_v1";
 const HOME_NOTICE_SEEN_LIMIT = 96;
 const ANONYMOUS_BOARD_MESSAGE_CAP = 250;
+const ADMIN_DASHBOARD_SNAPSHOT_KEY = "rubedo_admin_dashboard_snapshot_v1";
+
+const ADMIN_DASHBOARD_TREND_KEYS = [
+  "total_users",
+  "verified_users",
+  "admin_users",
+  "super_admin_users",
+] as const;
+
+type AdminDashboardTrendKey = (typeof ADMIN_DASHBOARD_TREND_KEYS)[number];
+
+type AdminDashboardSnapshot = Pick<ApiAdminDashboard, AdminDashboardTrendKey> & {
+  captured_at: string;
+};
 
 function readStoredThemeMode(): ThemeMode {
   if (typeof window === "undefined") {
@@ -226,6 +240,62 @@ function readStoredHomeNoticeSeenIDs(): string[] {
   } catch {
     window.localStorage.removeItem(HOME_NOTICE_SEEN_KEY);
     return [];
+  }
+}
+
+function createAdminDashboardSnapshot(dashboard: ApiAdminDashboard): AdminDashboardSnapshot {
+  return {
+    total_users: dashboard.total_users,
+    verified_users: dashboard.verified_users,
+    admin_users: dashboard.admin_users,
+    super_admin_users: dashboard.super_admin_users,
+    captured_at: new Date().toISOString(),
+  };
+}
+
+function readStoredAdminDashboardSnapshot(): AdminDashboardSnapshot | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(ADMIN_DASHBOARD_SNAPSHOT_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<AdminDashboardSnapshot>;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    const next = {
+      total_users: Number(parsed.total_users ?? 0),
+      verified_users: Number(parsed.verified_users ?? 0),
+      admin_users: Number(parsed.admin_users ?? 0),
+      super_admin_users: Number(parsed.super_admin_users ?? 0),
+      captured_at: typeof parsed.captured_at === "string" ? parsed.captured_at : "",
+    };
+
+    if (ADMIN_DASHBOARD_TREND_KEYS.some((key) => !Number.isFinite(next[key]))) {
+      return null;
+    }
+
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+function persistAdminDashboardSnapshot(snapshot: AdminDashboardSnapshot): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(ADMIN_DASHBOARD_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch {
+    // ignore localStorage write failures (private mode/quota) and keep UI usable
   }
 }
 
@@ -369,7 +439,8 @@ interface AnnouncementFormState {
   title: string;
   description: string;
   body: string;
-  label: string;
+  kicker: string;
+  published_on: string;
   sort_order: string;
   active: boolean;
 }
@@ -845,12 +916,21 @@ function createContestFormState(): ContestFormState {
   };
 }
 
+function createTodayDateStamp(): string {
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function createAnnouncementFormState(): AnnouncementFormState {
   return {
     title: "",
     description: "",
     body: "",
-    label: "公告",
+    kicker: "公告",
+    published_on: createTodayDateStamp(),
     sort_order: "0",
     active: true,
   };
@@ -981,6 +1061,8 @@ function App() {
     useState<FormActionState<SiteGalleryEntry[]>>(createEmptyActionState<SiteGalleryEntry[]>);
   const [editingGalleryEntryID, setEditingGalleryEntryID] = useState<string | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<ApiAdminDashboard | null>(null);
+  const [adminDashboardTrendBase, setAdminDashboardTrendBase] =
+    useState<AdminDashboardSnapshot | null>(() => readStoredAdminDashboardSnapshot());
   const [superAdminDashboard, setSuperAdminDashboard] = useState<ApiSuperAdminDashboard | null>(null);
   const [forumAvailabilitySettings, setForumAvailabilitySettings] =
     useState<ApiForumAvailabilitySettings | null>(null);
@@ -1036,6 +1118,7 @@ function App() {
     useState<FormActionState<ApiForumThread | DeleteForumThreadResult>>(
       createEmptyActionState<ApiForumThread | DeleteForumThreadResult>,
     );
+  const adminDashboardRef = useRef<ApiAdminDashboard | null>(null);
   const [forumProgress, setForumProgress] = useState<ApiForumProgress | null>(null);
   const [forumSignInState, setForumSignInState] =
     useState<FormActionState<ApiForumSignInResult>>(createEmptyActionState<ApiForumSignInResult>);
@@ -1305,6 +1388,10 @@ function App() {
         }) || null
       : null;
   const activeHomeNoticeID = activeHomeNotice?.id.trim() || "";
+
+  useEffect(() => {
+    adminDashboardRef.current = adminDashboard;
+  }, [adminDashboard]);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -2139,8 +2226,21 @@ function App() {
         return;
       }
 
+      const previousAdminDashboard = adminDashboardRef.current;
+
       startTransition(() => {
-        setAdminDashboard(dashboardResult.status === "fulfilled" ? dashboardResult.value : null);
+        if (dashboardResult.status === "fulfilled") {
+          const nextAdminDashboard = dashboardResult.value;
+          setAdminDashboard(nextAdminDashboard);
+          setAdminDashboardTrendBase((current) =>
+            previousAdminDashboard
+              ? createAdminDashboardSnapshot(previousAdminDashboard)
+              : current ?? readStoredAdminDashboardSnapshot(),
+          );
+          persistAdminDashboardSnapshot(createAdminDashboardSnapshot(nextAdminDashboard));
+        } else {
+          setAdminDashboard(null);
+        }
         setSuperAdminDashboard(superAdminResult.status === "fulfilled" ? superAdminResult.value : null);
         setForumAvailabilitySettings(
           forumSettingsResult.status === "fulfilled" ? forumSettingsResult.value : null,
@@ -4581,7 +4681,8 @@ function App() {
         block_type: "portal_notice",
         slug: createAnnouncementSlug(title),
         title,
-        label: announcementForm.label.trim() || "公告",
+        kicker: announcementForm.kicker.trim() || "公告",
+        label: announcementForm.published_on.trim() || createTodayDateStamp(),
         description: announcementForm.description.trim() || undefined,
         body: announcementForm.body.trim() || undefined,
         sort_order: sortOrder,
@@ -5351,7 +5452,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       id: section.id,
       kicker: section.kicker,
       title: section.title,
-      description: section.description,
       items: section.children.map((child) => ({
         id: child.id,
         label: child.label,
@@ -5369,6 +5469,48 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       .sort((left, right) => right.sort_order - left.sort_order);
     const forumEnabled = forumAvailabilitySettings?.forum_enabled ?? true;
     const anonymousEnabled = forumAvailabilitySettings?.anonymous_enabled ?? true;
+    const dashboardMetricDefinitions: Array<{ key: AdminDashboardTrendKey; label: string }> = [
+      { key: "total_users", label: "注册总数" },
+      { key: "verified_users", label: "已认证成员" },
+      { key: "admin_users", label: "管理员" },
+      { key: "super_admin_users", label: "超级管理员" },
+    ];
+    const dashboardMetricCards = dashboardMetricDefinitions.map((metric) => {
+      const currentValue = Number(adminDashboard?.[metric.key] ?? 0);
+      const baselineValue =
+        adminDashboardTrendBase && Number.isFinite(adminDashboardTrendBase[metric.key])
+          ? Number(adminDashboardTrendBase[metric.key])
+          : null;
+      const delta = baselineValue === null ? null : currentValue - baselineValue;
+      const trendIcon = delta === null ? "•" : delta > 0 ? "▲" : delta < 0 ? "▼" : "■";
+      const trendClassName =
+        delta === null
+          ? "text-[color:var(--text-faint)]"
+          : delta > 0
+            ? "text-emerald-600/90"
+            : delta < 0
+              ? "text-rose-500/90"
+              : "text-[color:var(--text-muted)]";
+      const trendText =
+        delta === null
+          ? "暂无对比基线"
+          : delta > 0
+            ? `较上次 +${delta}`
+            : delta < 0
+              ? `较上次 ${delta}`
+              : "较上次持平";
+
+      return {
+        ...metric,
+        currentLabel: currentValue.toLocaleString("zh-CN"),
+        trendClassName,
+        trendIcon,
+        trendText,
+      };
+    });
+    const dashboardTrendTimestamp = adminDashboardTrendBase?.captured_at
+      ? formatDateTime(adminDashboardTrendBase.captured_at)
+      : "";
 
     return (
       <>
@@ -5381,12 +5523,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             footerSubtitle={`角色：${formatAdminRoles(profile?.roles)}`}
             footerTitle={profile?.nickname || profile?.username || "后台成员"}
             headerAvatarLabel="Rubedo"
-            headerBadge={`${ADMIN_SIDEBAR_SECTIONS.length} 组`}
             headerKicker="Rubedo Control"
             headerSubtitle={`${activeAdminSectionMeta.title} · ${activeAdminPageLabel}`}
             headerTitle="后台工作台"
             onItemSelect={(itemId) => setAdminActivePage(itemId as AdminPageKey)}
             sections={adminSidebarSections}
+            showHeader={false}
             tone="admin"
           />
 
@@ -5399,20 +5541,24 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">数据看板</p>
                 <h2>核心指标速览</h2>
                 <p className="text-sm text-[color:var(--text-muted)]">用于快速判断社区规模与管理负载。</p>
+                <p className="text-xs text-[color:var(--text-faint)]">
+                  对比基线：{dashboardTrendTimestamp || "首次访问后自动建立"}
+                </p>
               </div>
               <StatusChip tone="accent">管理员</StatusChip>
             </div>
             {adminDashboardError ? <p className="text-sm text-rose-500/90">{adminDashboardError}</p> : null}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                ["注册总数", String(adminDashboard?.total_users ?? 0)],
-                ["已认证成员", String(adminDashboard?.verified_users ?? 0)],
-                ["管理员", String(adminDashboard?.admin_users ?? 0)],
-                ["超级管理员", String(adminDashboard?.super_admin_users ?? 0)],
-              ].map(([label, value]) => (
-                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={label}>
-                  <span>{label}</span>
-                  <strong>{value}</strong>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {dashboardMetricCards.map((metric) => (
+                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3.5 py-3" key={metric.label}>
+                  <span className="block text-[0.74rem] uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{metric.label}</span>
+                  <strong className="mt-1.5 block text-[clamp(1.8rem,3.8vw,2.6rem)] font-bold leading-none text-[color:var(--color-primary)]">
+                    {metric.currentLabel}
+                  </strong>
+                  <p className={`mt-1 text-[0.76rem] font-medium ${metric.trendClassName}`}>
+                    <span className="mr-1">{metric.trendIcon}</span>
+                    {metric.trendText}
+                  </p>
                 </div>
               ))}
             </div>
@@ -6298,20 +6444,40 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">公告中心</p>
                 <h2>发布公告与系统说明</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">用于发布首页公告，建议标题简洁、摘要明确。</p>
+                <p className="text-sm text-[color:var(--text-muted)]">用于发布首页公告。建议填写真实发布时间、明确分类和可读摘要。</p>
               </div>
               <StatusChip tone="accent">公告块</StatusChip>
             </div>
             {announcementActionState.error ? <p className="text-sm text-rose-500/90">{announcementActionState.error}</p> : null}
             {announcementActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{announcementActionState.success}</p> : null}
             <form className="grid gap-3" onSubmit={(event) => void handleAnnouncementSubmit(event)}>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label>
+                  <span>公告分类</span>
+                  <input
+                    name="kicker"
+                    value={announcementForm.kicker}
+                    onChange={handleAnnouncementFieldChange}
+                    placeholder="例如：置顶通知 / 活动提醒 / 维护公告"
+                  />
+                </label>
+                <label>
+                  <span>发布时间</span>
+                  <input
+                    name="published_on"
+                    type="date"
+                    value={announcementForm.published_on}
+                    onChange={handleAnnouncementFieldChange}
+                  />
+                </label>
+              </div>
               <label>
                 <span>公告标题</span>
                 <input
                   name="title"
                   value={announcementForm.title}
                   onChange={handleAnnouncementFieldChange}
-                  placeholder="例如：下周共赏会时间调整"
+                  placeholder="例如：4 月 20 日共赏会改为 19:30 开始"
                   required
                 />
               </label>
@@ -6321,7 +6487,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   name="description"
                   value={announcementForm.description}
                   onChange={handleAnnouncementFieldChange}
-                  placeholder="一句话摘要，显示在公告列表"
+                  placeholder="例如：原定 19:00 调整为 19:30，地点不变，请提前 10 分钟入场。"
                 />
               </label>
               <label>
@@ -6331,16 +6497,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   rows={4}
                   value={announcementForm.body}
                   onChange={handleAnnouncementFieldChange}
-                  placeholder="补充详细说明（可选）"
-                />
-              </label>
-              <label>
-                <span>标签</span>
-                <input
-                  name="label"
-                  value={announcementForm.label}
-                  onChange={handleAnnouncementFieldChange}
-                  placeholder="例如：置顶 / 活动 / 维护"
+                  placeholder="补充活动流程、调整原因或注意事项（可选）。"
                 />
               </label>
               <label>
@@ -6390,7 +6547,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     </div>
                     <p>{notice.description || notice.body || "暂无公告说明。"}</p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                      <span>{notice.label || "公告"}</span>
+                      <span>分类: {notice.kicker || "公告"}</span>
+                      <span>时间: {notice.label || "未填写"}</span>
                       <span>排序: {notice.sort_order}</span>
                       <span>slug: {notice.slug}</span>
                     </div>
