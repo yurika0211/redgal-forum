@@ -136,7 +136,7 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
   id: SpaceSidebarSectionKey;
   title: string;
   kicker: string;
-  description: string;
+  description?: string;
   children: ReadonlyArray<{
     id: SpaceSidebarPageKey;
     label: string;
@@ -146,7 +146,6 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "identity",
     title: "空间主控",
     kicker: "Identity",
-    description: "查看资料卡与成长进度。",
     children: [
       { id: "profile", label: "个人资料卡" },
       { id: "progress", label: "成长进度" },
@@ -156,7 +155,6 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "creation",
     title: "内容创作",
     kicker: "Creation",
-    description: "管理日志区和 Bangumi 同步。",
     children: [
       { id: "journal", label: "Markdown 日志" },
       { id: "bangumi", label: "Bangumi 导入" },
@@ -166,7 +164,6 @@ const SPACE_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "community",
     title: "社交归档",
     kicker: "Community",
-    description: "维护空间好友和时间胶囊记录。",
     children: [
       { id: "favorites", label: "收藏夹" },
       { id: "friends", label: "空间好友" },
@@ -202,12 +199,148 @@ const SPACE_COLLECTION_STATUS_META: ReadonlyArray<{
   { id: "dropped", label: "抛弃" },
 ];
 
-function isSpaceCollectionStatus(value: unknown): value is SpaceCollectionStatus {
-  return SPACE_COLLECTION_STATUS_META.some((item) => item.id === value);
+const BANGUMI_SYNC_MODE_OPTIONS: ReadonlyArray<{
+  value: "subject_ids" | "account";
+  label: string;
+}> = [
+  { value: "subject_ids", label: "条目 ID 导入" },
+  { value: "account", label: "登录帐号批量同步" },
+];
+
+const BANGUMI_VISIBILITY_OPTIONS: ReadonlyArray<{
+  value: "public" | "members" | "private";
+  label: string;
+}> = [
+  { value: "public", label: "公开" },
+  { value: "members", label: "仅成员可见" },
+  { value: "private", label: "仅自己可见" },
+];
+
+function bangumiJobStatusLabel(value: string): string {
+  switch (value) {
+    case "queued":
+      return "排队中";
+    case "running":
+      return "执行中";
+    case "succeeded":
+      return "成功";
+    case "failed":
+      return "失败";
+    case "cancelled":
+      return "已取消";
+    default:
+      return value || "未知状态";
+  }
 }
 
-function toCollectionStatusLabel(status: SpaceCollectionStatus): string {
-  return SPACE_COLLECTION_STATUS_META.find((item) => item.id === status)?.label ?? status;
+function bangumiJobStatusClassName(value: string): string {
+  if (value === "succeeded") {
+    return "space-job-card__status--success";
+  }
+  if (value === "failed" || value === "cancelled") {
+    return "space-job-card__status--danger";
+  }
+  if (value === "queued" || value === "running") {
+    return "space-job-card__status--running";
+  }
+  return "space-job-card__status--neutral";
+}
+
+function bangumiJobTypeLabel(value: string): string {
+  switch (value) {
+    case "collection_sync":
+      return "收藏同步";
+    default:
+      return value || "未指定类型";
+  }
+}
+
+function bangumiCollectionStatusLabel(value: string): string {
+  switch (value) {
+    case "wish":
+      return "想看";
+    case "doing":
+      return "在看";
+    case "collect":
+      return "看过";
+    case "on_hold":
+      return "搁置";
+    case "dropped":
+      return "抛弃";
+    default:
+      return value || "未指定";
+  }
+}
+
+function formatRelativeTimeLabel(timestamp: number, now = Date.now()): string {
+  const diffMs = now - timestamp;
+  const absDiffMs = Math.abs(diffMs);
+  const isPast = diffMs >= 0;
+
+  const units = [
+    { limit: 60_000, size: 1_000, label: "秒" },
+    { limit: 3_600_000, size: 60_000, label: "分钟" },
+    { limit: 86_400_000, size: 3_600_000, label: "小时" },
+    { limit: 2_592_000_000, size: 86_400_000, label: "天" },
+    { limit: 31_536_000_000, size: 2_592_000_000, label: "个月" },
+    { limit: Number.POSITIVE_INFINITY, size: 31_536_000_000, label: "年" },
+  ];
+  const target = units.find((unit) => absDiffMs < unit.limit) || units[units.length - 1];
+  const amount = Math.max(1, Math.floor(absDiffMs / target.size));
+  return isPast ? `${amount}${target.label}前` : `${amount}${target.label}后`;
+}
+
+function formatBangumiJobDate(value: string | undefined): string {
+  const timestamp = parseTimestamp(value);
+  if (timestamp === null) {
+    return "时间待定";
+  }
+
+  const absolute = new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(new Date(timestamp));
+
+  return `${absolute} · ${formatRelativeTimeLabel(timestamp)}`;
+}
+
+function formatBangumiPayloadSummary(payload: Record<string, unknown>): string {
+  const syncMode = String(payload.sync_mode || "subject_ids");
+  const visibility = normalizeVisibilityLabel(String(payload.visibility || "public"));
+
+  if (syncMode === "account") {
+    const username = String(payload.bangumi_username || "").trim() || "未填写";
+    const maxItems =
+      typeof payload.max_items === "number" || typeof payload.max_items === "string"
+        ? String(payload.max_items)
+        : "未设置";
+    return `同步账号：${username} | 最大条目数：${maxItems} | 可见范围：${visibility}`;
+  }
+
+  const subjectIDs = Array.isArray(payload.subject_ids)
+    ? payload.subject_ids
+        .map((item) => {
+          if (typeof item === "number" && Number.isFinite(item)) {
+            return String(item);
+          }
+          if (typeof item === "string" && item.trim()) {
+            return item.trim();
+          }
+          return "";
+        })
+        .filter(Boolean)
+    : [];
+  const status = bangumiCollectionStatusLabel(String(payload.status || "wish"));
+  return `条目 ID：${subjectIDs.length ? subjectIDs.join("、") : "未提供"} | 收藏状态：${status} | 可见范围：${visibility}`;
+}
+
+function isSpaceCollectionStatus(value: unknown): value is SpaceCollectionStatus {
+  return SPACE_COLLECTION_STATUS_META.some((item) => item.id === value);
 }
 
 function normalizeMyScore(value: unknown): number | undefined {
@@ -294,6 +427,19 @@ function toMediaTypeLabel(tab: SpaceShelfTab): string {
     default:
       return "收藏";
   }
+}
+
+function toFiveStarGlyph(score: number | undefined): string {
+  if (typeof score !== "number" || Number.isNaN(score)) {
+    return "☆☆☆☆☆";
+  }
+
+  const stars = Math.max(0, Math.min(5, Math.round(score / 2)));
+  return `${"★".repeat(stars)}${"☆".repeat(5 - stars)}`;
+}
+
+function toBangumiScoreLabel(score: number | undefined): string {
+  return typeof score === "number" ? score.toFixed(1) : "--";
 }
 
 const SPACE_SHOWCASE_TAB_ORDER: readonly SpaceShelfTab[] = ["anime", "books", "games"];
@@ -904,13 +1050,6 @@ export default function SpacePage({
               ? "内容浏览"
               : "社交归档"
           : section.title,
-        description: isViewingPublicProfile
-          ? section.id === "identity"
-            ? `查看 ${viewingProfileLabel} 的基础资料与作品展示。`
-            : section.id === "creation"
-              ? `查看 ${viewingProfileLabel} 的日志区。`
-              : `查看 ${viewingProfileLabel} 的好友关系。`
-          : section.description,
         items: visibleChildren.map((child) => ({
           id: child.id,
           label:
@@ -926,12 +1065,10 @@ export default function SpacePage({
     },
     [],
   );
-  const activeSpaceSectionTitle =
-    spaceSidebarSections.find((section) => section.id === activeSidebarSection)?.title ?? "空间主控";
   const activeSpacePageLabel =
     spaceSidebarSections
       .flatMap((section) => section.items)
-      .find((item) => item.id === spaceActivePage)?.label ?? "个人资料卡";
+      .find((item) => item.id === spaceActivePage)?.label ?? "个人空间";
   const spaceIDEditable = displayProfile?.space_id_editable !== false;
   const [spaceFriends, setSpaceFriends] = useState<SpaceFriend[]>(() => {
     const storedFriends = readStoredSpaceFriends();
@@ -1717,16 +1854,17 @@ export default function SpacePage({
         headerAvatarUrl={displayProfile?.avatar_url || undefined}
         headerBadge={isViewingPublicProfile ? "访客视图" : "工作台"}
         headerKicker={isViewingPublicProfile ? `${viewingProfileLabel} Space` : "My Space"}
-        headerSubtitle={`${activeSpaceSectionTitle} · ${activeSpacePageLabel}`}
+        headerSubtitle={activeSpacePageLabel}
         headerTitle={isViewingPublicProfile ? `${viewingProfileLabel} 的空间` : "个人空间工作台"}
         onItemSelect={(itemId) => setSpaceActivePage(itemId as SpaceSidebarPageKey)}
         sections={spaceSidebarSections}
+        showHeader={false}
         tone="space"
       />
 
-      <div className="grid gap-4">
-        <section className="mt-2 md:mt-3" style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
-          <article className="mt-3.5 grid gap-5 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm max-[640px]:mt-2.5">
+      <div className="space-main-content grid gap-4">
+        <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
+          <article className="grid gap-5 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
             {viewingPublicProfileUsername ? (
               <div className="flex items-center justify-between gap-3 rounded-2xl border border-[rgba(195,128,159,0.26)] bg-[linear-gradient(135deg,rgba(195,128,159,0.12),rgba(245,202,113,0.14)),rgba(255,255,255,0.76)] px-3.5 py-3 max-[640px]:flex-col max-[640px]:items-start">
                 <div>
@@ -1750,7 +1888,6 @@ export default function SpacePage({
                     statusTone={hasVerifiedSpaceAccess ? "success" : "neutral"}
                   />
                   <div className="grid gap-2">
-                    <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{isViewingPublicProfile ? `${viewingProfileLabel} 资料卡` : "个人资料卡"}</p>
                     <h2 className="m-0 font-[var(--font-display)] text-[clamp(2rem,4vw,3rem)] leading-none text-[color:var(--text-strong)]">{displayProfile.nickname}</h2>
                     <p className="m-0 leading-[1.7] text-[color:var(--text-soft)]">
                       @{displayProfile.username} · {displayProfile.signature}
@@ -1764,11 +1901,11 @@ export default function SpacePage({
                     </div>
                   </div>
                 </div>
-                <div className="grid gap-3 [grid-template-columns:repeat(4,minmax(0,1fr))] max-[980px]:grid-cols-1">
+                <div className="space-profile-stats grid gap-3 [grid-template-columns:repeat(4,minmax(0,1fr))] max-[980px]:grid-cols-1">
                   {Object.entries(displayProfile.collections).map(([label, count]) => (
-                    <div className="rounded-[18px] border border-[color:var(--line-soft)] bg-white/[0.54] px-[18px] py-4" key={label}>
+                    <div className="space-profile-stat rounded-[18px] border border-[color:var(--line-soft)] bg-white/[0.54] px-[18px] py-4" key={label}>
                       <span className="block text-[0.82rem] uppercase tracking-[0.14em] text-[color:var(--text-muted)]">{label}</span>
-                      <strong className="mt-2 block font-[var(--font-display)] text-[1.3rem] text-[color:var(--text-strong)]">{count}</strong>
+                      <strong className="space-profile-stat__value mt-2 block font-[var(--font-display)] text-[1.3rem] text-[color:var(--text-strong)]">{count}</strong>
                     </div>
                   ))}
                 </div>
@@ -1886,105 +2023,6 @@ export default function SpacePage({
               <p className="text-sm text-[color:var(--text-muted)]">{profileError || "空间资料加载中。"}</p>
             )}
           </article>
-          {!isViewingPublicProfile ? (
-            <article className="ui-card-panel mt-3.5 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">账号会话</p>
-                <h2>{session ? "当前已登录" : "登录 / 注册"}</h2>
-              </div>
-              <StatusChip tone={session ? "success" : "neutral"}>
-                {session ? "已认证会话" : "游客状态"}
-              </StatusChip>
-            </div>
-
-            {session ? (
-              <div className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4">
-                <p className="text-sm text-[color:var(--text-muted)]">当前账号会话已生效，空间、收藏导入与投稿能力按账号权限开放。</p>
-                {profileError ? <p className="text-sm text-rose-500/90">{profileError}</p> : null}
-                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={onLogout}>
-                  退出当前会话
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-3.5 [grid-template-columns:repeat(2,minmax(0,1fr))] max-[980px]:grid-cols-1">
-                <form className="form-layout space-form-block rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onLoginSubmit(event)}>
-                  <p className="text-sm text-[color:var(--text-muted)]">登录后会同步当前空间会话。</p>
-                  <label className="form-field">
-                    <span>账号</span>
-                    <input
-                      autoComplete="username"
-                      className="form-control"
-                      name="account"
-                      onChange={onAuthFieldChange}
-                      placeholder="用户名 / 学号 / 邮箱"
-                      value={authForm.account}
-                    />
-                  </label>
-                  <label className="form-field">
-                    <span>密码</span>
-                    <input
-                      autoComplete="current-password"
-                      className="form-control"
-                      name="password"
-                      onChange={onAuthFieldChange}
-                      placeholder="输入账号密码"
-                      type="password"
-                      value={authForm.password}
-                    />
-                  </label>
-                  {loginState.error ? <p className="text-sm text-rose-500/90">{loginState.error}</p> : null}
-                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" disabled={loginState.pending} type="submit">
-                    {loginState.pending ? "登录中..." : "登录"}
-                  </button>
-                </form>
-
-                <form className="form-layout space-form-block rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onRegisterSubmit(event)}>
-                  <p className="text-sm text-[color:var(--text-muted)]">注册完成后可直接用账号登录。</p>
-                  <label className="form-field">
-                    <span>学号</span>
-                    <input
-                      autoComplete="off"
-                      className="form-control"
-                      name="student_id"
-                      onChange={onRegisterFieldChange}
-                      placeholder="例如：20260001"
-                      value={registerForm.student_id}
-                    />
-                  </label>
-                  <label className="form-field">
-                    <span>用户名</span>
-                    <input
-                      autoComplete="username"
-                      className="form-control"
-                      name="username"
-                      onChange={onRegisterFieldChange}
-                      placeholder="3-32 位字母/数字/下划线"
-                      value={registerForm.username}
-                    />
-                  </label>
-                  <label className="form-field">
-                    <span>密码</span>
-                    <input
-                      autoComplete="new-password"
-                      className="form-control"
-                      name="password"
-                      onChange={onRegisterFieldChange}
-                      placeholder="设置登录密码"
-                      type="password"
-                      value={registerForm.password}
-                    />
-                  </label>
-                  {registerState.error ? <p className="text-sm text-rose-500/90">{registerState.error}</p> : null}
-                  {registerState.success ? <p className="text-sm text-[color:var(--text-muted)]">{registerState.success}</p> : null}
-                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" disabled={registerState.pending} type="submit">
-                    {registerState.pending ? "注册中..." : "注册"}
-                  </button>
-                </form>
-              </div>
-            )}
-            </article>
-          ) : null}
         </section>
 
         <section style={{ display: spaceActivePage === "progress" && !isViewingPublicProfile ? undefined : "none" }}>
@@ -2052,33 +2090,42 @@ export default function SpacePage({
                         <span>{String(startIndex + index + 1).padStart(2, "0")}</span>
                       </div>
                       <div className="space-bgm-item__copy">
-                        <strong>{item.title}</strong>
-                        {item.originalTitle ? <p>{item.originalTitle}</p> : null}
-                        <div className="space-bgm-item__meta">
-                          <span>
-                            Bangumi: {item.score ? `★${item.score.toFixed(1)}` : "★--"}
-                            {typeof item.rank === "number" ? ` · Rank #${item.rank}` : ""}
-                          </span>
-                          <span>
-                            {item.releaseYear || "--"} · {toMediaTypeLabel(activeSpaceShelf.id)}
-                            {"episodes" in item && typeof item.episodes === "number" ? ` · ${item.episodes}话` : ""}
-                            {"pages" in item && typeof item.pages === "number" ? ` · ${item.pages}页` : ""}
-                            {"hours" in item && typeof item.hours === "string" && item.hours ? ` · ${item.hours}` : ""}
-                          </span>
-                          <span>收藏状态：{toCollectionStatusLabel(item.collectionStatus)}</span>
-                          <span>收藏评分：{typeof item.myScore === "number" ? `${item.myScore} / 10` : "--"}</span>
+                        <div className="space-bgm-item__headline">
+                          <strong>{item.title}</strong>
+                          {item.sourceURL ? (
+                            <a
+                              aria-label={`打开 ${item.title} 的 Bangumi 条目`}
+                              className="space-bgm-item__source-link"
+                              href={item.sourceURL}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              ↗
+                            </a>
+                          ) : null}
                         </div>
-                        <small>{item.note}</small>
-                        {item.sourceURL ? (
-                          <a
-                            className="space-bgm-item__source-link"
-                            href={item.sourceURL}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            查看 Bangumi 原链接
-                          </a>
-                        ) : null}
+                        {item.originalTitle ? <p className="space-bgm-item__original-title">{item.originalTitle}</p> : null}
+                        <p className="space-bgm-item__meta-line">
+                          {item.releaseYear || "--"} · {toMediaTypeLabel(activeSpaceShelf.id)}
+                          {"episodes" in item && typeof item.episodes === "number" ? ` · ${item.episodes}话` : ""}
+                          {"pages" in item && typeof item.pages === "number" ? ` · ${item.pages}页` : ""}
+                          {"hours" in item && typeof item.hours === "string" && item.hours ? ` · ${item.hours}` : ""}
+                          {typeof item.rank === "number" ? ` · Rank #${item.rank}` : ""}
+                        </p>
+                        <div
+                          aria-label={
+                            typeof item.score === "number"
+                              ? `Bangumi 评分 ${item.score.toFixed(1)} / 10`
+                              : "暂无 Bangumi 评分"
+                          }
+                          className="space-bgm-item__rating"
+                        >
+                          <span className="space-bgm-item__stars">{toFiveStarGlyph(item.score)}</span>
+                          <span className="space-bgm-item__rating-value">{toBangumiScoreLabel(item.score)}</span>
+                          {typeof item.myScore === "number" ? (
+                            <span className="space-bgm-item__my-rating">我的 {item.myScore}/10</span>
+                          ) : null}
+                        </div>
                         {item.myComment ? <p className="space-bgm-item__comment">短评：{item.myComment}</p> : null}
                       </div>
                       {canEditShowcase ? (
@@ -2088,7 +2135,7 @@ export default function SpacePage({
                             type="button"
                             onClick={() => handleShowcaseEditorToggle(item)}
                           >
-                            {isEditorExpanded ? "收起操作" : "展开操作"}
+                            {isEditorExpanded ? "收起" : "操作"}
                           </button>
                         </div>
                       ) : null}
@@ -2199,6 +2246,112 @@ export default function SpacePage({
           </article>
         </section>
 
+        <section style={{ display: spaceActivePage === "profile" && !isViewingPublicProfile ? undefined : "none" }}>
+          <article className="space-session-panel ui-card-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">账号会话</p>
+                <h2>{session ? "当前已登录" : "登录 / 注册"}</h2>
+              </div>
+              <StatusChip tone={session ? "success" : "neutral"}>
+                {session ? "已认证会话" : "游客状态"}
+              </StatusChip>
+            </div>
+
+            {session ? (
+              <div className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4">
+                <p className="text-sm text-[color:var(--text-muted)]">当前账号会话已生效，空间、收藏导入与投稿能力按账号权限开放。</p>
+                {profileError ? <p className="text-sm text-rose-500/90">{profileError}</p> : null}
+                <div className="space-session-actions">
+                  <button
+                    className="space-session-logout-button inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                    onClick={onLogout}
+                  >
+                    退出当前会话
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3.5 [grid-template-columns:repeat(2,minmax(0,1fr))] max-[980px]:grid-cols-1">
+                <form className="form-layout space-form-block rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onLoginSubmit(event)}>
+                  <p className="text-sm text-[color:var(--text-muted)]">登录后会同步当前空间会话。</p>
+                  <label className="form-field">
+                    <span>账号</span>
+                    <input
+                      autoComplete="username"
+                      className="form-control"
+                      name="account"
+                      onChange={onAuthFieldChange}
+                      placeholder="用户名 / 学号 / 邮箱"
+                      value={authForm.account}
+                    />
+                  </label>
+                  <label className="form-field">
+                    <span>密码</span>
+                    <input
+                      autoComplete="current-password"
+                      className="form-control"
+                      name="password"
+                      onChange={onAuthFieldChange}
+                      placeholder="输入账号密码"
+                      type="password"
+                      value={authForm.password}
+                    />
+                  </label>
+                  {loginState.error ? <p className="text-sm text-rose-500/90">{loginState.error}</p> : null}
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" disabled={loginState.pending} type="submit">
+                    {loginState.pending ? "登录中..." : "登录"}
+                  </button>
+                </form>
+
+                <form className="form-layout space-form-block rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onRegisterSubmit(event)}>
+                  <p className="text-sm text-[color:var(--text-muted)]">注册完成后可直接用账号登录。</p>
+                  <label className="form-field">
+                    <span>学号</span>
+                    <input
+                      autoComplete="off"
+                      className="form-control"
+                      name="student_id"
+                      onChange={onRegisterFieldChange}
+                      placeholder="例如：20260001"
+                      value={registerForm.student_id}
+                    />
+                  </label>
+                  <label className="form-field">
+                    <span>用户名</span>
+                    <input
+                      autoComplete="username"
+                      className="form-control"
+                      name="username"
+                      onChange={onRegisterFieldChange}
+                      placeholder="3-32 位字母/数字/下划线"
+                      value={registerForm.username}
+                    />
+                  </label>
+                  <label className="form-field">
+                    <span>密码</span>
+                    <input
+                      autoComplete="new-password"
+                      className="form-control"
+                      name="password"
+                      onChange={onRegisterFieldChange}
+                      placeholder="设置登录密码"
+                      type="password"
+                      value={registerForm.password}
+                    />
+                  </label>
+                  {registerState.error ? <p className="text-sm text-rose-500/90">{registerState.error}</p> : null}
+                  {registerState.success ? <p className="text-sm text-[color:var(--text-muted)]">{registerState.success}</p> : null}
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" disabled={registerState.pending} type="submit">
+                    {registerState.pending ? "注册中..." : "注册"}
+                  </button>
+                </form>
+              </div>
+            )}
+          </article>
+        </section>
+
         <section style={{ display: spaceActivePage === "journal" ? undefined : "none" }}>
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -2217,7 +2370,7 @@ export default function SpacePage({
             ) : !hasVerifiedSpaceAccess ? (
               <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有日志发布权限，需要通过认证后才能写日志。</p>
             ) : (
-              <form className="form-layout space-form-block" onSubmit={(event) => void onArticleSubmit(event)}>
+              <form className="form-layout space-form-block space-journal-editor" onSubmit={(event) => void onArticleSubmit(event)}>
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">空间编辑器</p>
@@ -2244,27 +2397,71 @@ export default function SpacePage({
                   />
                 </label>
 
-                <div className="form-grid-2">
-                  <label className="form-field">
-                    <span>可见范围</span>
-                    <select className="form-control" name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
-                      <option value="public">公开</option>
-                      <option value="member">仅成员可见</option>
-                      <option value="private">仅自己可见</option>
-                    </select>
-                  </label>
-                  <label className="form-field">
-                    <span>摘要</span>
-                    <input
-                      className="form-control"
-                      name="summary"
-                      type="text"
-                      value={articleForm.summary}
-                      onChange={onArticleFieldChange}
-                      placeholder="一句话概括日志内容"
-                    />
-                  </label>
-                  <label className="form-field">
+                <div className="space-journal-meta">
+                  <div className="space-journal-meta__row">
+                    <fieldset className="space-journal-meta__visibility">
+                      <legend className="space-journal-visibility__legend">可见范围</legend>
+                      <div className="space-journal-visibility__options">
+                        <label
+                          className={`space-journal-visibility__option ${
+                            articleForm.visibility === "public" ? "space-journal-visibility__option--active" : ""
+                          }`}
+                        >
+                          <input
+                            checked={articleForm.visibility === "public"}
+                            className="space-journal-visibility__input"
+                            name="visibility"
+                            onChange={onArticleFieldChange}
+                            type="radio"
+                            value="public"
+                          />
+                          <span>公开</span>
+                        </label>
+                        <label
+                          className={`space-journal-visibility__option ${
+                            articleForm.visibility === "member" ? "space-journal-visibility__option--active" : ""
+                          }`}
+                        >
+                          <input
+                            checked={articleForm.visibility === "member"}
+                            className="space-journal-visibility__input"
+                            name="visibility"
+                            onChange={onArticleFieldChange}
+                            type="radio"
+                            value="member"
+                          />
+                          <span>仅成员可见</span>
+                        </label>
+                        <label
+                          className={`space-journal-visibility__option ${
+                            articleForm.visibility === "private" ? "space-journal-visibility__option--active" : ""
+                          }`}
+                        >
+                          <input
+                            checked={articleForm.visibility === "private"}
+                            className="space-journal-visibility__input"
+                            name="visibility"
+                            onChange={onArticleFieldChange}
+                            type="radio"
+                            value="private"
+                          />
+                          <span>仅自己可见</span>
+                        </label>
+                      </div>
+                    </fieldset>
+                    <label className="form-field space-journal-meta__summary">
+                      <span>摘要</span>
+                      <input
+                        className="form-control"
+                        name="summary"
+                        type="text"
+                        value={articleForm.summary}
+                        onChange={onArticleFieldChange}
+                        placeholder="一句话概括日志内容"
+                      />
+                    </label>
+                  </div>
+                  <label className="form-field space-journal-meta__tags">
                     <span>标签</span>
                     <input
                       className="form-control"
@@ -2277,11 +2474,11 @@ export default function SpacePage({
                   </label>
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
-                    <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
+                <div className="space-journal-editor__split">
+                  <section className="space-journal-pane space-journal-pane--source">
+                    <div className="space-journal-pane__label">Markdown 源文本</div>
                     <textarea
-                      className="form-control"
+                      className="form-control space-journal-editor__textarea"
                       name="content"
                       rows={14}
                       value={articleForm.content}
@@ -2290,19 +2487,20 @@ export default function SpacePage({
                       required
                     />
                   </section>
-                  <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3 bg-[color:var(--surface-card)]">
-                    <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">实时预览</div>
-                    <div className="min-h-[220px] overflow-auto rounded-lg border border-[color:var(--line-soft)] bg-white/55 p-3">
+                  <section className="space-journal-pane space-journal-pane--preview">
+                    <div className="space-journal-pane__label">实时预览</div>
+                    <div className="space-journal-editor__preview">
                       {articleForm.content.trim() ? (
                         <RichContent content={articleForm.content} />
                       ) : (
-                        <p className="text-sm text-[color:var(--text-muted)]">预览区：输入 Markdown 后会实时显示。</p>
+                        <p className="space-journal-editor__preview-empty">预览区：输入 Markdown 后会实时显示。</p>
                       )}
                     </div>
                   </section>
                 </div>
 
-                <p className="text-sm text-[color:var(--text-muted)]">
+                <p className="space-journal-editor__hint">
+                  <span aria-hidden="true">ⓘ</span>
                   当前后端还没有独立图片上传接口，所以日志里的图片先通过 Markdown 图片链接插入。
                 </p>
                 {articleActionState.error ? <p className="text-sm text-rose-500/90">{articleActionState.error}</p> : null}
@@ -2317,6 +2515,9 @@ export default function SpacePage({
                 {spaceLogEntries.length ? (
                   spaceLogEntries.slice(0, 4).map((article, index) => {
                     const previewImage = pickSpaceLogPreviewImage(article, index);
+                    const summarySource = article.summary || article.content;
+                    const summaryText = excerpt(summarySource, 150);
+                    const hasMeaningfulSummary = summaryText.replace(/\s+/g, "").length >= 8;
                     return (
                       <button
                         className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 w-full text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-white/80 space-log-card"
@@ -2325,13 +2526,18 @@ export default function SpacePage({
                         onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
                       >
                         <div className="space-log-card__copy">
-                          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                            <h3>{article.title}</h3>
+                          <div className="space-log-card__head">
+                            <h3 className="space-log-card__title">{article.title}</h3>
                             <StatusChip tone="accent">
                               {normalizeVisibilityLabel(article.visibility)}
                             </StatusChip>
                           </div>
-                          <p>{excerpt(article.summary || article.content, 120)}</p>
+                          <p className="space-log-card__excerpt">
+                            {hasMeaningfulSummary ? summaryText : "暂无摘要预览，点击卡片查看完整日志内容。"}
+                          </p>
+                          <p className="space-log-card__meta">
+                            {article.created_at ? formatDateTime(article.created_at) : "最近更新"}
+                          </p>
                         </div>
                         <div className="space-log-card__thumb" aria-hidden="true">
                           <img alt="" loading="lazy" src={previewImage} />
@@ -2364,13 +2570,29 @@ export default function SpacePage({
               <p className="text-sm text-[color:var(--text-muted)]">当前账号无法发起导入，请重新登录后重试。</p>
             ) : (
               <form className="form-layout space-form-block" onSubmit={(event) => void onBangumiImportSubmit(event)}>
-                <label className="form-field">
-                  <span>同步模式</span>
-                  <select className="form-control" name="sync_mode" value={bangumiForm.sync_mode} onChange={onBangumiFieldChange}>
-                    <option value="subject_ids">条目 ID 导入</option>
-                    <option value="account">登录帐号批量同步</option>
-                  </select>
-                </label>
+                <fieldset className="space-bangumi-segment">
+                  <legend className="space-bangumi-segment__legend">同步模式</legend>
+                  <div className="space-bangumi-segment__options space-bangumi-segment__options--two">
+                    {BANGUMI_SYNC_MODE_OPTIONS.map((option) => (
+                      <label
+                        className={`space-bangumi-segment__option ${
+                          bangumiForm.sync_mode === option.value ? "space-bangumi-segment__option--active" : ""
+                        }`}
+                        key={option.value}
+                      >
+                        <input
+                          checked={bangumiForm.sync_mode === option.value}
+                          className="space-bangumi-segment__input"
+                          name="sync_mode"
+                          onChange={onBangumiFieldChange}
+                          type="radio"
+                          value={option.value}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 {bangumiForm.sync_mode === "account" ? (
                   <label className="form-field">
                     <span>Bangumi 用户名</span>
@@ -2411,42 +2633,72 @@ export default function SpacePage({
                     />
                   </label>
                 ) : (
-                  <label className="form-field">
-                    <span>收藏状态</span>
-                    <select className="form-control" name="status" value={bangumiForm.status} onChange={onBangumiFieldChange}>
-                      <option value="wish">想看</option>
-                      <option value="doing">在看</option>
-                      <option value="collect">看过</option>
-                      <option value="on_hold">搁置</option>
-                      <option value="dropped">抛弃</option>
-                    </select>
-                  </label>
+                  <fieldset className="space-bangumi-segment">
+                    <legend className="space-bangumi-segment__legend">收藏状态</legend>
+                    <div className="space-bangumi-segment__options space-bangumi-segment__options--five">
+                      {SPACE_COLLECTION_STATUS_META.map((item) => (
+                        <label
+                          className={`space-bangumi-segment__option ${
+                            bangumiForm.status === item.id ? "space-bangumi-segment__option--active" : ""
+                          }`}
+                          key={item.id}
+                        >
+                          <input
+                            checked={bangumiForm.status === item.id}
+                            className="space-bangumi-segment__input"
+                            name="status"
+                            onChange={onBangumiFieldChange}
+                            type="radio"
+                            value={item.id}
+                          />
+                          <span>{item.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
                 )}
-                <label className="form-field">
-                  <span>可见范围</span>
-                  <select className="form-control" name="visibility" value={bangumiForm.visibility} onChange={onBangumiFieldChange}>
-                    <option value="public">公开</option>
-                    <option value="members">仅成员可见</option>
-                    <option value="private">仅自己可见</option>
-                  </select>
-                </label>
+                <fieldset className="space-bangumi-segment">
+                  <legend className="space-bangumi-segment__legend">可见范围</legend>
+                  <div className="space-bangumi-segment__options space-bangumi-segment__options--three">
+                    {BANGUMI_VISIBILITY_OPTIONS.map((option) => (
+                      <label
+                        className={`space-bangumi-segment__option ${
+                          bangumiForm.visibility === option.value ? "space-bangumi-segment__option--active" : ""
+                        }`}
+                        key={option.value}
+                      >
+                        <input
+                          checked={bangumiForm.visibility === option.value}
+                          className="space-bangumi-segment__input"
+                          name="visibility"
+                          onChange={onBangumiFieldChange}
+                          type="radio"
+                          value={option.value}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 {bangumiActionState.error ? <p className="text-sm text-rose-500/90">{bangumiActionState.error}</p> : null}
                 {bangumiActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{bangumiActionState.success}</p> : null}
                 {bangumiActionState.data ? (
                   <div className="space-job-box">
                     <strong>任务已创建</strong>
                     <p>Job ID: {bangumiActionState.data.job_id}</p>
-                    <p>Status: {bangumiActionState.data.status}</p>
-                    <p>Channel: {bangumiActionState.data.channel}</p>
+                    <p>状态：{bangumiJobStatusLabel(bangumiActionState.data.status)}</p>
+                    <p>通道：{bangumiActionState.data.channel}</p>
                   </div>
                 ) : null}
-                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={bangumiActionState.pending}>
-                  {bangumiActionState.pending
-                    ? "提交中..."
-                    : bangumiForm.sync_mode === "account"
-                      ? "提交帐号批量同步"
-                      : "提交导入任务"}
-                </button>
+                <div className="space-bangumi-form__actions">
+                  <button className="space-bangumi-submit" type="submit" disabled={bangumiActionState.pending}>
+                    {bangumiActionState.pending
+                      ? "提交中..."
+                      : bangumiForm.sync_mode === "account"
+                        ? "提交帐号批量同步"
+                        : "提交导入任务"}
+                  </button>
+                </div>
               </form>
             )}
             {canManageBangumiImport ? (
@@ -2458,33 +2710,19 @@ export default function SpacePage({
                 {bangumiJobsError ? <p className="text-sm text-rose-500/90">{bangumiJobsError}</p> : null}
                 <div className="grid gap-3">
                   {bangumiJobs.map((job) => (
-                    <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={job.job_id}>
-                      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                    <div className="space-job-card" key={job.job_id}>
+                      <div className="space-job-card__head">
                         <h3>任务 #{job.job_id}</h3>
-                        <StatusChip
-                          tone={
-                            job.status === "succeeded"
-                              ? "success"
-                              : job.status === "failed" || job.status === "cancelled"
-                                ? "warn"
-                                : "accent"
-                          }
-                        >
-                          {job.status}
-                        </StatusChip>
+                        <span className={`space-job-card__status ${bangumiJobStatusClassName(job.status)}`}>
+                          {bangumiJobStatusLabel(job.status)}
+                        </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                        <span>{job.job_type || "collection_sync"}</span>
-                        {job.created_at ? <span>{job.created_at}</span> : null}
+                      <div className="space-job-card__meta">
+                        <span>{bangumiJobTypeLabel(job.job_type || "collection_sync")}</span>
+                        <span>{formatBangumiJobDate(job.created_at)}</span>
                       </div>
                       {job.request_payload ? (
-                        <p className="text-sm text-[color:var(--text-muted)]">
-                          {String(job.request_payload.sync_mode || "subject_ids") === "account"
-                            ? `account: ${String(job.request_payload.bangumi_username || "")} / max_items: ${String(
-                                job.request_payload.max_items || "",
-                              )}`
-                            : `subject_ids: ${JSON.stringify(job.request_payload.subject_ids || [])}`}
-                        </p>
+                        <p className="space-job-card__summary">{formatBangumiPayloadSummary(job.request_payload)}</p>
                       ) : null}
                       {job.error_message ? <p className="text-sm text-rose-500/90">{job.error_message}</p> : null}
                     </div>
@@ -2609,7 +2847,7 @@ export default function SpacePage({
                 {spaceFriendActionState.error ? <p className="text-sm text-rose-500/90">{spaceFriendActionState.error}</p> : null}
                 {spaceFriendActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{spaceFriendActionState.success}</p> : null}
                 <div className="space-friend-form__actions">
-                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={spaceFriendActionState.pending}>
+                  <button className="space-friend-submit inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={spaceFriendActionState.pending}>
                     {spaceFriendActionState.pending
                       ? session ? "发送中..." : "添加中..."
                       : session ? "发送好友申请" : "添加真实好友"}

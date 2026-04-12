@@ -51,6 +51,7 @@ interface WorkspaceSidebarProps {
   headerTitle: string;
   onItemSelect: (itemId: string) => void;
   sections: readonly WorkspaceSidebarSection[];
+  showHeader?: boolean;
   tone?: WorkspaceSidebarTone;
 }
 
@@ -202,38 +203,47 @@ export default function WorkspaceSidebar({
   headerTitle,
   onItemSelect,
   sections,
+  showHeader = true,
   tone = "admin",
 }: WorkspaceSidebarProps) {
-  const rootClassName = ["workspace-sidebar", `workspace-sidebar--${tone}`, className]
+  const rootClassName = [
+    "workspace-sidebar",
+    `workspace-sidebar--${tone}`,
+    showHeader ? "" : "workspace-sidebar--no-header",
+    className,
+  ]
     .filter(Boolean)
     .join(" ");
   const headerTone = tone === "space" ? "accent" : "neutral";
   const footerTone = footerBadge?.includes("认证") ? "success" : "neutral";
+  const showSectionDescription = tone === "admin";
 
   return (
     <aside className={rootClassName}>
-      <div className="workspace-sidebar__header">
-        <div className="workspace-sidebar__brand">
-          <UserAvatar
-            className="workspace-sidebar__avatar"
-            fallbackMode="monogram"
-            label={headerAvatarLabel}
-            shape="rounded"
-            size="lg"
-            src={headerAvatarUrl}
-            statusTone={headerTone}
-          />
-          <div className="workspace-sidebar__brand-copy">
-            <span className="workspace-sidebar__eyebrow">{headerKicker}</span>
-            <strong>{headerTitle}</strong>
-            <span>{headerSubtitle}</span>
-          </div>
-          <div className="workspace-sidebar__brand-meta">
-            {headerBadge ? <span className="workspace-sidebar__meta-badge">{headerBadge}</span> : null}
-            <SidebarChevron />
+      {showHeader ? (
+        <div className="workspace-sidebar__header">
+          <div className="workspace-sidebar__brand">
+            <UserAvatar
+              className="workspace-sidebar__avatar"
+              fallbackMode="monogram"
+              label={headerAvatarLabel}
+              shape="rounded"
+              size="lg"
+              src={headerAvatarUrl}
+              statusTone={headerTone}
+            />
+            <div className="workspace-sidebar__brand-copy">
+              <span className="workspace-sidebar__eyebrow">{headerKicker}</span>
+              <strong>{headerTitle}</strong>
+              <span>{headerSubtitle}</span>
+            </div>
+            <div className="workspace-sidebar__brand-meta">
+              {headerBadge ? <span className="workspace-sidebar__meta-badge">{headerBadge}</span> : null}
+              <SidebarChevron />
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="workspace-sidebar__body">
         {sections.map((section) => {
@@ -250,7 +260,9 @@ export default function WorkspaceSidebar({
                   <strong>{section.title}</strong>
                 </div>
               </div>
-              {section.description ? <p className="workspace-sidebar__section-description">{section.description}</p> : null}
+              {showSectionDescription && section.description ? (
+                <p className="workspace-sidebar__section-description">{section.description}</p>
+              ) : null}
               <div className="workspace-sidebar__items">
                 {section.items.map((item) => {
                   const active = item.id === activeItemId;
