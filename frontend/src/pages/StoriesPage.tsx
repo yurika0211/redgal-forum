@@ -292,19 +292,71 @@ export default function StoriesPage({
               />
             </label>
 
-            <div className="form-grid-2">
-              <label className="form-field">
-                <span>摘要</span>
-                <input
-                  className="form-control"
-                  name="summary"
-                  type="text"
-                  value={articleForm.summary}
-                  onChange={onArticleFieldChange}
-                  placeholder="一句话概括这篇札记"
-                />
-              </label>
-              <label className="form-field">
+            <div className="story-editor-meta">
+              <div className="story-editor-meta__row">
+                <fieldset className="story-editor-visibility">
+                  <legend className="story-editor-visibility__legend">可见范围</legend>
+                  <div className="story-editor-visibility__options">
+                    <label
+                      className={`story-editor-visibility__option ${
+                        articleForm.visibility === "public" ? "story-editor-visibility__option--active" : ""
+                      }`}
+                    >
+                      <input
+                        checked={articleForm.visibility === "public"}
+                        className="story-editor-visibility__input"
+                        name="visibility"
+                        onChange={onArticleFieldChange}
+                        type="radio"
+                        value="public"
+                      />
+                      <span>公开</span>
+                    </label>
+                    <label
+                      className={`story-editor-visibility__option ${
+                        articleForm.visibility === "member" ? "story-editor-visibility__option--active" : ""
+                      }`}
+                    >
+                      <input
+                        checked={articleForm.visibility === "member"}
+                        className="story-editor-visibility__input"
+                        name="visibility"
+                        onChange={onArticleFieldChange}
+                        type="radio"
+                        value="member"
+                      />
+                      <span>仅成员可见</span>
+                    </label>
+                    <label
+                      className={`story-editor-visibility__option ${
+                        articleForm.visibility === "private" ? "story-editor-visibility__option--active" : ""
+                      }`}
+                    >
+                      <input
+                        checked={articleForm.visibility === "private"}
+                        className="story-editor-visibility__input"
+                        name="visibility"
+                        onChange={onArticleFieldChange}
+                        type="radio"
+                        value="private"
+                      />
+                      <span>仅自己可见</span>
+                    </label>
+                  </div>
+                </fieldset>
+                <label className="form-field story-editor-meta__summary">
+                  <span>摘要</span>
+                  <input
+                    className="form-control"
+                    name="summary"
+                    type="text"
+                    value={articleForm.summary}
+                    onChange={onArticleFieldChange}
+                    placeholder="一句话概括这篇札记"
+                  />
+                </label>
+              </div>
+              <label className="form-field story-editor-meta__tags">
                 <span>标签</span>
                 <input
                   className="form-control"
@@ -314,14 +366,6 @@ export default function StoriesPage({
                   onChange={onArticleFieldChange}
                   placeholder="用逗号分隔，例如：站台，慢热，短札"
                 />
-              </label>
-              <label className="form-field">
-                <span>可见范围</span>
-                <select className="form-control" name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
-                  <option value="public">公开</option>
-                  <option value="member">仅成员可见</option>
-                  <option value="private">仅自己可见</option>
-                </select>
               </label>
             </div>
 

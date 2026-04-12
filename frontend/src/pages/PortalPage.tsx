@@ -29,6 +29,79 @@ interface PortalPageProps {
   onNavigate: (href: string) => void;
 }
 
+function normalizeDateSegment(value: string): string {
+  return value.padStart(2, "0");
+}
+
+function formatPortalNoticeStamp(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.replace(/\./g, "-").replace(/\//g, "-").replace("T", " ");
+  const explicitMatch = normalized.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/,
+  );
+  if (explicitMatch) {
+    const [, year, month, day, hour, minute] = explicitMatch;
+    if (!hour || !minute) {
+      return `${year}-${normalizeDateSegment(month)}-${normalizeDateSegment(day)}`;
+    }
+    return `${year}-${normalizeDateSegment(month)}-${normalizeDateSegment(day)} ${normalizeDateSegment(hour)}:${minute}`;
+  }
+
+  if (/^\d+$/.test(raw) && raw.length < 6) {
+    return null;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return raw.length <= 24 ? raw : null;
+  }
+
+  const year = String(parsed.getFullYear());
+  const month = normalizeDateSegment(String(parsed.getMonth() + 1));
+  const day = normalizeDateSegment(String(parsed.getDate()));
+  return `${year}-${month}-${day}`;
+}
+
+function resolveNoticeStamp(notice: DisplayNotice): string {
+  return (
+    formatPortalNoticeStamp(notice.label) ||
+    formatPortalNoticeStamp(notice.kicker) ||
+    "近期更新"
+  );
+}
+
+function resolveNoticeTag(notice: DisplayNotice, stamp: string): string | null {
+  const tag = notice.kicker.trim();
+  if (!tag || tag === "公告" || tag === stamp) {
+    return null;
+  }
+  return tag;
+}
+
+function resolvePortalNavGlyph(page: DisplayPortalPage): string {
+  const text = `${page.kicker} ${page.title} ${page.description} ${page.href}`;
+  if (/活动|征文|赛事|event/i.test(text)) {
+    return "活";
+  }
+  if (/论坛|主题|讨论|thread|forum/i.test(text)) {
+    return "论";
+  }
+  if (/收藏|成长|空间|日志|space/i.test(text)) {
+    return "册";
+  }
+  if (/海报|展墙|图|gallery|photo/i.test(text)) {
+    return "图";
+  }
+  if (/公告|通知|notice/i.test(text)) {
+    return "讯";
+  }
+  return "导";
+}
+
 export default function PortalPage({
   activityActionState,
   canAdmin,
@@ -207,14 +280,23 @@ export default function PortalPage({
               <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">集中查看站内公告与活动通知，快速了解近期更新。</p>
             </div>
           </div>
-          <div className="grid gap-3.5">
-            {notices.map((notice) => (
-              <div className="rounded-[18px] border border-[color:var(--line-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.8),rgba(245,248,252,0.78)),rgba(255,255,255,0.64)] p-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_16px_rgba(46,73,112,0.06)] max-[760px]:rounded-[14px]" key={notice.id}>
-                <span className="inline-block text-[0.74rem] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">{notice.kicker || "公告"}</span>
-                <strong className="mt-2 block">{notice.title}</strong>
-                <p className="mt-2.5 text-[color:var(--text-soft)] leading-[1.8]">{notice.description || notice.body}</p>
-              </div>
-            ))}
+          <div className="portal-notice-list">
+            {notices.map((notice) => {
+              const stamp = resolveNoticeStamp(notice);
+              const tag = resolveNoticeTag(notice, stamp);
+              const content = notice.description || notice.body || "公告内容待补充。";
+
+              return (
+                <article className="portal-notice-card" key={notice.id}>
+                  <div className="portal-notice-card__head">
+                    {tag ? <span className="portal-notice-card__tag">{tag}</span> : null}
+                    <time className="portal-notice-card__stamp">{stamp}</time>
+                  </div>
+                  <h3 className="portal-notice-card__title">{notice.title || "未命名公告"}</h3>
+                  <p className="portal-notice-card__body">{content}</p>
+                </article>
+              );
+            })}
             {!notices.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有发布公告。</p> : null}
           </div>
         </article>
@@ -227,17 +309,17 @@ export default function PortalPage({
               <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">按内容类型挑选入口，减少首次浏览时的信息负担。</p>
             </div>
           </div>
-          <div className="grid gap-3.5">
+          <div className="portal-nav-list">
             {portalPages.map((page) => (
-              <button
-                className="rounded-[18px] border border-[color:var(--line-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.8),rgba(245,248,252,0.78)),rgba(255,255,255,0.64)] p-[18px] text-left text-inherit shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_16px_rgba(46,73,112,0.06)] transition-[transform,border-color,background-color,box-shadow] duration-180 ease-linear hover:-translate-y-[3px] hover:border-[rgba(79,139,174,0.3)] hover:bg-[rgba(255,255,255,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_12px_24px_rgba(46,73,112,0.1)] max-[760px]:rounded-[14px]"
-                key={page.href}
-                type="button"
-                onClick={() => onNavigate(page.href)}
-              >
-                <span className="inline-block text-[0.74rem] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">{page.kicker}</span>
-                <strong className="mt-2 block">{page.title}</strong>
-                <p className="mt-2.5 text-[color:var(--text-soft)] leading-[1.8]">{page.description}</p>
+              <button className="portal-nav-card" key={page.href} type="button" onClick={() => onNavigate(page.href)}>
+                <span aria-hidden="true" className="portal-nav-card__icon">
+                  {resolvePortalNavGlyph(page)}
+                </span>
+                <span className="portal-nav-card__content">
+                  <span className="portal-nav-card__kicker">{page.kicker || "导航入口"}</span>
+                  <strong className="portal-nav-card__title">{page.title}</strong>
+                  <span className="portal-nav-card__description">{page.description || "查看该板块的最新内容。"}</span>
+                </span>
               </button>
             ))}
             {!portalPages.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有配置导航入口。</p> : null}

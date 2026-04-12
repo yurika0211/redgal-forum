@@ -55,8 +55,8 @@ export default function LoginPage({
     "inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 text-sm text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/75";
 
   return (
-    <section className="mx-auto grid w-full max-w-md px-4 pb-8">
-      <article className="ui-card-panel grid gap-4 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/90 p-5 shadow-[0_16px_36px_rgba(0,0,0,0.12)]">
+    <section className="login-page mx-auto grid w-full max-w-md px-4 pb-8">
+      <article className="login-card ui-card-panel grid gap-4 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/90 p-5 shadow-[0_16px_36px_rgba(0,0,0,0.12)]">
         <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)]" aria-hidden="true">
           <span className="h-5 w-5 rounded-full bg-[color:var(--color-lilac)]/70" />
         </div>
@@ -120,7 +120,7 @@ export default function LoginPage({
               </button>
             </form>
             <div
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
+              className="login-captcha-chip inline-flex items-center justify-center gap-2 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
               aria-hidden="true"
             >
               <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-primary)]" />

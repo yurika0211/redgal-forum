@@ -362,30 +362,30 @@ html[data-theme="night"] .forum-feed-panel__hero::after {
 
 html[data-theme="day"] .forum-thread-text-item:nth-child(odd) {
   border-color: rgba(162, 46, 50, 0.24);
-  background: rgba(255, 247, 250, 0.88);
+  background: rgba(255, 249, 252, 0.9);
 }
 
 html[data-theme="day"] .forum-thread-text-item:nth-child(even) {
-  border-color: rgba(204, 104, 87, 0.24);
-  background: rgba(254, 241, 245, 0.86);
+  border-color: rgba(162, 46, 50, 0.24);
+  background: rgba(255, 249, 252, 0.9);
 }
 
 html[data-theme="night"] .forum-thread-text-item:nth-child(odd) {
-  border-color: rgba(240, 176, 200, 0.28);
-  background: rgba(47, 23, 30, 0.92);
+  border-color: rgba(240, 176, 200, 0.32);
+  background: rgba(44, 22, 30, 0.92);
 }
 
 html[data-theme="night"] .forum-thread-text-item:nth-child(even) {
-  border-color: rgba(204, 104, 87, 0.32);
-  background: rgba(54, 28, 34, 0.92);
+  border-color: rgba(240, 176, 200, 0.32);
+  background: rgba(44, 22, 30, 0.92);
 }
 
 html[data-theme="day"] .forum-thread-text-item::before {
-  background: rgba(162, 46, 50, 0.76);
+  content: none;
 }
 
 html[data-theme="night"] .forum-thread-text-item::before {
-  background: rgba(240, 184, 80, 0.78);
+  content: none;
 }
 
 html[data-theme="day"] .forum-thread-search-input {
@@ -757,4 +757,72 @@ html[data-theme="night"] :is(.gallery-topic-nav__button, .gallery-topic-tag, .ga
   box-shadow:
     0 8px 16px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Gallery refinement: reduce contrast spikes and remove residual cool-blue accents. */
+html[data-theme] .gallery-mantine-hero .gallery-photo-shell__hero-stat {
+  border-color: color-mix(in srgb, var(--line-soft) 74%, rgba(255, 245, 234, 0.32));
+  background:
+    linear-gradient(180deg, rgba(56, 32, 43, 0.64), rgba(34, 20, 29, 0.72)),
+    radial-gradient(circle at 18% 14%, rgba(240, 176, 200, 0.16), transparent 48%);
+  box-shadow:
+    0 10px 22px rgba(10, 7, 11, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(5px);
+}
+
+html[data-theme="day"] .gallery-mantine-hero .gallery-photo-shell__hero-stat span {
+  color: rgba(255, 233, 243, 0.84);
+}
+
+html[data-theme="day"] .gallery-mantine-hero .gallery-photo-shell__hero-stat strong {
+  color: #fff0d7;
+}
+
+html[data-theme] .gallery-curation-section::before {
+  background: linear-gradient(
+    90deg,
+    rgba(162, 46, 50, 0.22),
+    rgba(204, 104, 87, 0.4),
+    rgba(240, 184, 80, 0.32),
+    rgba(162, 46, 50, 0.2)
+  );
+}
+
+html[data-theme] .gallery-curation-section__intro > .gallery-topic-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 999px;
+  border-color: rgba(170, 94, 116, 0.4);
+  color: #6b2f3a;
+  background: rgba(252, 239, 245, 0.96);
+  box-shadow:
+    0 4px 10px rgba(94, 45, 41, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  line-height: 1.2;
+}
+
+html[data-theme="night"] .gallery-curation-section__intro > .gallery-topic-tag {
+  border-color: rgba(240, 176, 200, 0.38);
+  color: #ffe8f2;
+  background: rgba(79, 39, 51, 0.74);
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme] .gallery-curation-grid--wall {
+  border-color: color-mix(in srgb, var(--line-soft) 72%, rgba(240, 184, 80, 0.24));
+  background:
+    radial-gradient(circle at 16% 14%, rgba(240, 184, 80, 0.12), transparent 38%),
+    radial-gradient(circle at 86% 84%, rgba(162, 46, 50, 0.1), transparent 40%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-panel) 90%, transparent), color-mix(in srgb, var(--surface-card) 94%, transparent));
 }

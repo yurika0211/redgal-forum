@@ -349,8 +349,6 @@ html[data-theme="day"] .hero-panel,
 html[data-theme="day"] .story-list-panel,
 html[data-theme="day"] .forum-feed-panel,
 html[data-theme="day"] .forum-feed-panel__hero,
-html[data-theme="day"] .forum-feed-panel__filters,
-html[data-theme="day"] .forum-pagination-shell,
 html[data-theme="day"] .app-shell--auth .page-shell--login article,
 html[data-theme="day"] .gallery-topic-nav,
 html[data-theme="day"] .gallery-photo-card,
@@ -398,8 +396,6 @@ html[data-theme="day"] button.inline-flex:not([class*="bg-[linear-gradient"])[cl
   html[data-theme="day"] .story-list-panel,
   html[data-theme="day"] .forum-feed-panel,
   html[data-theme="day"] .forum-feed-panel__hero,
-  html[data-theme="day"] .forum-feed-panel__filters,
-  html[data-theme="day"] .forum-pagination-shell,
   html[data-theme="day"] .app-shell--auth .page-shell--login article,
   html[data-theme="day"] .gallery-topic-nav,
   html[data-theme="day"] .gallery-photo-card,
@@ -525,4 +521,38 @@ html[data-theme="night"] .admin-access-guard {
   box-shadow:
     0 20px 40px rgba(0, 0, 0, 0.42),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 2026-04-13 P0/P1 hotfix: notice modal contrast + mobile clipping */
+html[data-theme] .home-notice-modal__panel {
+  border-color: rgba(92, 128, 162, 0.34) !important;
+  background: #f4f9ff !important;
+}
+
+html[data-theme] .home-notice-modal__head p,
+html[data-theme] .home-notice-modal__panel h2,
+html[data-theme] .home-notice-modal__summary,
+html[data-theme] .home-notice-modal__body p,
+html[data-theme] .home-notice-modal__body li,
+html[data-theme] .home-notice-modal__body span {
+  color: #13273c !important;
+  text-shadow: none !important;
+}
+
+html[data-theme] .home-notice-modal__body p {
+  font-weight: 600;
+  line-height: 1.84;
+}
+
+html[data-theme] .home-notice-modal__body p::before {
+  color: #2f5d85 !important;
+}
+
+html[data-theme] .story-snippet-item__excerpt {
+  color: rgba(35, 57, 82, 0.92);
+}
+
+html[data-theme] .story-snippet-item__meta,
+html[data-theme] .story-snippet-item__date {
+  color: rgba(49, 74, 102, 0.86);
 }

@@ -1055,11 +1055,11 @@ html[data-theme="night"] .forum-thread-search-input:focus {
 }
 
 html[data-theme="night"] .forum-list-page .forum-thread-text-item:nth-child(odd) {
-  background: linear-gradient(154deg, rgba(22, 35, 51, 0.92), rgba(16, 28, 42, 0.86));
+  background: linear-gradient(154deg, rgba(22, 35, 51, 0.9), rgba(16, 28, 42, 0.86));
 }
 
 html[data-theme="night"] .forum-list-page .forum-thread-text-item:nth-child(even) {
-  background: linear-gradient(156deg, rgba(26, 34, 50, 0.9), rgba(24, 31, 47, 0.84));
+  background: linear-gradient(154deg, rgba(22, 35, 51, 0.9), rgba(16, 28, 42, 0.86));
 }
 
 html[data-theme="night"] .app-shell--auth .page-shell--login article {

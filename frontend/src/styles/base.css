@@ -261,10 +261,23 @@ textarea.form-control {
   border-radius: 5px;
 }
 
+.status-chip {
+  max-width: 100%;
+  line-height: 1.28;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .admin-access-guard {
   display: grid;
   gap: 10px;
   text-align: left;
+}
+
+.admin-access-guard__head {
+  align-items: flex-start;
 }
 
 .admin-access-guard__title-wrap {
@@ -309,6 +322,19 @@ textarea.form-control {
 
 .admin-access-guard__actions > * {
   min-height: 40px;
+}
+
+.login-page,
+.login-card {
+  min-width: 0;
+}
+
+.login-captcha-chip {
+  width: 100%;
+  max-width: 100%;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  text-align: center;
 }
 
 @media (max-width: 980px) {
@@ -359,6 +385,36 @@ textarea.form-control {
   .admin-access-guard__actions > * {
     width: 100%;
   }
+
+  .status-chip {
+    padding-inline: 8px;
+    font-size: 0.72rem;
+  }
+
+  .page-shell--login,
+  .page-shell--anonymous,
+  .page-shell--space,
+  .page-shell--stories,
+  .page-shell--gallery {
+    overflow-x: clip;
+  }
+
+  .page-shell--login > .page-scene,
+  .page-shell--anonymous > .page-scene,
+  .page-shell--space > .page-scene,
+  .page-shell--stories > .page-scene,
+  .page-shell--gallery > .page-scene {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .login-page {
+    padding-inline: 0;
+  }
+
+  .login-card {
+    padding-inline: 14px;
+  }
 }
 
 .background-stage {
@@ -393,6 +449,13 @@ textarea.form-control {
     background-crossfade 24s ease-in-out infinite,
     background-vertical-scroll 22s ease-in-out infinite;
   will-change: opacity, transform;
+}
+
+html[data-theme="day"] .background-stage .background-slide,
+html[data-theme="night"] .background-stage .background-slide {
+  animation:
+    background-crossfade 24s ease-in-out infinite,
+    background-vertical-scroll 22s ease-in-out infinite !important;
 }
 
 .background-slide--one {
@@ -447,6 +510,11 @@ textarea.form-control {
 @media (prefers-reduced-motion: reduce) {
   .background-slide {
     animation: background-crossfade 24s ease-in-out infinite;
+  }
+
+  html[data-theme="day"] .background-stage .background-slide,
+  html[data-theme="night"] .background-stage .background-slide {
+    animation: background-crossfade 24s ease-in-out infinite !important;
   }
 
   .background-overlay {

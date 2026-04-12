@@ -620,7 +620,6 @@ export default function ForumPage({
     );
   }
 
-  const featuredListThread = filteredThreadFeed[0] ?? featuredThread;
   const boardCount = new Set(filteredThreadFeed.map((thread) => thread.board)).size;
   const canCompose = Boolean(session && hasVerifiedSpaceAccess);
 
@@ -676,7 +675,7 @@ export default function ForumPage({
                 type="text"
                 value={threadForm.title}
                 onChange={onThreadFieldChange}
-                placeholder="输入讨论主题"
+                placeholder="例如：关于《XXX》最新一章剧情走向的深度探讨与伏笔分析（内含剧透）"
                 required
               />
             </label>
@@ -740,20 +739,6 @@ export default function ForumPage({
 
             {threadActionState.error ? <p className="text-sm text-rose-500/90">{threadActionState.error}</p> : null}
 
-            {featuredListThread ? (
-              <button
-                className="grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3"
-                type="button"
-                onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(featuredListThread.id)}`)}
-              >
-                <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">最新活跃主题</span>
-                <strong>{featuredListThread.title}</strong>
-                <span>
-                  {renderAuthorName(featuredListThread.author, { nestedInClickable: true })} · {featuredListThread.reply_count} 回复 ·{" "}
-                  {formatDateTime(featuredListThread.last_post_at)}
-                </span>
-              </button>
-            ) : null}
           </form>
         )}
       </section>
@@ -764,7 +749,7 @@ export default function ForumPage({
     <>
       <section className="forum-list-page mx-auto grid w-full min-w-0 max-w-[1160px] grid-cols-1 gap-4">
         <article className="forum-feed-panel mx-auto w-full min-w-0 rounded-[24px] border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-3 shadow-sm sm:p-4">
-          <div className="forum-feed-panel__hero mb-3 grid gap-3 rounded-[20px] border border-[color:var(--line-soft)] bg-[linear-gradient(148deg,rgba(255,255,255,0.9),rgba(228,237,246,0.82))] p-3.5 sm:p-4">
+          <div className="forum-feed-panel__hero forum-feed-panel__section grid gap-3">
             <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="grid min-w-0 gap-2">
                 <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--text-faint)]">帖子流</p>
@@ -776,7 +761,7 @@ export default function ForumPage({
                 <button
                   className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition ${
                     canCompose
-                      ? "border-transparent bg-[linear-gradient(135deg,#3d8ae6,#2b6cb0)] px-5 text-white shadow-[0_12px_28px_rgba(36,111,196,0.44)] hover:brightness-105"
+                      ? "forum-compose-button px-5"
                       : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white/90"
                   }`}
                   type="button"
@@ -789,114 +774,106 @@ export default function ForumPage({
             {threadsError ? <p className="text-sm text-rose-500/90">{threadsError}</p> : null}
           </div>
 
-          <div className="forum-feed-panel__filters mb-3 grid min-w-0 gap-3 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)]/82 p-3 sm:p-3.5">
+          <div className="forum-feed-panel__filters forum-feed-panel__section grid min-w-0 gap-3">
             <div className="forum-feed-panel__filters-head">
               <p className="forum-feed-panel__filters-kicker">筛选器</p>
               <p className="forum-feed-panel__filters-note">先输入关键词，再按分区收窄结果，列表会实时更新。</p>
             </div>
-            <label className="form-field forum-feed-panel__search" htmlFor="forum-thread-search">
-              <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">关键词搜索</span>
-              <input
-                id="forum-thread-search"
-                className="form-control forum-thread-search-input"
-                type="search"
-                value={threadSearchKeyword}
-                onChange={onThreadSearchKeywordChange}
-                placeholder="搜索标题/作者/标签"
-              />
-            </label>
-            <div className="forum-feed-panel__board-group">
-              <p className="forum-feed-panel__board-title">分区筛选</p>
-            <div className="forum-board-scroller min-w-0">
-              <div className="forum-board-scroller__inner">
-                {boardFilterOptions.map((board) => (
-                  <button
-                    className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm transition ${
-                      selectedForumBoard === board
-                        ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] shadow-[0_4px_12px_rgba(79,139,174,0.16)]"
-                        : "border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white/90"
-                    }`}
-                    key={board}
-                    type="button"
-                    aria-pressed={selectedForumBoard === board}
-                    onClick={() => onSelectedForumBoardChange(board)}
-                  >
-                    {board}
-                  </button>
-                ))}
+            <div className="forum-feed-panel__filters-body">
+              <label className="form-field forum-feed-panel__search" htmlFor="forum-thread-search">
+                <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">关键词搜索</span>
+                <input
+                  id="forum-thread-search"
+                  className="form-control forum-thread-search-input"
+                  type="search"
+                  value={threadSearchKeyword}
+                  onChange={onThreadSearchKeywordChange}
+                  placeholder="搜索标题/作者/标签"
+                />
+              </label>
+              <div className="forum-feed-panel__board-group">
+                <p className="forum-feed-panel__board-title">分区筛选</p>
+                <div className="forum-board-scroller min-w-0">
+                  <div className="forum-board-scroller__inner">
+                    {boardFilterOptions.map((board) => (
+                      <button
+                        className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm transition ${
+                          selectedForumBoard === board
+                            ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] shadow-[0_4px_12px_rgba(79,139,174,0.16)]"
+                            : "border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white/90"
+                        }`}
+                        key={board}
+                        type="button"
+                        aria-pressed={selectedForumBoard === board}
+                        onClick={() => onSelectedForumBoardChange(board)}
+                      >
+                        {board}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-            </div>
           </div>
 
-          <div className="forum-feed-panel__list-head mt-1 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-[color:var(--surface-panel)]/78 px-3 py-2">
-            <p className="text-[0.73rem] uppercase tracking-[0.12em] text-[color:var(--text-faint)]">主题列表</p>
-            <span className="inline-flex items-center rounded-full border border-[color:var(--line-soft)] bg-white/62 px-2 py-0.5 text-[0.72rem] text-[color:var(--text-muted)]">
-              {filteredThreadFeed.length} 条结果
-            </span>
-          </div>
-
-          <div className="forum-thread-text-list mt-2 grid min-w-0 gap-2">
-            {filteredThreadFeed.map((thread) => {
-              return (
-                <button
-                  className="forum-thread-text-item group relative grid w-full min-w-0 gap-2 overflow-hidden rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)]/74 px-3.5 py-3 text-left transition duration-150 hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-[color:var(--surface-panel)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--line-strong)] focus-visible:ring-offset-1"
-                  key={thread.id}
-                  type="button"
-                  onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
-                >
-                  <div className="forum-thread-text-item__head flex min-w-0 flex-wrap items-start justify-between gap-2.5">
-                    <strong className="min-w-0 break-words pr-2 text-[1.02rem] font-semibold leading-6 text-[color:var(--text-strong)] transition group-hover:text-[color:var(--text-main)]">
-                      {thread.title}
-                    </strong>
-                    <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1.5">
-                      <span className="forum-thread-text-item__board forum-board-badge" data-board={thread.board.toLowerCase()}>
-                        /{thread.board}
-                      </span>
-                      {thread.is_pinned ? <StatusChip tone="accent">置顶</StatusChip> : null}
-                      {thread.locked ? <StatusChip tone="warn">锁定</StatusChip> : null}
-                    </div>
-                  </div>
-                  <div className="forum-thread-text-item__meta flex min-w-0 flex-col gap-1.5 text-[0.82rem] text-[color:var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="inline-flex items-center rounded-md border border-[color:var(--line-soft)] bg-white/55 px-1.5 py-0.5 text-[0.74rem] uppercase tracking-[0.06em] text-[color:var(--text-faint)]">
-                        作者
-                      </span>
-                      {renderAuthorName(thread.author, { nestedInClickable: true })}
-                      {thread.tripcode ? <span className="font-mono text-[0.74rem] text-[color:var(--text-faint)]">{thread.tripcode}</span> : null}
-                      <span className="text-[0.76rem] text-[color:var(--text-faint)]">{formatDateTime(thread.last_post_at)} 最后回复</span>
-                    </div>
-                    <div className="forum-thread-text-item__metrics flex flex-wrap items-center gap-1.5 sm:justify-end">
-                      <span className="forum-thread-metric">回复 {thread.reply_count ?? 0}</span>
-                      <span className="forum-thread-metric">浏览 {thread.view_count ?? 0}</span>
-                      <span className="forum-thread-metric">点赞 {thread.like_count ?? 0}</span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-            {!filteredThreadFeed.length ? (
-              <p className="rounded-xl border border-dashed border-[color:var(--line-soft)] bg-[color:var(--surface-card)]/72 px-3.5 py-4 text-sm text-[color:var(--text-muted)]">
-                {isLoadingData ? "讨论数据加载中。" : "当前筛选条件下没有可展示的讨论主题。"}
-              </p>
-            ) : null}
-          </div>
-          {featuredListThread ? (
-            <button
-              className="forum-featured-jump mt-3 grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 text-left transition hover:border-[color:var(--line-strong)] hover:bg-white/80"
-              type="button"
-              onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(featuredListThread.id)}`)}
-            >
-              <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">最新活跃主题</span>
-              <strong>{featuredListThread.title}</strong>
-              <span>
-                {renderAuthorName(featuredListThread.author, { nestedInClickable: true })} · {featuredListThread.reply_count} 回复 ·{" "}
-                {formatDateTime(featuredListThread.last_post_at)}
+          <div className="forum-feed-panel__section forum-feed-panel__section--list">
+            <div className="forum-feed-panel__list-head mt-1 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[0.73rem] uppercase tracking-[0.12em] text-[color:var(--text-faint)]">主题列表</p>
+              <span className="inline-flex items-center rounded-full border border-[color:var(--line-soft)] bg-white/62 px-2 py-0.5 text-[0.72rem] text-[color:var(--text-muted)]">
+                {filteredThreadFeed.length} 条结果
               </span>
-            </button>
-          ) : null}
-          <div className="forum-pagination-shell mt-4 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)]/72 p-2.5 sm:p-3">
-            <PaginationBar pager={threadPager} onPageChange={onThreadPageChange} emptyText="暂无讨论主题。" />
+            </div>
+
+            <div className="forum-thread-text-list mt-2 grid min-w-0 gap-2">
+              {filteredThreadFeed.map((thread) => {
+                return (
+                  <button
+                    className="forum-thread-text-item group relative grid w-full min-w-0 gap-1.5 overflow-hidden rounded-xl px-3 py-2.5 text-left transition duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--line-strong)] focus-visible:ring-offset-1"
+                    key={thread.id}
+                    type="button"
+                    title={thread.title}
+                    onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
+                  >
+                    <div className="forum-thread-text-item__head grid min-w-0 gap-1.5">
+                      <strong className="forum-thread-text-item__title">
+                        {thread.title}
+                      </strong>
+                      <div className="forum-thread-text-item__head-tags flex max-w-full shrink-0 flex-wrap items-center gap-1.5">
+                        <span className="forum-thread-text-item__board forum-board-badge" data-board={thread.board.toLowerCase()}>
+                          /{thread.board}
+                        </span>
+                        {thread.is_pinned ? <StatusChip tone="accent">置顶</StatusChip> : null}
+                        {thread.locked ? <StatusChip tone="warn">锁定</StatusChip> : null}
+                      </div>
+                    </div>
+                    <div className="forum-thread-text-item__meta flex min-w-0 flex-col gap-1.5 text-[0.82rem] text-[color:var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
+                      <div className="forum-thread-text-item__author-line flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+                        <span className="forum-thread-text-item__author-label">作者：</span>
+                        {renderAuthorName(thread.author, { nestedInClickable: true })}
+                        {thread.tripcode ? <span className="font-mono text-[0.74rem] text-[color:var(--text-faint)]">{thread.tripcode}</span> : null}
+                        <span aria-hidden="true" className="forum-thread-text-item__meta-sep">•</span>
+                        <span className="text-[0.76rem] text-[color:var(--text-faint)]">发布于 {formatDateTime(thread.created_at)}</span>
+                        <span aria-hidden="true" className="forum-thread-text-item__meta-sep">•</span>
+                        <span className="text-[0.76rem] text-[color:var(--text-faint)]">最后回复 {formatDateTime(thread.last_post_at)}</span>
+                      </div>
+                      <div className="forum-thread-text-item__metrics flex flex-wrap items-center gap-1.5 sm:ml-auto sm:justify-end">
+                        <span className="forum-thread-metric">回复 {thread.reply_count ?? 0}</span>
+                        <span className="forum-thread-metric">浏览 {thread.view_count ?? 0}</span>
+                        <span className="forum-thread-metric">点赞 {thread.like_count ?? 0}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+              {!filteredThreadFeed.length ? (
+                <p className="rounded-xl border border-dashed border-[color:var(--line-soft)] bg-[color:var(--surface-card)]/72 px-3.5 py-4 text-sm text-[color:var(--text-muted)]">
+                  {isLoadingData ? "讨论数据加载中。" : "当前筛选条件下没有可展示的讨论主题。"}
+                </p>
+              ) : null}
+            </div>
+            <div className="forum-pagination-shell mt-4 rounded-xl p-2.5 sm:p-3">
+              <PaginationBar pager={threadPager} onPageChange={onThreadPageChange} emptyText="暂无讨论主题。" />
+            </div>
           </div>
         </article>
       </section>

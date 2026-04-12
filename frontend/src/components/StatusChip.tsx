@@ -23,7 +23,7 @@ export default function StatusChip({
 }: StatusChipProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide ${TONE_CLASS[tone]}`}
+      className={`status-chip inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide ${TONE_CLASS[tone]}`}
     >
       {children}
     </span>
