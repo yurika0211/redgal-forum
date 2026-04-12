@@ -1,3 +1,27 @@
+.page-shell--anonymous {
+  --anonymous-card-opacity: 50%;
+}
+
+.page-shell--anonymous .anonymous-chat-room {
+  background: color-mix(in srgb, var(--surface-panel) var(--anonymous-card-opacity), transparent) !important;
+}
+
+.page-shell--anonymous .anonymous-chat-room .anonymous-thread-chat {
+  background: color-mix(in srgb, var(--surface-card) var(--anonymous-card-opacity), transparent) !important;
+}
+
+.page-shell--anonymous .anonymous-chat-room .anonymous-thread-chat__message {
+  --anonymous-chat-tone-bg: color-mix(
+    in srgb,
+    var(--surface-card) var(--anonymous-card-opacity),
+    transparent
+  ) !important;
+}
+
+.page-shell--anonymous .anonymous-chat-room__composer textarea {
+  background: color-mix(in srgb, var(--surface-panel) var(--anonymous-card-opacity), transparent) !important;
+}
+
 .anonymous-chat-room {
   display: grid;
   gap: 10px;
