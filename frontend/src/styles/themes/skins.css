@@ -1,10 +1,10 @@
 /* ===== Enoshima210-inspired global skin ===== */
 :root,
 html[data-theme="day"] {
-  --font-body: "Noto Sans JP", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --font-display: "Taviraj", "Noto Serif SC", "Songti SC", "STSong", serif;
-  --font-nav: "Taviraj", "Noto Serif SC", "Songti SC", serif;
-  --font-header-brand: "Taviraj", "Noto Serif SC", "Songti SC", serif;
+  --font-body: "Noto Sans SC", "Noto Sans JP", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-display: "Noto Serif SC", "Taviraj", "Songti SC", "STSong", serif;
+  --font-nav: "ZCOOL XiaoWei", "Noto Serif SC", "Taviraj", "Songti SC", serif;
+  --font-header-brand: "Noto Serif SC", "Taviraj", "Songti SC", serif;
   --color-primary: #2b6cb0;
   --color-pink: #ff2f92;
   --color-lilac: #6b3fa0;
@@ -70,9 +70,14 @@ body {
 }
 
 .site-copyright p {
-  color: #223448;
+  color: #1d2f42;
   font-weight: 600;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+html[data-theme="day"] .site-copyright p {
+  color: #1d2f42 !important;
+  font-weight: 600;
 }
 
 @media (max-width: 1200px) {
@@ -207,11 +212,11 @@ html[data-theme="night"] {
 
 html[data-theme="night"] .home-notice-modal__panel {
   border-color: rgba(194, 213, 236, 0.38);
-  background: #1b2a3a;
+  background: #f2f7fc;
 }
 
 html[data-theme="night"] .home-notice-modal__backdrop {
-  background: rgba(7, 11, 16, 0.32);
+  background: rgba(7, 11, 16, 0.18);
 }
 
 html[data-theme="night"] .home-notice-modal__panel h2,
@@ -219,10 +224,10 @@ html[data-theme="night"] .home-notice-modal__summary,
 html[data-theme="night"] .home-notice-modal__body p,
 html[data-theme="night"] .home-notice-modal__body li,
 html[data-theme="night"] .home-notice-modal__body span {
-  color: #f5faff;
-  font-weight: 500;
+  color: #0f2236;
+  font-weight: 600;
   line-height: 1.84;
-  text-shadow: 0 1px 0 rgba(5, 10, 14, 0.5);
+  text-shadow: none;
 }
 
 html[data-theme="night"] button.inline-flex:not([class*="bg-[linear-gradient"]) {
@@ -249,8 +254,9 @@ html[data-theme="night"] .site-copyright {
 }
 
 html[data-theme="night"] .site-copyright p {
-  color: #eaf3ff;
+  color: #ffffff !important;
   font-weight: 600;
+  font-size: 0.92rem;
   text-shadow: 0 1px 0 rgba(5, 10, 14, 0.45);
 }
 
@@ -278,7 +284,8 @@ html[data-theme="night"] .app-shell {
 
 html[data-theme="night"] .home-notice-modal__body,
 html[data-theme="night"] .home-notice-modal__body * {
-  color: rgba(233, 241, 250, 0.96);
+  color: #0f2236 !important;
+  font-weight: 500;
 }
 
 html[data-theme="night"] .home-notice-modal__body li::marker {
@@ -288,6 +295,234 @@ html[data-theme="night"] .home-notice-modal__body li::marker {
 html[data-theme="night"] .gallery-photo-shell__head-kicker,
 html[data-theme="night"] .gallery-photo-shell__head-note,
 html[data-theme="night"] .gallery-photo-shell__head h2 {
-  color: #f5faff;
+  color: #ffffff;
   text-shadow: 0 1px 0 rgba(5, 10, 14, 0.48);
+}
+
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head-kicker,
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head-note,
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__art-title,
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head h2 {
+  color: #ffffff !important;
+}
+
+.gallery-mantine-hero .gallery-photo-shell__head-kicker,
+.gallery-mantine-hero .gallery-photo-shell__head-note,
+.gallery-mantine-hero .mantine-Text-root.gallery-photo-shell__head-kicker,
+.gallery-mantine-hero .mantine-Text-root.gallery-photo-shell__head-note {
+  color: #1b2f42 !important;
+}
+
+.gallery-mantine-hero .gallery-photo-shell__art-title,
+.gallery-mantine-hero .gallery-photo-shell__head h2,
+.gallery-mantine-hero .mantine-Title-root.gallery-photo-shell__art-title {
+  color: #16354f !important;
+}
+
+html[data-theme="night"] .gallery-mantine-hero {
+  background: #1f3246 !important;
+  border-color: rgba(180, 205, 231, 0.44) !important;
+}
+
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head-kicker,
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head-note,
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__art-title,
+html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head h2 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 0 rgba(6, 12, 18, 0.54);
+}
+
+html[data-theme="night"] .forum-feed-panel__hero {
+  background: linear-gradient(150deg, rgba(20, 34, 49, 0.98), rgba(16, 28, 41, 0.98)) !important;
+  border-color: rgba(173, 191, 214, 0.36) !important;
+}
+
+html[data-theme="night"] .forum-feed-panel__hero h2,
+html[data-theme="night"] .forum-feed-panel__hero p,
+html[data-theme="night"] .forum-feed-panel__hero .text-\[color\:var\(--text-faint\)\],
+html[data-theme="night"] .forum-feed-panel__hero .text-\[color\:var\(--text-soft\)\] {
+  color: #eaf3ff !important;
+}
+
+/* 2026-04-12 day pass: improve card contrast and CTA hierarchy on mobile-first flows */
+html[data-theme="day"] .hero-panel,
+html[data-theme="day"] .story-list-panel,
+html[data-theme="day"] .forum-feed-panel,
+html[data-theme="day"] .forum-feed-panel__hero,
+html[data-theme="day"] .forum-feed-panel__filters,
+html[data-theme="day"] .forum-pagination-shell,
+html[data-theme="day"] .app-shell--auth .page-shell--login article,
+html[data-theme="day"] .gallery-topic-nav,
+html[data-theme="day"] .gallery-photo-card,
+html[data-theme="day"] .gallery-curation-section,
+html[data-theme="day"] .gallery-curation-card,
+html[data-theme="day"] .gallery-empty-state {
+  border-color: rgba(43, 108, 176, 0.24);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 251, 255, 0.92));
+  box-shadow: 0 10px 24px rgba(17, 38, 64, 0.09);
+}
+
+html[data-theme="day"] .story-snippet-item,
+html[data-theme="day"] .forum-list-page .forum-thread-text-item {
+  border-color: rgba(43, 108, 176, 0.24);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+html[data-theme="day"] .story-snippet-item:hover,
+html[data-theme="day"] .forum-list-page .forum-thread-text-item:hover {
+  background: rgba(255, 255, 255, 0.97);
+}
+
+html[data-theme="day"] button.inline-flex[class*="bg-[linear-gradient"] {
+  border: 1px solid rgba(28, 89, 146, 0.52);
+  box-shadow:
+    0 10px 22px rgba(43, 108, 176, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  font-weight: 700;
+}
+
+html[data-theme="day"] button.inline-flex[class*="bg-[linear-gradient"]:hover {
+  box-shadow:
+    0 12px 24px rgba(43, 108, 176, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+html[data-theme="day"] button.inline-flex:not([class*="bg-[linear-gradient"])[class*="border-[color:var(--line-soft)]"] {
+  border-color: rgba(43, 108, 176, 0.24);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+@media (max-width: 768px) {
+  html[data-theme="day"] .hero-panel,
+  html[data-theme="day"] .story-list-panel,
+  html[data-theme="day"] .forum-feed-panel,
+  html[data-theme="day"] .forum-feed-panel__hero,
+  html[data-theme="day"] .forum-feed-panel__filters,
+  html[data-theme="day"] .forum-pagination-shell,
+  html[data-theme="day"] .app-shell--auth .page-shell--login article,
+  html[data-theme="day"] .gallery-topic-nav,
+  html[data-theme="day"] .gallery-photo-card,
+  html[data-theme="day"] .gallery-curation-section,
+  html[data-theme="day"] .gallery-curation-card,
+  html[data-theme="day"] .gallery-empty-state,
+  html[data-theme="day"] .story-snippet-item,
+  html[data-theme="day"] .forum-list-page .forum-thread-text-item {
+    background: rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* 2026-04-13 pass: stories/admin readability and hierarchy */
+html[data-theme="day"] .story-editor-hero,
+html[data-theme="day"] .story-editor-access-hint,
+html[data-theme="day"] .story-editor-form {
+  border-color: rgba(43, 108, 176, 0.25);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.93)),
+    radial-gradient(circle at 92% 10%, rgba(43, 108, 176, 0.1), transparent 38%);
+  box-shadow: 0 10px 24px rgba(17, 38, 64, 0.08);
+}
+
+html[data-theme="day"] .story-editor-hero__meta-chip {
+  border-color: rgba(43, 108, 176, 0.34);
+  color: rgba(36, 67, 101, 0.88);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+html[data-theme="day"] .story-editor-access-hint__title,
+html[data-theme="day"] .story-editor-form__title,
+html[data-theme="day"] .story-list-panel__title {
+  color: #1a334d;
+}
+
+html[data-theme="day"] .story-editor-access-hint__desc,
+html[data-theme="day"] .story-list-panel__note,
+html[data-theme="day"] .story-snippet-item__excerpt {
+  color: rgba(41, 64, 91, 0.88);
+}
+
+html[data-theme="day"] .admin-access-guard {
+  border-color: rgba(43, 108, 176, 0.25);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.92)),
+    radial-gradient(circle at 90% 0%, rgba(43, 108, 176, 0.1), transparent 35%);
+  box-shadow: 0 10px 24px rgba(17, 38, 64, 0.09);
+}
+
+html[data-theme="night"] .story-editor-hero,
+html[data-theme="night"] .story-editor-access-hint,
+html[data-theme="night"] .story-editor-form,
+html[data-theme="night"] .story-list-panel {
+  border-color: rgba(173, 191, 214, 0.42);
+  background:
+    linear-gradient(160deg, rgba(20, 31, 45, 0.96), rgba(13, 21, 32, 0.96)),
+    radial-gradient(circle at 88% 10%, rgba(150, 190, 232, 0.18), transparent 42%);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="night"] .story-editor-hero__meta-chip {
+  border-color: rgba(173, 191, 214, 0.46);
+  color: rgba(223, 236, 250, 0.92);
+  background: rgba(18, 30, 45, 0.92);
+}
+
+html[data-theme="night"] .story-editor-hero__title,
+html[data-theme="night"] .story-editor-form__title,
+html[data-theme="night"] .story-list-panel__title,
+html[data-theme="night"] .story-snippet-item__title,
+html[data-theme="night"] .admin-access-guard__title {
+  color: #edf4ff;
+}
+
+html[data-theme="night"] .story-editor-hero__desc,
+html[data-theme="night"] .story-editor-access-hint__desc,
+html[data-theme="night"] .story-list-panel__note,
+html[data-theme="night"] .story-snippet-item__excerpt,
+html[data-theme="night"] .admin-access-guard__desc {
+  color: rgba(216, 230, 246, 0.92);
+}
+
+html[data-theme="night"] .story-editor-access-hint__tip,
+html[data-theme="night"] .story-editor-form__panel-label,
+html[data-theme="night"] .story-list-panel__kicker,
+html[data-theme="night"] .story-list-panel__search-label,
+html[data-theme="night"] .story-snippet-item__meta,
+html[data-theme="night"] .story-snippet-item__date,
+html[data-theme="night"] .admin-access-guard__hint {
+  color: rgba(198, 216, 236, 0.74);
+}
+
+html[data-theme="night"] .story-editor-form__panel,
+html[data-theme="night"] .story-editor-form__preview {
+  border-color: rgba(150, 190, 232, 0.36);
+  background: rgba(10, 18, 28, 0.9);
+}
+
+html[data-theme="night"] .story-editor-form .form-control {
+  border-color: rgba(150, 190, 232, 0.42);
+  background: rgba(10, 18, 28, 0.9);
+  color: rgba(228, 238, 249, 0.94);
+}
+
+html[data-theme="night"] .story-editor-form .form-control::placeholder {
+  color: rgba(189, 208, 228, 0.62);
+}
+
+html[data-theme="night"] .story-snippet-item__visibility,
+html[data-theme="night"] .story-snippet-item__tag {
+  border-color: rgba(150, 190, 232, 0.38);
+  color: rgba(216, 230, 246, 0.92);
+  background: rgba(16, 26, 39, 0.72);
+}
+
+html[data-theme="night"] .admin-access-guard {
+  border-color: rgba(173, 191, 214, 0.44);
+  background:
+    linear-gradient(155deg, rgba(20, 31, 45, 0.97), rgba(13, 21, 32, 0.97)),
+    radial-gradient(circle at 92% 8%, rgba(150, 190, 232, 0.2), transparent 42%);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }

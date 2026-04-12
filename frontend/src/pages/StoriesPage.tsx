@@ -16,6 +16,7 @@ import { fetchPublicProfile } from "../api";
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
+import UserAvatar from "../components/UserAvatar";
 import type { PagerState } from "../lib/pagination";
 import { buildPublicProfileHref } from "../lib/profile";
 import {
@@ -76,15 +77,6 @@ function formatStoryDate(value: unknown): string {
 function estimateReadMinutes(content: string): number {
   const chars = content.replace(/\s+/g, "").length;
   return Math.max(1, Math.ceil(chars / 900));
-}
-
-function toAuthorInitial(value: string): string {
-  const normalized = value.trim();
-  if (!normalized) {
-    return "R";
-  }
-
-  return normalized.charAt(0).toUpperCase();
 }
 
 export default function StoriesPage({
@@ -225,41 +217,57 @@ export default function StoriesPage({
     const isEditingMode = Boolean(articleEditingTargetID);
 
     return (
-      <section className="mt-5 grid gap-4">
-        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-2 py-3">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/stories")}>
+      <section className="story-editor-view grid gap-4">
+        <article className="ui-card-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-2 py-3 story-editor-hero">
+          <div className="story-editor-hero__head flex flex-wrap items-start justify-between gap-2">
+            <button
+              className="story-editor-hero__back inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              onClick={() => onNavigate("/stories")}
+            >
               返回文章列表
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)] gap-x-2">
-            <span>/ 文章编辑</span>
-            <span>{session ? "已登录" : "游客模式"}</span>
-            <span>{isEditingMode ? `编辑 #${articleEditingTargetID}` : "新建模式"}</span>
+          <div className="story-editor-hero__meta" aria-label="编辑状态">
+            <span className="story-editor-hero__meta-chip">/ 文章编辑</span>
+            <span className="story-editor-hero__meta-chip">{session ? "已登录" : "游客模式"}</span>
+            <span className="story-editor-hero__meta-chip">{isEditingMode ? `编辑 #${articleEditingTargetID}` : "新建模式"}</span>
           </div>
-          <h1 className="text-2xl font-semibold text-[color:var(--text-strong)] text-xl">{isEditingMode ? "编辑文章" : "发布文章"}</h1>
-          <p className="text-sm leading-7 text-[color:var(--text-soft)]">
+          <h1 className="story-editor-hero__title">{isEditingMode ? "编辑文章" : "发布文章"}</h1>
+          <p className="story-editor-hero__desc">
             在这里独立编辑标题、摘要、正文与可见范围，不再挤在文章详情面板里。
           </p>
         </article>
 
         {!session ? (
-          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-            <p className="text-sm text-[color:var(--text-muted)]">登录并通过认证后，这里可以直接发布新的专栏文章。</p>
+          <article className="story-editor-access-hint story-editor-access-hint--login rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <p className="story-editor-access-hint__title">登录并通过认证后可直接发布专栏文章。</p>
+            <p className="story-editor-access-hint__desc">当前处于游客模式，你可以先回到列表浏览，再进入个人空间完成登录。</p>
+            <p className="story-editor-access-hint__tip">提示：登录后请先在个人空间完成认证，再返回此页发布内容。</p>
+            <div className="story-editor-access-hint__actions">
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105" type="button" onClick={() => onNavigate("/login")}>
+                去登录
+              </button>
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80" type="button" onClick={() => onNavigate("/stories")}>
+                返回列表
+              </button>
+            </div>
           </article>
         ) : !hasVerifiedSpaceAccess ? (
-          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-            <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有写作权限，需要通过认证后才能发文。</p>
+          <article className="story-editor-access-hint story-editor-access-hint--verify rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+            <p className="story-editor-access-hint__title">当前账号还没有写作权限。</p>
+            <p className="story-editor-access-hint__desc">请先完成认证流程，认证通过后即可使用文章编辑器发布内容。</p>
+            <p className="story-editor-access-hint__tip">完成认证后，你将获得发布与编辑自己文章的权限。</p>
           </article>
         ) : (
-          <form className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-3" onSubmit={(event) => void onArticleSubmit(event)}>
-            <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">编辑器</p>
-                <h2>Markdown 编辑器</h2>
+          <form className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm form-layout story-editor-form" onSubmit={(event) => void onArticleSubmit(event)}>
+            <div className="story-editor-form__head mb-2 flex flex-wrap items-start justify-between gap-3">
+              <div className="story-editor-form__title-group">
+                <p className="story-editor-form__kicker text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">编辑器</p>
+                <h2 className="story-editor-form__title">Markdown 编辑器</h2>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {articleActionState.success ? <span className="text-sm text-[color:var(--text-muted)]">{articleActionState.success}</span> : null}
+              <div className="story-editor-form__actions flex flex-wrap items-center gap-2">
+                {articleActionState.success ? <span className="story-editor-form__feedback text-sm text-[color:var(--text-muted)]">{articleActionState.success}</span> : null}
                 {isEditingMode ? (
                   <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={onStartArticleCreate}>
                     新建文章
@@ -271,9 +279,10 @@ export default function StoriesPage({
               </div>
             </div>
 
-            <label>
+            <label className="form-field">
               <span>标题</span>
               <input
+                className="form-control"
                 name="title"
                 type="text"
                 value={articleForm.title}
@@ -283,10 +292,11 @@ export default function StoriesPage({
               />
             </label>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <label>
+            <div className="form-grid-2">
+              <label className="form-field">
                 <span>摘要</span>
                 <input
+                  className="form-control"
                   name="summary"
                   type="text"
                   value={articleForm.summary}
@@ -294,9 +304,10 @@ export default function StoriesPage({
                   placeholder="一句话概括这篇札记"
                 />
               </label>
-              <label>
+              <label className="form-field">
                 <span>标签</span>
                 <input
+                  className="form-control"
                   name="tagsText"
                   type="text"
                   value={articleForm.tagsText}
@@ -304,9 +315,9 @@ export default function StoriesPage({
                   placeholder="用逗号分隔，例如：站台，慢热，短札"
                 />
               </label>
-              <label>
+              <label className="form-field">
                 <span>可见范围</span>
-                <select name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
+                <select className="form-control" name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
                   <option value="public">公开</option>
                   <option value="member">仅成员可见</option>
                   <option value="private">仅自己可见</option>
@@ -315,9 +326,10 @@ export default function StoriesPage({
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
-              <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
-                <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
+              <section className="story-editor-form__panel story-editor-form__panel--source grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
+                <div className="story-editor-form__panel-label text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
                 <textarea
+                  className="form-control"
                   name="content"
                   rows={14}
                   value={articleForm.content}
@@ -326,9 +338,9 @@ export default function StoriesPage({
                   required
                 />
               </section>
-              <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3 bg-[color:var(--surface-card)]">
-                <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">实时预览</div>
-                <div className="min-h-[220px] overflow-auto rounded-lg border border-[color:var(--line-soft)] bg-white/55 p-3">
+              <section className="story-editor-form__panel story-editor-form__panel--preview grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3 bg-[color:var(--surface-card)]">
+                <div className="story-editor-form__panel-label text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">实时预览</div>
+                <div className="story-editor-form__preview min-h-[220px] overflow-auto rounded-lg border border-[color:var(--line-soft)] bg-white/55 p-3">
                   {articleForm.content.trim() ? (
                     <RichContent content={articleForm.content} />
                   ) : (
@@ -338,7 +350,7 @@ export default function StoriesPage({
               </section>
             </div>
 
-            {articleActionState.error ? <p className="text-sm text-rose-500/90">{articleActionState.error}</p> : null}
+            {articleActionState.error ? <p className="story-editor-form__feedback story-editor-form__feedback--error text-sm text-rose-500/90">{articleActionState.error}</p> : null}
           </form>
         )}
       </section>
@@ -389,31 +401,48 @@ export default function StoriesPage({
           }
         >
           <div className="story-article-hero__inner">
-            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/stories")}>
-              ← 返回列表
-            </button>
-            <h1>{activeArticle?.title || "文章详情"}</h1>
-            <p className="text-sm text-[color:var(--text-muted)]">创建时间：{articleCreatedAt}</p>
-            <p className="text-sm text-[color:var(--text-muted)]">更新时间：{articleUpdatedAt}</p>
-            <p className="text-sm text-[color:var(--text-muted)]">
-              {readMinutes} 分钟阅读 · {commentCount} 条评论 · {likeCount} 次点赞
-            </p>
-            <p className="text-sm text-[color:var(--text-muted)]">
-              作者：
-              {activeArticle?.author ? (
-                <button
-                  className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium"
-                  type="button"
-                  onClick={() => navigateToAuthorSpace(activeArticle.author)}
-                >
-                  {activeArticle.author}
-                </button>
-              ) : (
-                "未知"
-              )}
-            </p>
+            <div className="story-article-hero__nav">
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/stories")}>
+                ← 返回列表
+              </button>
+            </div>
+            <div className="story-article-hero__headline">
+              <h1>{activeArticle?.title || "文章详情"}</h1>
+            </div>
+            <dl className="story-article-hero__meta" aria-label="文章信息">
+              <div className="story-article-hero__meta-item">
+                <dt>发布时间</dt>
+                <dd>{articleCreatedAt}</dd>
+              </div>
+              <div className="story-article-hero__meta-item">
+                <dt>更新时间</dt>
+                <dd>{articleUpdatedAt}</dd>
+              </div>
+              <div className="story-article-hero__meta-item">
+                <dt>阅读统计</dt>
+                <dd>
+                  {readMinutes} 分钟阅读 · {commentCount} 条评论 · {likeCount} 次点赞
+                </dd>
+              </div>
+              <div className="story-article-hero__meta-item">
+                <dt>作者</dt>
+                <dd>
+                  {activeArticle?.author ? (
+                    <button
+                      className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium story-article-hero__author-link"
+                      type="button"
+                      onClick={() => navigateToAuthorSpace(activeArticle.author)}
+                    >
+                      {activeArticle.author}
+                    </button>
+                  ) : (
+                    "未知"
+                  )}
+                </dd>
+              </div>
+            </dl>
             {activeArticle?.tags.length ? (
-              <div className="story-article-hero__tags">
+              <div className="story-article-hero__tags" aria-label="文章标签">
                 {activeArticle.tags.map((tag) => (
                   <span
                     className={tag.trim() === "征文" ? "story-article-hero__tag--plain" : undefined}
@@ -425,7 +454,7 @@ export default function StoriesPage({
               </div>
             ) : null}
             {canEditActiveArticle || canDeleteArticle ? (
-              <div className="story-article-hero__actions">
+              <div className="story-article-hero__actions" aria-label="文章操作">
                 {canEditActiveArticle && activeArticle ? (
                   <button
                     className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
@@ -448,27 +477,29 @@ export default function StoriesPage({
                 ) : null}
               </div>
             ) : null}
-            {articleManageActionState.error ? <p className="text-sm text-rose-500/90">{articleManageActionState.error}</p> : null}
-            {articleManageActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{articleManageActionState.success}</p> : null}
+            {articleManageActionState.error || articleManageActionState.success ? (
+              <div className="story-article-hero__feedback" aria-live="polite">
+                {articleManageActionState.error ? <p className="text-sm text-rose-500/90">{articleManageActionState.error}</p> : null}
+                {articleManageActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{articleManageActionState.success}</p> : null}
+              </div>
+            ) : null}
           </div>
         </header>
 
         <section className="story-article-sheet">
           <div className={`story-article-sheet__layout ${articleHeadings.length ? "" : "story-article-sheet__layout--no-toc"}`}>
-            <aside className="story-article-author-card">
+            <aside className="story-article-author-card story-article-sheet__author">
               <p className="story-article-author-card__title">作者介绍</p>
               <div className="story-article-author-card__identity">
-                {authorAvatarURL ? (
-                  <img
-                    alt={`${authorName} 的头像`}
-                    className="h-10 w-10 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40"
-                    src={authorAvatarURL}
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40 inline-flex items-center justify-center font-semibold text-[color:var(--text-main)]">
-                    {toAuthorInitial(authorName)}
-                  </div>
-                )}
+                <UserAvatar
+                  className="story-article-author-card__avatar"
+                  fallbackMode="initial"
+                  label={authorName}
+                  shape="circle"
+                  size="md"
+                  src={authorAvatarURL}
+                  statusTone={authorProfile?.verified ? "success" : "neutral"}
+                />
                 <div className="story-article-author-card__name-block">
                   <p className="story-article-author-card__name">{authorName}</p>
                   {authorUsername ? <p className="story-article-author-card__username">@{authorUsername}</p> : null}
@@ -484,15 +515,18 @@ export default function StoriesPage({
                   查看个人空间
                 </button>
               ) : null}
-              {authorProfileError ? <p className="text-sm text-[color:var(--text-muted)]">资料读取失败，先展示基础信息。</p> : null}
+              {authorProfileError ? <p className="text-sm text-[color:var(--text-muted)] story-article-author-card__status">资料读取失败，先展示基础信息。</p> : null}
             </aside>
 
-            <article className="story-article-main">
-              <p className="story-article-main__date">{articleCreatedAt}</p>
+            <article className="story-article-main story-article-sheet__main">
+              <div className="story-article-main__meta" aria-label="文章时间信息">
+                <p className="story-article-main__date">发布：{articleCreatedAt}</p>
+                <p className="story-article-main__date">更新：{articleUpdatedAt}</p>
+              </div>
               {articleDetailError ? (
                 <p className="text-sm text-rose-500/90">{articleDetailError}</p>
               ) : activeArticle ? (
-                <div className="grid gap-3 text-sm leading-7 text-[color:var(--text-main)] story-article-main__body">
+                <div className="story-article-main__body">
                   <RichContent content={activeArticle.content} />
                 </div>
               ) : (
@@ -501,7 +535,7 @@ export default function StoriesPage({
             </article>
 
             {articleHeadings.length ? (
-              <aside className="story-article-toc">
+              <aside className="story-article-toc story-article-sheet__toc">
                 <p className="story-article-toc__title">目录</p>
                 <ul className="story-article-toc__list">
                   {articleHeadings.map((heading) => (
@@ -553,17 +587,18 @@ export default function StoriesPage({
 
   return (
     <>
-      <section className="mt-5 grid gap-[18px]">
-        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm story-list-panel">
+      <section className="story-list-view grid gap-[18px]">
+        <article className="ui-card-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm story-list-panel">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3 story-list-panel__head">
-            <div>
-              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)] text-xs tracking-[0.14em] text-[color:var(--text-faint)]">最新文章</p>
-              <h2 className="text-xl font-semibold text-[color:var(--text-strong)]">专栏内容</h2>
+            <div className="story-list-panel__intro">
+              <p className="story-list-panel__kicker text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">最新文章</p>
+              <h2 className="story-list-panel__title">专栏内容</h2>
+              <p className="story-list-panel__note">按标题、摘要与标签快速筛选，优先浏览最近更新的内容。</p>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 story-list-panel__actions">
               <StatusChip tone="accent">{articlePager.total} 篇</StatusChip>
               <button
-                className={`px-2.5 py-1 text-xs inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${ canWriteArticle ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]" : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]" }`}
+                className={`story-list-panel__publish-btn px-2.5 py-1 text-xs inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${ canWriteArticle ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]" : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]" }`}
                 type="button"
                 onClick={onStartArticleCreate}
               >
@@ -571,11 +606,11 @@ export default function StoriesPage({
               </button>
             </div>
           </div>
-          <label className="grid gap-1 mb-2" htmlFor="story-list-search">
-            <span className="text-xs text-[color:var(--text-muted)]">关键词搜索</span>
+          <label className="form-field story-list-panel__search" htmlFor="story-list-search">
+            <span className="story-list-panel__search-label">关键词搜索</span>
             <input
               id="story-list-search"
-              className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)]"
+              className="form-control"
               type="search"
               value={articleSearchKeyword}
               onChange={onArticleSearchKeywordChange}
@@ -602,14 +637,14 @@ export default function StoriesPage({
                   <div className="story-snippet-item__layout flex items-start justify-between gap-[14px] max-[640px]:gap-2.5">
                     <div className="story-snippet-item__content min-w-0 flex-1">
                       <div className="story-snippet-item__head flex flex-wrap items-baseline justify-between gap-2.5">
-                        <h3 className="text-lg font-semibold leading-snug text-[color:var(--text-strong)]">{article.title}</h3>
+                        <h3 className="story-snippet-item__title">{article.title}</h3>
                         <span className="story-snippet-item__visibility inline-flex items-center rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-[0.78rem] text-[color:var(--text-muted)]">
                           {normalizeVisibilityLabel(article.visibility)}
                         </span>
                       </div>
                       <p className="story-snippet-item__excerpt mt-2.5 text-sm leading-[1.8] text-[color:var(--text-soft)]">{excerpt(article.summary || article.content, 190)}</p>
-                      <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
-                        <span className="font-medium text-[color:var(--text-main)]">
+                      <p className="story-snippet-item__meta mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
+                        <span className="story-snippet-item__author font-medium text-[color:var(--text-main)]">
                           {buildPublicProfileHref(article.author) ? (
                             <span
                               className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium"
@@ -627,7 +662,7 @@ export default function StoriesPage({
                         <span className="text-[color:var(--text-faint)]" aria-hidden="true">
                           ·
                         </span>
-                        <span className="">
+                        <span className="story-snippet-item__date">
                           {formatPublishedAgo(article.created_at)}
                         </span>
                       </p>

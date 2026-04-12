@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Taviraj:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Taviraj:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap");
 
 @import "./styles/base.css" layer(base);
 
@@ -13,7 +13,12 @@
 @import "./styles/motion.css" layer(motion);
 @import "./styles/themes/stories-forum-night-polish.css" layer(polish);
 @import "./styles/themes/skins.css" layer(skins);
+@import "./styles/components/avatar.css" layer(avatar);
 @import "./styles/components/sidebar.css" layer(sidebar);
+
+body {
+  font-family: var(--font-body);
+}
 
 /* Keep story detail layout full-bleed even when theme skins override .page-shell width. */
 .page-shell.page-shell--story-detail {
@@ -26,6 +31,9 @@
 /* Story detail: let hero visually stick to the top edge. */
 .app-shell.app-shell--story-detail {
   --story-detail-header-offset: 68px;
+  --story-detail-hero-top-padding: 40px;
+  --story-detail-sticky-top: calc(var(--story-detail-header-offset) + 16px);
+  --story-detail-anchor-offset: calc(var(--story-detail-sticky-top) + 18px);
 }
 
 .page-shell.page-shell--story-detail > .page-scene {
@@ -35,21 +43,51 @@
 
 .page-shell.page-shell--story-detail .story-article-view > .story-article-hero {
   margin-top: 0;
-  padding-top: calc(40px + var(--story-detail-header-offset));
+  padding-top: calc(var(--story-detail-hero-top-padding) + var(--story-detail-header-offset));
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1120px) {
   .app-shell.app-shell--story-detail {
     --story-detail-header-offset: 60px;
+    --story-detail-hero-top-padding: 34px;
   }
 }
 
 @media (max-width: 640px) {
   .app-shell.app-shell--story-detail {
     --story-detail-header-offset: 54px;
+    --story-detail-hero-top-padding: 28px;
+    --story-detail-sticky-top: calc(var(--story-detail-header-offset) + 12px);
+    --story-detail-anchor-offset: calc(var(--story-detail-sticky-top) + 16px);
   }
+}
 
-  .page-shell.page-shell--story-detail .story-article-view > .story-article-hero {
-    padding-top: calc(28px + var(--story-detail-header-offset));
+/* Admin workspace: wider shell and more stable card proportions. */
+.page-shell.page-shell--admin {
+  width: min(90vw, 1600px);
+}
+
+.page-shell--admin .admin-main > section {
+  align-items: start;
+}
+
+.page-shell--admin .admin-main > section > article {
+  align-self: start;
+  height: fit-content;
+}
+
+.page-shell--admin .admin-main > section > article:only-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1200px) {
+  .page-shell.page-shell--admin {
+    width: min(94vw, 1320px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-shell--admin .admin-main > section[class*="lg:grid-cols-2"] {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   }
 }

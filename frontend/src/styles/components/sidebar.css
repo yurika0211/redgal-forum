@@ -5,11 +5,11 @@
 }
 
 .workspace-sidebar--space .workspace-sidebar__header {
-  margin: 10px 0;
+  margin: 0;
 }
 
 .workspace-sidebar--admin .workspace-sidebar__header {
-  margin: 10px 0;
+  margin: 0;
 }
 
 .workspace-sidebar--space .workspace-sidebar__footer,
@@ -46,27 +46,8 @@
 }
 
 .workspace-sidebar__avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  overflow: hidden;
-  border-radius: 16px;
-  color: var(--text-strong);
-  background:
-    linear-gradient(135deg, rgba(79, 139, 174, 0.22), rgba(169, 138, 217, 0.22)),
-    rgba(255, 255, 255, 0.9);
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-}
-
-.workspace-sidebar__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  --user-avatar-size: 44px;
+  flex-shrink: 0;
 }
 
 .workspace-sidebar__brand-copy,
@@ -81,6 +62,7 @@
 .workspace-sidebar__identity-copy strong,
 .workspace-sidebar__section-copy strong,
 .workspace-sidebar__item-label {
+  font-family: var(--font-display);
   color: var(--text-strong);
 }
 
@@ -104,6 +86,7 @@
 }
 
 .workspace-sidebar__eyebrow {
+  font-family: var(--font-nav);
   color: var(--text-muted);
   font-size: 0.7rem;
   font-weight: 600;
@@ -226,6 +209,7 @@
 }
 
 .workspace-sidebar__item-label {
+  font-family: var(--font-nav);
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.35;

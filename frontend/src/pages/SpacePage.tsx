@@ -32,6 +32,7 @@ import type {
 import PaginationBar from "../components/PaginationBar";
 import RichContent from "../components/RichContent";
 import StatusChip from "../components/StatusChip";
+import UserAvatar from "../components/UserAvatar";
 import WorkspaceSidebar, {
   type WorkspaceSidebarIconName,
   type WorkspaceSidebarSection,
@@ -478,12 +479,6 @@ function createDefaultSpaceFriends(): SpaceFriend[] {
   return [];
 }
 
-function getSpaceFriendAvatarFallback(friend: Pick<SpaceFriend, "name" | "username">): string {
-  const name = (friend.name || "").trim();
-  const username = (friend.username || "").trim();
-  return (name || username || "友").charAt(0).toUpperCase() || "友";
-}
-
 function parseStoredSpaceFriends(value: unknown): SpaceFriend[] {
   if (!Array.isArray(value)) {
     return [];
@@ -804,14 +799,6 @@ interface SpacePageProps {
   onRegisterFieldChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onRegisterSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onSpaceShelfTabChange: (tab: SpaceShelfTab) => void;
-}
-
-function getAvatarFallback(profile: Pick<ApiProfile, "nickname" | "username"> | null): string {
-  if (!profile) {
-    return "R";
-  }
-
-  return (profile.nickname || profile.username || "R").trim().charAt(0).toUpperCase() || "R";
 }
 
 export default function SpacePage({
@@ -1738,13 +1725,13 @@ export default function SpacePage({
       />
 
       <div className="grid gap-4">
-        <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
-          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm space-master-panel">
+        <section className="mt-2 md:mt-3" style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
+          <article className="mt-3.5 grid gap-5 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm max-[640px]:mt-2.5">
             {viewingPublicProfileUsername ? (
-              <div className="space-visitor-banner">
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-[rgba(195,128,159,0.26)] bg-[linear-gradient(135deg,rgba(195,128,159,0.12),rgba(245,202,113,0.14)),rgba(255,255,255,0.76)] px-3.5 py-3 max-[640px]:flex-col max-[640px]:items-start">
                 <div>
                   <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">访客模式</p>
-                  <strong>正在查看 @{viewingPublicProfileUsername} 的主页</strong>
+                  <strong className="text-[color:var(--text-strong)]">正在查看 @{viewingPublicProfileUsername} 的主页</strong>
                 </div>
                 <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onNavigate("/space")}>
                   返回我的空间
@@ -1753,26 +1740,23 @@ export default function SpacePage({
             ) : null}
             {displayProfile ? (
               <>
-                <div className="space-master-panel__identity">
-                  {displayProfile.avatar_url ? (
-                    <img
-                      alt={displayProfile.nickname}
-                      className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40"
-                      src={displayProfile.avatar_url}
-                    />
-                  ) : (
-                    <div className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40 inline-flex items-center justify-center font-semibold text-[color:var(--text-main)]">
-                      {getAvatarFallback(displayProfile)}
-                    </div>
-                  )}
-                  <div className="space-master-panel__copy">
+                <div className="flex items-start gap-[18px] max-[980px]:flex-col">
+                  <UserAvatar
+                    fallbackMode="initial"
+                    label={displayProfile.nickname || displayProfile.username || "空间用户"}
+                    shape="circle"
+                    size="xl"
+                    src={displayProfile.avatar_url}
+                    statusTone={hasVerifiedSpaceAccess ? "success" : "neutral"}
+                  />
+                  <div className="grid gap-2">
                     <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{isViewingPublicProfile ? `${viewingProfileLabel} 资料卡` : "个人资料卡"}</p>
-                    <h2 className="space-master-panel__title">{displayProfile.nickname}</h2>
-                    <p className="profile-meta">
+                    <h2 className="m-0 font-[var(--font-display)] text-[clamp(2rem,4vw,3rem)] leading-none text-[color:var(--text-strong)]">{displayProfile.nickname}</h2>
+                    <p className="m-0 leading-[1.7] text-[color:var(--text-soft)]">
                       @{displayProfile.username} · {displayProfile.signature}
                     </p>
-                    <p className="profile-bio">{displayProfile.bio}</p>
-                    <div className="space-master-panel__status-row">
+                    <p className="m-0 leading-[1.7] text-[color:var(--text-soft)]">{displayProfile.bio}</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2.5">
                       <StatusChip tone={hasVerifiedSpaceAccess ? "success" : isAuthenticated ? "warn" : "neutral"}>
                         {hasVerifiedSpaceAccess ? "已认证成员空间" : isAuthenticated ? "待认证空间" : "游客预览"}
                       </StatusChip>
@@ -1780,17 +1764,17 @@ export default function SpacePage({
                     </div>
                   </div>
                 </div>
-                <div className="space-master-panel__stats">
+                <div className="grid gap-3 [grid-template-columns:repeat(4,minmax(0,1fr))] max-[980px]:grid-cols-1">
                   {Object.entries(displayProfile.collections).map(([label, count]) => (
-                    <div className="space-master-panel__stat" key={label}>
-                      <span>{label}</span>
-                      <strong>{count}</strong>
+                    <div className="rounded-[18px] border border-[color:var(--line-soft)] bg-white/[0.54] px-[18px] py-4" key={label}>
+                      <span className="block text-[0.82rem] uppercase tracking-[0.14em] text-[color:var(--text-muted)]">{label}</span>
+                      <strong className="mt-2 block font-[var(--font-display)] text-[1.3rem] text-[color:var(--text-strong)]">{count}</strong>
                     </div>
                   ))}
                 </div>
                 {canEditProfile ? (
                   <form
-                    className={`grid gap-3 space-profile-editor ${isProfileEditorCollapsed ? "space-profile-editor--collapsed" : ""}`}
+                    className="mt-1 form-layout space-form-block rounded-[18px] border border-[color:var(--line-soft)] bg-white/[0.52] p-4"
                     onSubmit={(event) => void onProfileSubmit(event)}
                   >
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -1798,7 +1782,7 @@ export default function SpacePage({
                         <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">资料编辑</p>
                         <h3>空间身份设置</h3>
                       </div>
-                      <div className="space-profile-editor__head-actions">
+                      <div className="flex flex-wrap items-center justify-end gap-2.5">
                         <button
                           className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                           type="button"
@@ -1815,10 +1799,11 @@ export default function SpacePage({
                     </div>
                     {!isProfileEditorCollapsed ? (
                       <>
-                        <div className="space-profile-editor__grid">
-                          <label>
+                        <div className="form-grid-2">
+                          <label className="form-field">
                             <span>空间 ID</span>
                             <input
+                              className="form-control"
                               name="username"
                               type="text"
                               value={profileForm.username}
@@ -1828,9 +1813,10 @@ export default function SpacePage({
                               required
                             />
                           </label>
-                          <label>
+                          <label className="form-field">
                             <span>个性签名</span>
                             <input
+                              className="form-control"
                               name="signature"
                               type="text"
                               value={profileForm.signature}
@@ -1838,9 +1824,10 @@ export default function SpacePage({
                               placeholder="写一句固定展示在资料卡上的签名"
                             />
                           </label>
-                          <label>
+                          <label className="form-field">
                             <span>头像地址</span>
                             <input
+                              className="form-control"
                               name="avatar_url"
                               type="url"
                               value={profileForm.avatar_url}
@@ -1848,9 +1835,10 @@ export default function SpacePage({
                               placeholder="https://example.com/avatar.png"
                             />
                           </label>
-                          <label>
+                          <label className="form-field">
                             <span>显示昵称</span>
                             <input
+                              className="form-control"
                               name="nickname"
                               type="text"
                               value={profileForm.nickname}
@@ -1859,9 +1847,10 @@ export default function SpacePage({
                             />
                           </label>
                         </div>
-                        <label>
+                        <label className="form-field">
                           <span>个人简介</span>
                           <textarea
+                            className="form-control"
                             name="bio"
                             rows={3}
                             value={profileForm.bio}
@@ -1869,14 +1858,15 @@ export default function SpacePage({
                             placeholder="写一段空间简介"
                           />
                         </label>
-                        <div className="space-profile-editor__preview">
-                          {profileForm.avatar_url.trim() ? (
-                            <img alt="头像预览" className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40" src={profileForm.avatar_url} />
-                          ) : (
-                            <div className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40 inline-flex items-center justify-center font-semibold text-[color:var(--text-main)]">
-                              {getAvatarFallback(displayProfile)}
-                            </div>
-                          )}
+                        <div className="flex items-center gap-3 max-[980px]:flex-col max-[980px]:items-start">
+                          <UserAvatar
+                            fallbackMode="initial"
+                            label={profileForm.nickname || profileForm.username || displayProfile.username || "空间用户"}
+                            shape="circle"
+                            size="xl"
+                            src={profileForm.avatar_url}
+                            statusTone="neutral"
+                          />
                           <p className="text-sm text-[color:var(--text-muted)]">
                             预览：@{profileForm.username || displayProfile.username}
                             {profileForm.signature.trim() ? ` · ${profileForm.signature.trim()}` : ""}
@@ -1897,7 +1887,7 @@ export default function SpacePage({
             )}
           </article>
           {!isViewingPublicProfile ? (
-            <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm space-auth-panel">
+            <article className="ui-card-panel mt-3.5 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">账号会话</p>
@@ -1917,25 +1907,25 @@ export default function SpacePage({
                 </button>
               </div>
             ) : (
-              <div className="space-auth-grid">
-                <form className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onLoginSubmit(event)}>
+              <div className="grid gap-3.5 [grid-template-columns:repeat(2,minmax(0,1fr))] max-[980px]:grid-cols-1">
+                <form className="form-layout space-form-block rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onLoginSubmit(event)}>
                   <p className="text-sm text-[color:var(--text-muted)]">登录后会同步当前空间会话。</p>
-                  <label className="grid gap-1.5">
-                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">账号</span>
+                  <label className="form-field">
+                    <span>账号</span>
                     <input
                       autoComplete="username"
-                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
+                      className="form-control"
                       name="account"
                       onChange={onAuthFieldChange}
                       placeholder="用户名 / 学号 / 邮箱"
                       value={authForm.account}
                     />
                   </label>
-                  <label className="grid gap-1.5">
-                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">密码</span>
+                  <label className="form-field">
+                    <span>密码</span>
                     <input
                       autoComplete="current-password"
-                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
+                      className="form-control"
                       name="password"
                       onChange={onAuthFieldChange}
                       placeholder="输入账号密码"
@@ -1949,35 +1939,35 @@ export default function SpacePage({
                   </button>
                 </form>
 
-                <form className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onRegisterSubmit(event)}>
+                <form className="form-layout space-form-block rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onRegisterSubmit(event)}>
                   <p className="text-sm text-[color:var(--text-muted)]">注册完成后可直接用账号登录。</p>
-                  <label className="grid gap-1.5">
-                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">学号</span>
+                  <label className="form-field">
+                    <span>学号</span>
                     <input
                       autoComplete="off"
-                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
+                      className="form-control"
                       name="student_id"
                       onChange={onRegisterFieldChange}
                       placeholder="例如：20260001"
                       value={registerForm.student_id}
                     />
                   </label>
-                  <label className="grid gap-1.5">
-                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">用户名</span>
+                  <label className="form-field">
+                    <span>用户名</span>
                     <input
                       autoComplete="username"
-                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
+                      className="form-control"
                       name="username"
                       onChange={onRegisterFieldChange}
                       placeholder="3-32 位字母/数字/下划线"
                       value={registerForm.username}
                     />
                   </label>
-                  <label className="grid gap-1.5">
-                    <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">密码</span>
+                  <label className="form-field">
+                    <span>密码</span>
                     <input
                       autoComplete="new-password"
-                      className="w-full rounded-lg border border-[color:var(--line-soft)] bg-white/75 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]"
+                      className="form-control"
                       name="password"
                       onChange={onRegisterFieldChange}
                       placeholder="设置登录密码"
@@ -2002,7 +1992,7 @@ export default function SpacePage({
         </section>
 
         <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
-          <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm space-showcase-panel">
+          <article className="overflow-hidden rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">作品展示</p>
@@ -2141,10 +2131,11 @@ export default function SpacePage({
                         </button>
                       ))}
                     </div>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <label className="grid gap-1.5">
+                    <div className="form-grid-2">
+                      <label className="form-field">
                         <span>评分</span>
                         <select
+                          className="form-control"
                           value={typeof expandedShowcaseDraft.myScore === "number" ? String(expandedShowcaseDraft.myScore) : ""}
                           onChange={(event) => handleShowcaseDraftScoreChange(expandedShowcaseItem, event.target.value)}
                         >
@@ -2159,9 +2150,10 @@ export default function SpacePage({
                           })}
                         </select>
                       </label>
-                      <label className="grid gap-1.5 md:col-span-2">
+                      <label className="form-field md:col-span-2">
                         <span>短评</span>
                         <input
+                          className="form-control"
                           type="text"
                           value={expandedShowcaseDraft.myComment}
                           onChange={(event) => handleShowcaseDraftCommentChange(expandedShowcaseItem, event.target.value)}
@@ -2225,7 +2217,7 @@ export default function SpacePage({
             ) : !hasVerifiedSpaceAccess ? (
               <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有日志发布权限，需要通过认证后才能写日志。</p>
             ) : (
-              <form className="grid gap-3" onSubmit={(event) => void onArticleSubmit(event)}>
+              <form className="form-layout space-form-block" onSubmit={(event) => void onArticleSubmit(event)}>
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">空间编辑器</p>
@@ -2239,9 +2231,10 @@ export default function SpacePage({
                   </div>
                 </div>
 
-                <label>
+                <label className="form-field">
                   <span>日志标题</span>
                   <input
+                    className="form-control"
                     name="title"
                     type="text"
                     value={articleForm.title}
@@ -2251,18 +2244,19 @@ export default function SpacePage({
                   />
                 </label>
 
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label>
+                <div className="form-grid-2">
+                  <label className="form-field">
                     <span>可见范围</span>
-                    <select name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
+                    <select className="form-control" name="visibility" value={articleForm.visibility} onChange={onArticleFieldChange}>
                       <option value="public">公开</option>
                       <option value="member">仅成员可见</option>
                       <option value="private">仅自己可见</option>
                     </select>
                   </label>
-                  <label>
+                  <label className="form-field">
                     <span>摘要</span>
                     <input
+                      className="form-control"
                       name="summary"
                       type="text"
                       value={articleForm.summary}
@@ -2270,9 +2264,10 @@ export default function SpacePage({
                       placeholder="一句话概括日志内容"
                     />
                   </label>
-                  <label>
+                  <label className="form-field">
                     <span>标签</span>
                     <input
+                      className="form-control"
                       name="tagsText"
                       type="text"
                       value={articleForm.tagsText}
@@ -2286,6 +2281,7 @@ export default function SpacePage({
                   <section className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
                     <div className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
                     <textarea
+                      className="form-control"
                       name="content"
                       rows={14}
                       value={articleForm.content}
@@ -2367,18 +2363,19 @@ export default function SpacePage({
             ) : !canManageBangumiImport ? (
               <p className="text-sm text-[color:var(--text-muted)]">当前账号无法发起导入，请重新登录后重试。</p>
             ) : (
-              <form className="grid gap-3" onSubmit={(event) => void onBangumiImportSubmit(event)}>
-                <label>
+              <form className="form-layout space-form-block" onSubmit={(event) => void onBangumiImportSubmit(event)}>
+                <label className="form-field">
                   <span>同步模式</span>
-                  <select name="sync_mode" value={bangumiForm.sync_mode} onChange={onBangumiFieldChange}>
+                  <select className="form-control" name="sync_mode" value={bangumiForm.sync_mode} onChange={onBangumiFieldChange}>
                     <option value="subject_ids">条目 ID 导入</option>
                     <option value="account">登录帐号批量同步</option>
                   </select>
                 </label>
                 {bangumiForm.sync_mode === "account" ? (
-                  <label>
+                  <label className="form-field">
                     <span>Bangumi 用户名</span>
                     <input
+                      className="form-control"
                       name="bangumi_username"
                       type="text"
                       value={bangumiForm.bangumi_username}
@@ -2387,9 +2384,10 @@ export default function SpacePage({
                     />
                   </label>
                 ) : (
-                  <label>
+                  <label className="form-field">
                     <span>作品 ID</span>
                     <input
+                      className="form-control"
                       name="subjectIdsText"
                       type="text"
                       value={bangumiForm.subjectIdsText}
@@ -2399,9 +2397,10 @@ export default function SpacePage({
                   </label>
                 )}
                 {bangumiForm.sync_mode === "account" ? (
-                  <label>
+                  <label className="form-field">
                     <span>最大同步数</span>
                     <input
+                      className="form-control"
                       name="maxItemsText"
                       type="number"
                       min={1}
@@ -2412,9 +2411,9 @@ export default function SpacePage({
                     />
                   </label>
                 ) : (
-                  <label>
+                  <label className="form-field">
                     <span>收藏状态</span>
-                    <select name="status" value={bangumiForm.status} onChange={onBangumiFieldChange}>
+                    <select className="form-control" name="status" value={bangumiForm.status} onChange={onBangumiFieldChange}>
                       <option value="wish">想看</option>
                       <option value="doing">在看</option>
                       <option value="collect">看过</option>
@@ -2423,9 +2422,9 @@ export default function SpacePage({
                     </select>
                   </label>
                 )}
-                <label>
+                <label className="form-field">
                   <span>可见范围</span>
-                  <select name="visibility" value={bangumiForm.visibility} onChange={onBangumiFieldChange}>
+                  <select className="form-control" name="visibility" value={bangumiForm.visibility} onChange={onBangumiFieldChange}>
                     <option value="public">公开</option>
                     <option value="members">仅成员可见</option>
                     <option value="private">仅自己可见</option>
@@ -2571,11 +2570,12 @@ export default function SpacePage({
               <p className="text-sm text-rose-500/90">{spaceFriendActionState.error}</p>
             ) : null}
             {!isViewingPublicProfile ? (
-              <form className="grid gap-3 space-friend-form" onSubmit={(event) => void handleSpaceFriendSubmit(event)}>
+              <form className="form-layout space-friend-form space-form-block" onSubmit={(event) => void handleSpaceFriendSubmit(event)}>
                 <div className="space-friend-form__row">
-                  <label>
+                  <label className="form-field">
                     <span>好友用户名</span>
                     <input
+                      className="form-control"
                       name="username"
                       type="text"
                       value={spaceFriendForm.username}
@@ -2585,9 +2585,9 @@ export default function SpacePage({
                     />
                   </label>
                   {!session ? (
-                    <label>
+                    <label className="form-field">
                       <span>初始状态</span>
-                      <select name="status" value={spaceFriendForm.status} onChange={handleSpaceFriendFieldChange}>
+                      <select className="form-control" name="status" value={spaceFriendForm.status} onChange={handleSpaceFriendFieldChange}>
                         <option value="在线">在线</option>
                         <option value="忙碌">忙碌</option>
                         <option value="离线">离线</option>
@@ -2595,9 +2595,10 @@ export default function SpacePage({
                     </label>
                   ) : null}
                 </div>
-                <label>
+                <label className="form-field">
                   <span>{session ? "申请备注" : "备注"}</span>
                   <input
+                    className="form-control"
                     name="note"
                     type="text"
                     value={spaceFriendForm.note}
@@ -2694,13 +2695,14 @@ export default function SpacePage({
                 <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={friend.id}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      {friend.avatarURL ? (
-                        <img alt={`${friend.name} 的头像`} className="h-8 w-8 rounded-full object-cover" src={friend.avatarURL} />
-                      ) : (
-                        <div className="h-8 w-8 rounded-full object-cover inline-flex items-center justify-center bg-[color:var(--surface-tint-blue)] text-[color:var(--text-main)] font-semibold">
-                          {getSpaceFriendAvatarFallback(friend)}
-                        </div>
-                      )}
+                      <UserAvatar
+                        fallbackMode="initial"
+                        label={friend.name || friend.username || "好友"}
+                        shape="circle"
+                        size="sm"
+                        src={friend.avatarURL}
+                        statusTone={getSpaceFriendTone(friend.status)}
+                      />
                       <strong>{friend.name}</strong>
                     </div>
                     <StatusChip tone={getSpaceFriendTone(friend.status)}>{friend.status}</StatusChip>

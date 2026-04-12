@@ -1,3 +1,5 @@
+import UserAvatar from "./UserAvatar";
+
 export type WorkspaceSidebarTone = "admin" | "space";
 
 export type WorkspaceSidebarIconName =
@@ -50,30 +52,6 @@ interface WorkspaceSidebarProps {
   onItemSelect: (itemId: string) => void;
   sections: readonly WorkspaceSidebarSection[];
   tone?: WorkspaceSidebarTone;
-}
-
-function getMonogram(label: string): string {
-  const text = Array.from(label.trim()).filter((char) => !/\s/.test(char));
-  if (!text.length) {
-    return "RB";
-  }
-  return text.slice(0, 2).join("").toUpperCase();
-}
-
-function SidebarAvatar({
-  imageUrl,
-  label,
-  square = false,
-}: {
-  imageUrl?: string;
-  label: string;
-  square?: boolean;
-}) {
-  return (
-    <span className={`workspace-sidebar__avatar ${square ? "workspace-sidebar__avatar--square" : ""}`} aria-hidden="true">
-      {imageUrl ? <img alt="" src={imageUrl} /> : <span>{getMonogram(label)}</span>}
-    </span>
-  );
 }
 
 function SidebarChevron() {
@@ -229,12 +207,22 @@ export default function WorkspaceSidebar({
   const rootClassName = ["workspace-sidebar", `workspace-sidebar--${tone}`, className]
     .filter(Boolean)
     .join(" ");
+  const headerTone = tone === "space" ? "accent" : "neutral";
+  const footerTone = footerBadge?.includes("认证") ? "success" : "neutral";
 
   return (
     <aside className={rootClassName}>
       <div className="workspace-sidebar__header">
         <div className="workspace-sidebar__brand">
-          <SidebarAvatar imageUrl={headerAvatarUrl} label={headerAvatarLabel} square />
+          <UserAvatar
+            className="workspace-sidebar__avatar"
+            fallbackMode="monogram"
+            label={headerAvatarLabel}
+            shape="rounded"
+            size="lg"
+            src={headerAvatarUrl}
+            statusTone={headerTone}
+          />
           <div className="workspace-sidebar__brand-copy">
             <span className="workspace-sidebar__eyebrow">{headerKicker}</span>
             <strong>{headerTitle}</strong>
@@ -293,7 +281,15 @@ export default function WorkspaceSidebar({
 
       <div className="workspace-sidebar__footer">
         <div className="workspace-sidebar__identity">
-          <SidebarAvatar imageUrl={footerAvatarUrl} label={footerAvatarLabel} square />
+          <UserAvatar
+            className="workspace-sidebar__avatar"
+            fallbackMode="monogram"
+            label={footerAvatarLabel}
+            shape="rounded"
+            size="lg"
+            src={footerAvatarUrl}
+            statusTone={footerTone}
+          />
           <div className="workspace-sidebar__identity-copy">
             <strong>{footerTitle}</strong>
             <span>{footerSubtitle}</span>

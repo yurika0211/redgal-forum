@@ -1,0 +1,118 @@
+.user-avatar {
+  --user-avatar-size: 40px;
+  --user-avatar-border: var(--line-soft);
+  --user-avatar-bg: rgba(255, 255, 255, 0.84);
+  --user-avatar-text: var(--text-strong);
+  width: var(--user-avatar-size);
+  height: var(--user-avatar-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--user-avatar-border);
+  background: var(--user-avatar-bg);
+  color: var(--user-avatar-text);
+  box-shadow:
+    0 2px 10px rgba(28, 48, 72, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  line-height: 1;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.user-avatar--circle {
+  border-radius: 999px;
+}
+
+.user-avatar--rounded {
+  border-radius: 14px;
+}
+
+.user-avatar--xs {
+  --user-avatar-size: 24px;
+}
+
+.user-avatar--sm {
+  --user-avatar-size: 32px;
+}
+
+.user-avatar--md {
+  --user-avatar-size: 40px;
+}
+
+.user-avatar--lg {
+  --user-avatar-size: 48px;
+}
+
+.user-avatar--xl {
+  --user-avatar-size: 56px;
+}
+
+.user-avatar--tone-neutral {
+  --user-avatar-border: rgba(79, 139, 174, 0.24);
+  --user-avatar-bg: rgba(255, 255, 255, 0.82);
+  --user-avatar-text: var(--text-strong);
+}
+
+.user-avatar--tone-success {
+  --user-avatar-border: rgba(56, 150, 101, 0.34);
+  --user-avatar-bg: rgba(56, 150, 101, 0.12);
+  --user-avatar-text: #1f5a40;
+}
+
+.user-avatar--tone-warn {
+  --user-avatar-border: rgba(214, 135, 39, 0.38);
+  --user-avatar-bg: rgba(214, 135, 39, 0.14);
+  --user-avatar-text: #8b4d0e;
+}
+
+.user-avatar--tone-accent {
+  --user-avatar-border: rgba(169, 138, 217, 0.34);
+  --user-avatar-bg: rgba(169, 138, 217, 0.14);
+  --user-avatar-text: #533d85;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.user-avatar__fallback {
+  font-family: var(--font-nav);
+  font-size: calc(var(--user-avatar-size) * 0.38);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="night"] .user-avatar {
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="night"] .user-avatar--tone-neutral {
+  --user-avatar-border: rgba(194, 213, 236, 0.4);
+  --user-avatar-bg: rgba(26, 38, 53, 0.96);
+  --user-avatar-text: #edf4fc;
+}
+
+html[data-theme="night"] .user-avatar--tone-success {
+  --user-avatar-border: rgba(114, 210, 167, 0.48);
+  --user-avatar-bg: rgba(39, 96, 74, 0.38);
+  --user-avatar-text: #cdf3df;
+}
+
+html[data-theme="night"] .user-avatar--tone-warn {
+  --user-avatar-border: rgba(245, 182, 101, 0.52);
+  --user-avatar-bg: rgba(117, 69, 22, 0.42);
+  --user-avatar-text: #ffe2bc;
+}
+
+html[data-theme="night"] .user-avatar--tone-accent {
+  --user-avatar-border: rgba(198, 171, 246, 0.52);
+  --user-avatar-bg: rgba(84, 58, 130, 0.4);
+  --user-avatar-text: #efe4ff;
+}
