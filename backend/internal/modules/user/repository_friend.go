@@ -41,6 +41,9 @@ func (r *repository) ListUserFriends(
 
 	record, err := r.loadUserByPublicIdentifier(ctx, username)
 	if err != nil {
+		if isNoRowsError(err) {
+			return pagination.Result[FriendSummary]{}, ErrUserNotFound
+		}
 		return pagination.Result[FriendSummary]{}, err
 	}
 
