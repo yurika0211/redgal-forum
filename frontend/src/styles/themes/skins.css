@@ -306,16 +306,16 @@ html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head h2 {
   color: #ffffff !important;
 }
 
-.gallery-mantine-hero .gallery-photo-shell__head-kicker,
-.gallery-mantine-hero .gallery-photo-shell__head-note,
-.gallery-mantine-hero .mantine-Text-root.gallery-photo-shell__head-kicker,
-.gallery-mantine-hero .mantine-Text-root.gallery-photo-shell__head-note {
+html[data-theme="day"] .gallery-mantine-hero .gallery-photo-shell__head-kicker,
+html[data-theme="day"] .gallery-mantine-hero .gallery-photo-shell__head-note,
+html[data-theme="day"] .gallery-mantine-hero .mantine-Text-root.gallery-photo-shell__head-kicker,
+html[data-theme="day"] .gallery-mantine-hero .mantine-Text-root.gallery-photo-shell__head-note {
   color: #1b2f42 !important;
 }
 
-.gallery-mantine-hero .gallery-photo-shell__art-title,
-.gallery-mantine-hero .gallery-photo-shell__head h2,
-.gallery-mantine-hero .mantine-Title-root.gallery-photo-shell__art-title {
+html[data-theme="day"] .gallery-mantine-hero .gallery-photo-shell__art-title,
+html[data-theme="day"] .gallery-mantine-hero .gallery-photo-shell__head h2,
+html[data-theme="day"] .gallery-mantine-hero .mantine-Title-root.gallery-photo-shell__art-title {
   color: #16354f !important;
 }
 
