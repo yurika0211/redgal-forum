@@ -93,10 +93,9 @@ html[data-theme="night"] .site-copyright {
 }
 
 html[data-theme="night"] .site-copyright p {
-  color: rgba(255, 190, 201, 0.68);
+  color: rgba(233, 241, 250, 0.82);
 }
 
-html[data-theme="night"] .portal-card,
 html[data-theme="night"] .space-shelf-tab {
   border-radius: 8px;
 }
@@ -130,7 +129,6 @@ html[data-theme="night"] .gallery-photo-shell--editorial .gallery-photo-card__ca
   color: rgba(241, 215, 190, 0.72);
 }
 
-html[data-theme="night"] .portal-card:hover,
 html[data-theme="night"] .space-shelf-tab:hover {
   border-color: rgba(147, 194, 238, 0.46);
   background: linear-gradient(180deg, rgba(26, 40, 58, 0.98), rgba(16, 26, 39, 0.98));
@@ -140,8 +138,6 @@ html[data-theme="night"] .hero-panel,
 html[data-theme="night"] .metric-card,
 html[data-theme="night"] .space-job-box,
 html[data-theme="night"] .space-master-panel__stat,
-html[data-theme="night"] .portal-brief-item,
-html[data-theme="night"] .portal-route-item,
 html[data-theme="night"] .detail-cover {
   border: 1px solid var(--line-soft);
   border-radius: 12px;
@@ -154,8 +150,7 @@ html[data-theme="night"] .detail-cover {
     inset 0 0 0 1px rgba(255, 255, 255, 0.015);
 }
 
-html[data-theme="night"] .hero-panel,
-html[data-theme="night"] .portal-card {
+html[data-theme="night"] .hero-panel {
   color: var(--text-main);
 }
 
@@ -220,29 +215,39 @@ html[data-theme="night"] .home-terminal__prompt {
 }
 
 html[data-theme="night"] .home-notice-modal__backdrop {
-  background: rgba(6, 4, 9, 0.72);
+  background: rgba(6, 4, 9, 0.34);
 }
 
 html[data-theme="night"] .home-notice-modal__panel {
   border: 1px solid rgba(255, 166, 188, 0.3);
   background:
-    linear-gradient(180deg, rgba(31, 13, 20, 0.98), rgba(13, 8, 12, 0.98)),
-    radial-gradient(circle at 1px 1px, rgba(255, 166, 188, 0.08) 1px, transparent 0);
+    linear-gradient(180deg, rgba(60, 33, 48, 0.99), rgba(31, 20, 30, 0.99)),
+    radial-gradient(circle at 1px 1px, rgba(255, 166, 188, 0.13) 1px, transparent 0);
   background-size: auto, 14px 14px;
   box-shadow:
-    0 26px 62px rgba(0, 0, 0, 0.46),
+    0 18px 36px rgba(0, 0, 0, 0.3),
     inset 0 0 0 1px rgba(255, 255, 255, 0.015);
 }
 
+html[data-theme="night"] .home-notice-modal__panel h2,
+html[data-theme="night"] .home-notice-modal__summary,
+html[data-theme="night"] .home-notice-modal__body p,
+html[data-theme="night"] .home-notice-modal__body li,
+html[data-theme="night"] .home-notice-modal__body span {
+  color: #eaf3ff;
+  text-shadow: 0 1px 0 rgba(6, 4, 9, 0.5);
+}
+
 html[data-theme="night"] .home-notice-modal__summary {
-  color: rgba(255, 232, 207, 0.82);
+  color: rgba(255, 243, 229, 0.98);
+  text-shadow: 0 1px 0 rgba(8, 4, 8, 0.46);
 }
 
 html[data-theme="night"] .home-notice-modal__body p {
-  color: rgba(241, 215, 190, 0.76);
+  color: rgba(255, 236, 218, 0.96);
+  text-shadow: 0 1px 0 rgba(8, 4, 8, 0.42);
 }
 
-html[data-theme="night"] .portal-manifesto__head h1,
 html[data-theme="night"] .space-master-panel__title {
   background: none;
   -webkit-text-fill-color: unset;
@@ -252,34 +257,6 @@ html[data-theme="night"] .space-master-panel__title {
   text-shadow: 0 0 18px rgba(255, 107, 135, 0.08);
 }
 
-html[data-theme="night"] .portal-card strong {
-  background: none;
-  -webkit-text-fill-color: unset;
-  color: var(--text-strong);
-  font-family: var(--font-display);
-}
-
-html[data-theme="night"] .portal-card__kicker {
-  position: relative;
-  padding-left: 1.35rem;
-  color: var(--color-pink);
-  font-family: var(--font-body);
-  font-size: 0.74rem;
-  letter-spacing: 0.16em;
-}
-
-html[data-theme="night"] .portal-card__kicker::before {
-  content: "//";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: rgba(255, 215, 163, 0.7);
-}
-
-html[data-theme="night"] .home-history-copy p,
-html[data-theme="night"] .portal-manifesto__copy p,
-html[data-theme="night"] .portal-brief-item p,
-html[data-theme="night"] .portal-route-item p,
 html[data-theme="night"] .profile-meta,
 html[data-theme="night"] .profile-bio,
 html[data-theme="night"] .art-stage__postcard-copy span,
@@ -300,10 +277,6 @@ html[data-theme="night"] .story-article-hero {
 
 html[data-theme="night"] .story-article-hero__inner h1 {
   color: #ffe8cf;
-}
-
-html[data-theme="night"] .story-article-hero__line {
-  color: rgba(255, 190, 201, 0.8);
 }
 
 html[data-theme="night"] .story-article-hero__tags span {
@@ -333,11 +306,6 @@ html[data-theme="night"] .story-article-toc {
     linear-gradient(180deg, rgba(24, 10, 17, 0.96), rgba(10, 7, 11, 0.98)),
     radial-gradient(circle at 1px 1px, rgba(255, 166, 188, 0.05) 1px, transparent 0);
   background-size: auto, 14px 14px;
-}
-
-html[data-theme="night"] .story-article-author-card__avatar {
-  border-color: rgba(255, 166, 188, 0.24);
-  background: rgba(37, 15, 25, 0.88);
 }
 
 html[data-theme="night"] .story-article-author-card__name {
@@ -392,24 +360,12 @@ html[data-theme="night"] .space-job-box {
   background: rgba(17, 10, 15, 0.96);
 }
 
-html[data-theme="night"] .portal-card,
-html[data-theme="night"] .portal-route-item,
 html[data-theme="night"] .space-shelf-tab {
   text-align: left;
 }
 
-html[data-theme="night"] .portal-card,
-html[data-theme="night"] .portal-route-item,
 html[data-theme="night"] .space-shelf-tab {
   color: var(--text-main);
-}
-
-html[data-theme="night"] .portal-card,
-html[data-theme="night"] .portal-route-item {
-  border: 1px solid rgba(255, 166, 188, 0.18);
-  background:
-    linear-gradient(180deg, rgba(34, 14, 22, 0.96), rgba(17, 10, 15, 0.96)),
-    radial-gradient(circle at top right, rgba(255, 107, 135, 0.08), transparent 36%);
 }
 
 html[data-theme="night"] .detail-cover {
@@ -420,10 +376,6 @@ html[data-theme="night"] .art-stage__standee-image,
 html[data-theme="night"] .art-stage__postcard-image,
 html[data-theme="night"] .detail-cover img {
   filter: saturate(0.92) brightness(0.9) contrast(1.06);
-}
-
-html[data-theme="night"] .portal-manifesto {
-  border-radius: 12px;
 }
 
 html[data-theme="night"] ::-webkit-scrollbar {
@@ -448,10 +400,7 @@ html[data-theme="night"] .detail-cover,
 html[data-theme="night"] .space-master-panel,
 html[data-theme="night"] .space-master-panel__stat,
 html[data-theme="night"] .space-shelf-tab,
-html[data-theme="night"] .space-job-box,
-html[data-theme="night"] .portal-manifesto,
-html[data-theme="night"] .portal-brief-item,
-html[data-theme="night"] .portal-route-item {
+html[data-theme="night"] .space-job-box {
   border-color: rgba(255, 166, 188, 0.2);
   background:
     linear-gradient(180deg, rgba(24, 10, 17, 0.96), rgba(12, 8, 12, 0.98)),
@@ -485,8 +434,6 @@ html[data-theme="night"] .space-log-card__thumb {
   background: rgba(10, 6, 9, 0.98);
 }
 
-html[data-theme="night"] .portal-brief-item span,
-html[data-theme="night"] .portal-route-item span,
 html[data-theme="night"] .space-capsule-card__header span {
   color: rgba(255, 190, 201, 0.64);
 }
@@ -528,27 +475,17 @@ html[data-theme="night"] .space-bgm-item__status-chip:hover {
   background: rgba(255, 107, 135, 0.16);
 }
 
-html[data-theme="night"] .space-bgm-item__editor-field select,
-html[data-theme="night"] .space-bgm-item__editor-field input {
-  border-color: rgba(255, 166, 188, 0.24);
-  color: var(--text-strong);
-  background: rgba(14, 9, 13, 0.98);
-}
-
 html[data-theme="night"] .forum-reply-target-bar,
 html[data-theme="night"] .forum-inline-reply {
   background: rgba(255, 107, 135, 0.08);
   border-color: rgba(255, 166, 188, 0.18);
 }
 
-html[data-theme="night"] .portal-manifesto__head h1,
 html[data-theme="night"] .space-master-panel__title {
   text-shadow: 0 0 22px rgba(255, 107, 135, 0.14);
 }
 
-html[data-theme="night"] .portal-route-item:hover,
-html[data-theme="night"] .space-shelf-tab:hover,
-html[data-theme="night"] .portal-card:hover {
+html[data-theme="night"] .space-shelf-tab:hover {
   box-shadow:
     0 0 0 1px rgba(255, 166, 188, 0.2),
     0 12px 32px rgba(0, 0, 0, 0.32);
@@ -663,7 +600,6 @@ html[data-theme="night"] {
   color: var(--text-soft);
 }
 
-.portal-card:hover,
 .space-shelf-tab:hover {
   transform: translateY(-1px);
 }
@@ -677,7 +613,6 @@ html[data-theme="night"] {
   transform: translateY(0);
 }
 
-.home-link-list__item:focus-visible,
 .space-shelf-tab:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
@@ -760,9 +695,7 @@ html[data-theme="day"] .scene-ornament {
 
 html[data-theme="day"] .hero-panel,
 html[data-theme="day"] .metric-card,
-html[data-theme="day"] .portal-card,
 html[data-theme="day"] .home-gallery-bottom,
-html[data-theme="day"] .home-card-editor-modal__panel,
 html[data-theme="day"] .home-notice-modal__panel,
 html[data-theme="day"] .home-terminal {
   background: var(--surface-card);
@@ -772,9 +705,7 @@ html[data-theme="day"] .home-terminal {
     0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
-html[data-theme="day"] .portal-card,
 html[data-theme="day"] .home-gallery-bottom,
-html[data-theme="day"] .home-card-editor-modal__panel,
 html[data-theme="day"] .home-notice-modal__panel {
   background-image: none;
 }
@@ -803,37 +734,37 @@ html[data-theme="day"] .home-terminal__lights span:nth-child(3) {
 
 /* Night theme polish: calmer, flatter, less decorative gradients */
 html[data-theme="night"] {
-  --color-primary: #7b8da6;
-  --color-pink: #8f9fb5;
-  --color-lilac: #7e8ca2;
-  --surface-base: #0d1117;
-  --surface-soft: #131a22;
-  --surface-panel: #121922;
-  --surface-panel-strong: #161f2a;
-  --surface-card: #141d27;
-  --line-soft: rgba(148, 163, 184, 0.18);
-  --line-strong: rgba(148, 163, 184, 0.34);
-  --text-strong: #e6edf5;
-  --text-main: #c5d0de;
-  --text-soft: rgba(197, 208, 222, 0.78);
-  --text-muted: rgba(197, 208, 222, 0.6);
-  --text-faint: rgba(197, 208, 222, 0.45);
+  --color-primary: #8fb3d6;
+  --color-pink: #9ab7d6;
+  --color-lilac: #8aa8c8;
+  --surface-base: #0a121c;
+  --surface-soft: #111d2b;
+  --surface-panel: #162434;
+  --surface-panel-strong: #1a2b3d;
+  --surface-card: #1c3044;
+  --line-soft: rgba(197, 216, 238, 0.42);
+  --line-strong: rgba(218, 233, 250, 0.66);
+  --text-strong: #f4f9ff;
+  --text-main: #deebf9;
+  --text-soft: rgba(222, 235, 249, 0.92);
+  --text-muted: rgba(222, 235, 249, 0.8);
+  --text-faint: rgba(222, 235, 249, 0.62);
   --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.32);
   --shadow-large: 0 12px 24px rgba(0, 0, 0, 0.38);
   --button-shadow-soft:
     0 1px 0 rgba(255, 255, 255, 0.03),
     0 4px 12px rgba(0, 0, 0, 0.32);
   --button-focus-ring:
-    0 0 0 1px rgba(148, 163, 184, 0.48),
-    0 0 0 3px rgba(148, 163, 184, 0.2);
-  --button-ghost-border: rgba(148, 163, 184, 0.32);
-  --button-ghost-bg: #151e28;
-  --button-ghost-bg-hover: #1a2531;
+    0 0 0 1px rgba(194, 213, 236, 0.56),
+    0 0 0 3px rgba(194, 213, 236, 0.28);
+  --button-ghost-border: rgba(218, 233, 250, 0.62);
+  --button-ghost-bg: #24384e;
+  --button-ghost-bg-hover: #2b435d;
   --button-ghost-text: var(--text-main);
-  --button-primary-border: rgba(148, 163, 184, 0.52);
-  --button-primary-border-hover: rgba(148, 163, 184, 0.66);
-  --button-primary-bg: #34465d;
-  --button-primary-bg-hover: #3b4f68;
+  --button-primary-border: rgba(218, 233, 250, 0.72);
+  --button-primary-border-hover: rgba(232, 243, 255, 0.86);
+  --button-primary-bg: #486685;
+  --button-primary-bg-hover: #537496;
   --button-primary-text: #eef4fb;
 }
 
@@ -864,9 +795,7 @@ html[data-theme="night"] .scene-ornament {
 
 html[data-theme="night"] .hero-panel,
 html[data-theme="night"] .metric-card,
-html[data-theme="night"] .portal-card,
 html[data-theme="night"] .home-gallery-bottom,
-html[data-theme="night"] .home-card-editor-modal__panel,
 html[data-theme="night"] .home-notice-modal__panel,
 html[data-theme="night"] .home-terminal {
   background: var(--surface-card);
@@ -876,11 +805,40 @@ html[data-theme="night"] .home-terminal {
     0 10px 24px rgba(0, 0, 0, 0.34);
 }
 
-html[data-theme="night"] .portal-card,
 html[data-theme="night"] .home-gallery-bottom,
-html[data-theme="night"] .home-card-editor-modal__panel,
 html[data-theme="night"] .home-notice-modal__panel {
   background-image: none;
+}
+
+html[data-theme="night"] .home-notice-modal__summary,
+html[data-theme="night"] .home-notice-modal__body p {
+  color: rgba(227, 237, 249, 0.94);
+}
+
+html[data-theme="night"] button.inline-flex[class*="border-[color:var(--line-soft)]"] {
+  border-color: rgba(218, 233, 250, 0.58);
+  background: rgba(33, 52, 72, 0.94);
+  color: rgba(236, 244, 252, 0.96);
+}
+
+html[data-theme="night"] button.inline-flex[class*="border-[color:var(--line-soft)]"]:hover {
+  border-color: rgba(232, 243, 255, 0.84);
+  background: rgba(42, 65, 90, 0.98);
+}
+
+html[data-theme="night"] button.inline-flex[class*="bg-[linear-gradient"] {
+  border: 1px solid rgba(218, 233, 250, 0.5);
+  color: #f4f9ff;
+  box-shadow:
+    0 8px 18px rgba(67, 98, 132, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="night"] button.inline-flex[class*="bg-[linear-gradient"]:hover {
+  border-color: rgba(232, 243, 255, 0.78);
+  box-shadow:
+    0 10px 22px rgba(75, 111, 151, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 html[data-theme="night"] .home-terminal__bar {
@@ -911,16 +869,6 @@ html[data-theme="night"] .home-terminal__lights span:nth-child(3) {
 
 /* P1 polish: improve admin/space readability in night mode */
 
-html[data-theme="night"] .admin-announcement-button {
-  border-color: rgba(123, 149, 177, 0.34);
-  background: rgba(20, 33, 48, 0.88);
-}
-
-html[data-theme="night"] .admin-announcement-button:hover {
-  border-color: rgba(150, 190, 232, 0.56);
-  background: rgba(34, 53, 74, 0.86);
-}
-
 /* P1 polish: gallery curation layout (night mode) */
 html[data-theme="night"] .gallery-curation-section {
   border-color: rgba(123, 149, 177, 0.3);
@@ -948,7 +896,12 @@ html[data-theme="night"] .gallery-curation-card__media {
 
 html[data-theme="night"] .gallery-photo-shell__head-kicker,
 html[data-theme="night"] .gallery-photo-shell__head-note {
-  color: rgba(198, 216, 236, 0.72);
+  color: #eaf3ff;
+}
+
+html[data-theme="night"] .gallery-photo-shell__head h2 {
+  color: #edf4ff;
+  text-shadow: 0 1px 0 rgba(5, 10, 14, 0.5);
 }
 
 html[data-theme="night"] .gallery-photo-shell__art-title {
@@ -1049,4 +1002,37 @@ html[data-theme="night"] .gallery-lightbox__meta {
 html[data-theme="night"] .gallery-lightbox__media {
   border-color: rgba(123, 149, 177, 0.28);
   background: rgba(6, 13, 21, 0.92);
+}
+
+/* P3 fix: improve night readability in stories/forum/login */
+html[data-theme="night"] .story-snippet-item,
+html[data-theme="night"] .forum-list-page .forum-thread-text-item {
+  border-color: rgba(173, 191, 214, 0.32);
+  background: rgba(24, 36, 52, 0.72);
+}
+
+html[data-theme="night"] .story-snippet-item:hover,
+html[data-theme="night"] .forum-list-page .forum-thread-text-item:hover {
+  background: rgba(35, 51, 72, 0.82);
+}
+
+html[data-theme="night"] .story-snippet-item__excerpt,
+html[data-theme="night"] .forum-list-page .forum-thread-text-item__meta {
+  color: rgba(221, 232, 246, 0.9);
+}
+
+html[data-theme="night"] .app-shell--auth .page-shell--login article {
+  border-color: rgba(173, 191, 214, 0.34);
+  background: rgba(20, 31, 45, 0.96);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+}
+
+html[data-theme="night"] .app-shell--auth .page-shell--login input {
+  border-color: rgba(173, 191, 214, 0.42);
+  background: rgba(13, 21, 31, 0.94);
+  color: rgba(227, 237, 249, 0.94);
+}
+
+html[data-theme="night"] .app-shell--auth .page-shell--login input::placeholder {
+  color: rgba(215, 226, 240, 0.58);
 }

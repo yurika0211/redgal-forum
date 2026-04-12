@@ -19,13 +19,13 @@ export default function PaginationBar({
   }
 
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2">
-      <span className="text-xs text-[color:var(--text-muted)]">
+    <div className="pagination-bar mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2">
+      <span className="pagination-bar__summary text-xs text-[color:var(--text-muted)]">
         第 {pager.page} / {Math.max(pager.totalPages, 1)} 页，共 {pager.total} 条，每页 {pager.pageSize} 条
       </span>
-      <div className="flex items-center gap-2">
+      <div className="pagination-bar__actions flex flex-wrap items-center gap-2">
         <button
-          className={pagerButtonClassName}
+          className={`${pagerButtonClassName} min-w-[72px]`}
           disabled={pager.page <= 1}
           onClick={() => onPageChange(pager.page - 1)}
           type="button"
@@ -33,7 +33,7 @@ export default function PaginationBar({
           上一页
         </button>
         <button
-          className={pagerButtonClassName}
+          className={`${pagerButtonClassName} min-w-[72px]`}
           disabled={pager.totalPages === 0 || pager.page >= pager.totalPages}
           onClick={() => onPageChange(pager.page + 1)}
           type="button"

@@ -1,7 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { MantineProvider } from "@mantine/core";
 import App from "./App";
 import AppErrorBoundary from "./components/AppErrorBoundary";
+import "@mantine/core/styles.css";
 import "katex/dist/katex.min.css";
 import "./index.css";
 
@@ -13,6 +15,8 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <AppErrorBoundary>
-    <App />
+    <MantineProvider defaultColorScheme="auto">
+      <App />
+    </MantineProvider>
   </AppErrorBoundary>,
 );

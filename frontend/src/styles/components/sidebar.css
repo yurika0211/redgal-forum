@@ -1,13 +1,20 @@
-.admin-shell {
-  grid-template-columns: minmax(280px, 318px) minmax(0, 1fr);
-  gap: 22px;
-  align-items: start;
-}
-
 .workspace-sidebar__header,
 .workspace-sidebar__footer {
   display: grid;
   gap: 12px;
+}
+
+.workspace-sidebar--space .workspace-sidebar__header {
+  margin: 10px 0;
+}
+
+.workspace-sidebar--admin .workspace-sidebar__header {
+  margin: 10px 0;
+}
+
+.workspace-sidebar--space .workspace-sidebar__footer,
+.workspace-sidebar--admin .workspace-sidebar__footer {
+  margin-top: 12px;
 }
 
 .workspace-sidebar__brand,
@@ -265,9 +272,6 @@ html[data-theme="night"] .workspace-sidebar__item-badge {
 }
 
 @media (max-width: 900px) {
-  .admin-shell {
-    grid-template-columns: 1fr;
-  }
 
   .workspace-sidebar__body {
     overflow: visible;

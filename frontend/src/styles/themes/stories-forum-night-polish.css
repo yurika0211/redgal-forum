@@ -22,7 +22,6 @@ html[data-theme="night"] .story-snippet-item__tag {
 }
 
 html[data-theme="night"] .story-snippet-item__excerpt,
-html[data-theme="night"] .story-snippet-item__meta,
 html[data-theme="night"] .forum-list-page .forum-thread-text-item__meta {
   color: rgba(198, 216, 236, 0.78);
 }

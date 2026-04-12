@@ -118,7 +118,7 @@ function Header({
 
   return (
     <header
-      className={`sticky top-0 z-50 mx-auto mt-0.5 w-[calc(100%-16px)] md:w-[min(68vw,1520px)] rounded-b-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/95 shadow-[0_10px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-all duration-200 ${
+      className={`sticky top-0 z-50 mt-0.5 w-full border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/95 shadow-[0_10px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-all duration-200 ${
         hidden ? "pointer-events-none md:-translate-y-[112%] md:opacity-0" : "translate-y-0 opacity-100"
       }`}
     >
@@ -248,7 +248,7 @@ function Header({
           aria-controls="site-header-panel"
           aria-expanded={menuOpen}
           aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] md:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] md:hidden"
           type="button"
           onClick={() => {
             setMenuOpen((current) => !current);

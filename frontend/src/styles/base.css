@@ -32,6 +32,8 @@
   --radius-panel: 26px;
   --space-card: 18px;
   --space-panel: 22px;
+  --page-shell-width: min(82vw, 1500px);
+  --page-shell-gutter: clamp(18px, 2.8vw, 56px);
   color: var(--text-main);
   background: var(--surface-base);
 }
@@ -147,17 +149,17 @@ textarea {
 }
 
 .page-shell {
-  width: min(70vw, 1600px);
+  width: var(--page-shell-width);
   max-width: 100%;
   margin: 0 auto;
-  padding: 0 clamp(24px, 3.8vw, 60px);
+  padding: 0 var(--page-shell-gutter);
 }
 
 .site-copyright {
-  width: min(70vw, 1600px);
+  width: min(84vw, 1280px);
   max-width: 100%;
   margin: 20px auto 0;
-  padding: 12px clamp(24px, 3.8vw, 60px) 0;
+  padding: 12px clamp(18px, 3vw, 48px) 0;
   border-top: 1px dashed var(--line-soft);
 }
 
@@ -165,22 +167,30 @@ textarea {
   margin: 0;
   text-align: center;
   font-size: 0.86rem;
+  font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--text-muted);
+  color: var(--text-main);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
+  .page-shell {
+    width: min(92vw, 1200px);
+  }
+}
+
+@media (max-width: 768px) {
   .page-shell {
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: 0 14px;
+    padding: 0 16px;
   }
 
   .site-copyright {
     width: 100%;
     margin-top: 16px;
-    padding: 10px 14px 0;
+    padding: 10px 16px 0;
   }
 }
 
@@ -248,8 +258,8 @@ textarea {
 
 .hero-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.26fr) minmax(340px, 0.94fr);
+  gap: clamp(18px, 2vw, 30px);
   padding: 28px;
   border: 1px solid var(--line-soft);
   border-radius: 30px;
@@ -261,7 +271,6 @@ textarea {
 }
 
 .landing-hero {
-  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
+  grid-template-columns: minmax(0, 1.14fr) minmax(340px, 0.9fr);
   overflow: hidden;
 }
-

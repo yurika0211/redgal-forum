@@ -1,7 +1,6 @@
 /* ===== Enoshima210-inspired global skin ===== */
 :root,
-html[data-theme="day"],
-html[data-theme="night"] {
+html[data-theme="day"] {
   --font-body: "Noto Sans JP", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-display: "Taviraj", "Noto Serif SC", "Songti SC", "STSong", serif;
   --font-nav: "Taviraj", "Noto Serif SC", "Songti SC", serif;
@@ -32,6 +31,8 @@ html[data-theme="night"] {
   --shadow-large: 0 16px 34px rgba(0, 0, 0, 0.1);
   --radius-card: 18px;
   --radius-panel: 28px;
+  --page-shell-width: min(82vw, 1500px);
+  --page-shell-gutter: clamp(18px, 2.8vw, 56px);
 }
 
 body {
@@ -59,11 +60,41 @@ body {
 }
 
 .page-shell {
-  width: min(74vw, 1700px);
+  width: var(--page-shell-width);
+  padding: 0 var(--page-shell-gutter);
+}
+
+.site-copyright {
+  width: min(84vw, 1280px);
+  padding: 12px clamp(18px, 3vw, 48px) 0;
+}
+
+.site-copyright p {
+  color: #223448;
+  font-weight: 600;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 1200px) {
+  .page-shell {
+    width: min(92vw, 1200px);
+  }
+}
+
+@media (max-width: 768px) {
+  .page-shell {
+    width: 100%;
+    padding: 0 16px;
+  }
+
+  .site-copyright {
+    width: 100%;
+    padding: 10px 16px 0;
+  }
 }
 
 .home-notice-modal__panel,
-html[data-theme="night"] .home-notice-modal__panel {
+html[data-theme="day"] .home-notice-modal__panel {
   border: 1px solid rgba(43, 108, 176, 0.16);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.98);
@@ -157,3 +188,106 @@ html[data-theme="night"] {
 /* P2 fix: admin/space night readability */
 
 /* P2.1 fix: night contrast tune for space/admin controls */
+
+/* P3 fix: night contrast, secondary buttons, and footer baseline */
+html[data-theme="night"] {
+  --surface-base: #0b1118;
+  --surface-soft: #121b27;
+  --surface-panel: rgba(19, 29, 41, 0.94);
+  --surface-panel-strong: rgba(23, 34, 49, 0.98);
+  --surface-card: rgba(26, 38, 53, 0.96);
+  --line-soft: rgba(173, 191, 214, 0.34);
+  --line-strong: rgba(194, 213, 236, 0.56);
+  --text-strong: #f2f7fd;
+  --text-main: #d7e2f0;
+  --text-soft: rgba(215, 226, 240, 0.9);
+  --text-muted: rgba(215, 226, 240, 0.74);
+  --text-faint: rgba(215, 226, 240, 0.58);
+}
+
+html[data-theme="night"] .home-notice-modal__panel {
+  border-color: rgba(194, 213, 236, 0.38);
+  background: #1b2a3a;
+}
+
+html[data-theme="night"] .home-notice-modal__backdrop {
+  background: rgba(7, 11, 16, 0.32);
+}
+
+html[data-theme="night"] .home-notice-modal__panel h2,
+html[data-theme="night"] .home-notice-modal__summary,
+html[data-theme="night"] .home-notice-modal__body p,
+html[data-theme="night"] .home-notice-modal__body li,
+html[data-theme="night"] .home-notice-modal__body span {
+  color: #f5faff;
+  font-weight: 500;
+  line-height: 1.84;
+  text-shadow: 0 1px 0 rgba(5, 10, 14, 0.5);
+}
+
+html[data-theme="night"] button.inline-flex:not([class*="bg-[linear-gradient"]) {
+  border-color: rgba(194, 213, 236, 0.46);
+  background: rgba(28, 42, 58, 0.96);
+  color: rgba(227, 237, 249, 0.94);
+}
+
+html[data-theme="night"] button.inline-flex:not([class*="bg-[linear-gradient"]):hover {
+  border-color: rgba(212, 228, 247, 0.72);
+  background: rgba(35, 51, 72, 0.98);
+  color: #f2f7fd;
+}
+
+html[data-theme="night"] .app-shell {
+  padding-bottom: 24px;
+}
+
+html[data-theme="night"] .site-copyright {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top-color: rgba(173, 191, 214, 0.3);
+  background: transparent;
+}
+
+html[data-theme="night"] .site-copyright p {
+  color: #eaf3ff;
+  font-weight: 600;
+  text-shadow: 0 1px 0 rgba(5, 10, 14, 0.45);
+}
+
+html[data-theme="night"] body {
+  background: #0b1118;
+  color: var(--text-main);
+}
+
+html[data-theme="night"] .background-stage {
+  background:
+    radial-gradient(circle at top left, rgba(95, 136, 178, 0.18), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(123, 159, 196, 0.14), transparent 40%),
+    linear-gradient(180deg, #0b1118 0%, #0e1621 100%);
+}
+
+html[data-theme="night"] .background-overlay {
+  background:
+    linear-gradient(180deg, rgba(9, 14, 20, 0.44), rgba(9, 14, 20, 0.72)),
+    radial-gradient(circle at center, rgba(123, 159, 196, 0.08), transparent 38%);
+}
+
+html[data-theme="night"] .app-shell {
+  min-height: 100dvh;
+}
+
+html[data-theme="night"] .home-notice-modal__body,
+html[data-theme="night"] .home-notice-modal__body * {
+  color: rgba(233, 241, 250, 0.96);
+}
+
+html[data-theme="night"] .home-notice-modal__body li::marker {
+  color: rgba(194, 213, 236, 0.84);
+}
+
+html[data-theme="night"] .gallery-photo-shell__head-kicker,
+html[data-theme="night"] .gallery-photo-shell__head-note,
+html[data-theme="night"] .gallery-photo-shell__head h2 {
+  color: #f5faff;
+  text-shadow: 0 1px 0 rgba(5, 10, 14, 0.48);
+}

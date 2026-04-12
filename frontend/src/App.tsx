@@ -4876,7 +4876,7 @@ function App() {
                 </div>
               ))}
             </div>
-            <div className="module-list">
+            <div className="flex flex-wrap items-center gap-2">
               {health.modules.map((moduleName) => (
                 <span className="inline-flex items-center rounded-full border border-[color:var(--line-soft)] bg-white/45 px-2 py-0.5 text-xs text-[color:var(--text-muted)]" key={moduleName}>
                   {moduleName}
@@ -5184,7 +5184,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
   function renderAdminPage(): ReactNode {
     if (!session) {
       return (
-        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm admin-empty-panel">
+        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm text-center mt-2">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">管理后台</p>
@@ -5199,7 +5199,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
     if (!canAdmin) {
       return (
-        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm admin-empty-panel">
+        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm text-center mt-2">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">管理后台</p>
@@ -5241,7 +5241,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
     return (
       <>
-        <section className="admin-shell">
+        <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] mt-2">
           <WorkspaceSidebar
             activeItemId={adminActivePage}
             footerAvatarLabel={profile?.nickname || profile?.username || "后台成员"}
@@ -5259,9 +5259,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             tone="admin"
           />
 
-          <div className="admin-content">
+          <div className="grid gap-4">
 
-        <section className="admin-dashboard-grid" style={{ display: adminActivePage === "dashboard-overview" ? undefined : "none" }}>
+        <section className="grid gap-4" style={{ display: adminActivePage === "dashboard-overview" ? undefined : "none" }}>
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -5271,7 +5271,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <StatusChip tone="accent">管理员</StatusChip>
             </div>
             {adminDashboardError ? <p className="text-sm text-rose-500/90">{adminDashboardError}</p> : null}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 admin-metric-grid">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ["注册总数", String(adminDashboard?.total_users ?? 0)],
                 ["已认证成员", String(adminDashboard?.verified_users ?? 0)],
@@ -5342,7 +5342,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               </div>
               <StatusChip tone="neutral">快捷入口</StatusChip>
             </div>
-            <div className="admin-quick-grid">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { title: "发布新接龙", body: "在接龙活动页创建并维护接龙活动。", next: "site-relays" as const },
                 { title: "发布新征文", body: "在征文活动页创建并维护征文活动。", next: "site-contests" as const },
@@ -5350,12 +5350,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 { title: "审核成员申请", body: "用户与审核区可处理待认证用户。", next: "members-verifications" as const },
               ].map((item) => (
                 <button
-                  className="portal-card"
+                  className="grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)]"
                   key={item.title}
                   type="button"
                   onClick={() => setAdminActivePage(item.next)}
                 >
-                  <span className="portal-card__kicker">入口</span>
+                  <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">入口</span>
                   <strong>{item.title}</strong>
                   <p>{item.body}</p>
                 </button>
@@ -5365,7 +5365,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--members"
+          className="grid gap-4 lg:grid-cols-2"
           id="admin-users"
           style={{ display: adminActivePage === "members-users" ? undefined : "none" }}
         >
@@ -5498,7 +5498,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--verifications"
+          className="grid gap-4 lg:grid-cols-2"
           style={{ display: adminActivePage === "members-verifications" ? undefined : "none" }}
         >
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
@@ -5514,7 +5514,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             {adminUserActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{adminUserActionState.success}</p> : null}
             <div className="grid gap-3">
               {pendingVerificationUsers.map((user) => (
-                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 admin-user-card" key={user.user_id}>
+                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 grid gap-2" key={user.user_id}>
                   <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3>{user.nickname || user.username}</h3>
@@ -5529,7 +5529,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     <span>待审请求 {user.pending_verification_id}</span>
                     <span>{user.verified ? "已认证" : "未认证"}</span>
                   </div>
-                  <div className="admin-user-card__actions">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void handleAdminVerificationReview(user.user_id, "approved")}>
                       通过审核
                     </button>
@@ -5625,7 +5625,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--cms"
+          className="grid gap-4 lg:grid-cols-2"
           id="admin-cms"
           style={{ display: adminActivePage === "site-blocks" ? undefined : "none" }}
         >
@@ -5745,7 +5745,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--gallery-editor"
+          className="grid gap-4 lg:grid-cols-2"
           id="admin-gallery"
           style={{ display: adminActivePage === "gallery-editor" ? undefined : "none" }}
         >
@@ -5817,7 +5817,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--gallery-list"
+          className="grid gap-4 lg:grid-cols-2"
           style={{ display: adminActivePage === "gallery-list" ? undefined : "none" }}
         >
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
@@ -5859,7 +5859,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--activities"
+          className="grid gap-4 lg:grid-cols-2"
           id="admin-relays"
           style={{ display: adminActivePage === "site-relays" ? undefined : "none" }}
         >
@@ -5916,7 +5916,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             <div className="grid gap-3">
               {relays.map((relay) => (
-                <div className="admin-status-row" key={relay.id}>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--line-soft)] bg-white/35 px-3 py-2" key={relay.id}>
                   <div>
                     <strong>{relay.title}</strong>
                     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
@@ -5924,7 +5924,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       <span>{relay.entry_count} 条参与</span>
                     </p>
                   </div>
-                  <div className="forum-reply-actions">
+                  <div className="flex flex-wrap items-center gap-2">
                     {["draft", "open", "closed"].map((status) => (
                       <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" key={status} type="button" onClick={() => void handleRelayStatusChange(relay.id, status)}>
                         {status}
@@ -5940,7 +5940,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--activities"
+          className="grid gap-4 lg:grid-cols-2"
           id="admin-contests"
           style={{ display: adminActivePage === "site-contests" ? undefined : "none" }}
         >
@@ -5997,7 +5997,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             <div className="grid gap-3">
               {contests.map((contest) => (
-                <div className="admin-status-row" key={contest.id}>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--line-soft)] bg-white/35 px-3 py-2" key={contest.id}>
                   <div>
                     <strong>{contest.title}</strong>
                     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
@@ -6005,7 +6005,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       <span>{contest.submission_count} 篇投稿</span>
                     </p>
                   </div>
-                  <div className="forum-reply-actions">
+                  <div className="flex flex-wrap items-center gap-2">
                     {["draft", "open", "closed"].map((status) => (
                       <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" key={status} type="button" onClick={() => void handleContestStatusChange(contest.id, status)}>
                         {status}
@@ -6021,7 +6021,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--moderation"
+          className="grid gap-4 lg:grid-cols-2"
           id="admin-moderation"
           style={{ display: adminActivePage === "moderation-wall" ? undefined : "none" }}
         >
@@ -6072,7 +6072,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--bangumi"
+          className="grid gap-4 lg:grid-cols-2"
           id="admin-bangumi"
           style={{ display: adminActivePage === "moderation-bangumi" ? undefined : "none" }}
         >
@@ -6147,7 +6147,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </section>
 
         <section
-          className="grid gap-4 lg:grid-cols-2 admin-page-grid admin-page-grid--announcements"
+          className="grid gap-4 lg:grid-cols-2"
           style={{ display: adminActivePage === "site-notes" ? undefined : "none" }}
         >
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
@@ -6232,9 +6232,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             <div className="grid gap-3">
               {announcementBlocks.map((notice) => (
-                <div className="admin-announcement-item" key={notice.id}>
+                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={notice.id}>
                   <button
-                    className={`admin-announcement-button ${editingContentBlockID === notice.id ? "admin-announcement-button--active" : ""}`}
+                    className={`w-full text-left ${editingContentBlockID === notice.id ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)]" : ""}`}
                     type="button"
                     onClick={() => handleContentBlockEditStart(notice)}
                   >
@@ -6252,7 +6252,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     </div>
                     <p className="text-sm text-[color:var(--text-muted)]">点击卡片载入编辑区。</p>
                   </button>
-                  <div className="admin-announcement-item__actions">
+                  <div className="mt-2 flex justify-end">
                     <button
                       className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30"
                       type="button"
@@ -6422,7 +6422,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         >
           <Suspense
             fallback={
-              <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm page-loading-panel">
+              <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm text-center">
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">加载中</p>
                 <p className="text-sm text-[color:var(--text-muted)]">页面模块正在加载，请稍候...</p>
               </section>

@@ -7,7 +7,6 @@
 @import "./styles/pages/anonymous.css" layer(pages);
 @import "./styles/pages/forum.css" layer(pages);
 @import "./styles/pages/stories.css" layer(pages);
-@import "./styles/pages/shared-content.css" layer(pages);
 @import "./styles/pages/gallery.css" layer(pages);
 
 @import "./styles/themes/theme-polish.css" layer(themes);
@@ -27,10 +26,6 @@
 /* Story detail: let hero visually stick to the top edge. */
 .app-shell.app-shell--story-detail {
   --story-detail-header-offset: 68px;
-}
-
-.app-shell.app-shell--story-detail .site-header {
-  margin-bottom: calc(-1 * var(--story-detail-header-offset));
 }
 
 .page-shell.page-shell--story-detail > .page-scene {

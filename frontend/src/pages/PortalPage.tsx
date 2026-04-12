@@ -47,6 +47,23 @@ export default function PortalPage({
     title: "",
     description: "",
   });
+  const manifestoHighlights = [
+    {
+      label: "起源",
+      value: "2017",
+      detail: "Galgame 分群开始聚拢同好",
+    },
+    {
+      label: "命名",
+      value: "2024",
+      detail: "正式确立「百川乃大视觉小说研」",
+    },
+    {
+      label: "规模",
+      value: "300+",
+      detail: "社群成员持续增长",
+    },
+  ];
 
   function startCreateActivity(): void {
     if (activityActionState.pending) {
@@ -143,79 +160,97 @@ export default function PortalPage({
   }
 
   return (
-    <>
-      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-manifesto">
-        <div className="portal-manifesto__head">
-          <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">社团介绍 / manifesto</p>
-          <h1>从 2017 到现在，我们把热爱写进了持续发生的社团活动。</h1>
+    <div className="grid gap-[clamp(16px,2.6vw,30px)]">
+      <section className="portal-home__section mt-2 grid gap-[26px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <div className="grid max-w-[76ch] gap-3">
+          <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">社团介绍 / manifesto</p>
+          <h1 className="m-0 font-[var(--font-display)] text-[clamp(2.05rem,3.7vw,3.3rem)] leading-[1.08] text-[color:var(--text-strong)]">从 2017 到现在，我们把热爱写进了持续发生的社团活动。</h1>
+          <p className="m-0 max-w-[64ch] text-[color:var(--text-main)] leading-[1.82]">
+            在这里，站点记录的不只是活动信息，更是每一届成员把兴趣转成作品、对话和协作的过程。
+          </p>
         </div>
-        <div className="portal-manifesto__body portal-manifesto__body--single">
-          <div className="portal-manifesto__copy">
-            <p>
+        <div className="grid items-stretch gap-[18px] [grid-template-columns:minmax(0,1.12fr)_minmax(260px,0.88fr)] max-[1040px]:[grid-template-columns:minmax(0,1fr)]">
+          <div className="grid content-start gap-[14px] py-[2px]">
+            <p className="m-0 text-[1rem] text-[color:var(--text-soft)] leading-[1.88]">
               百川乃大视觉小说研起源于川大校级 ACG 社团中的 Galgame 分群，2017 年开始聚拢同好，
               2024 年正式确立社团名称。一路从十几人的小群，慢慢扩展到今天的 300+ 社群规模。
             </p>
-            <p>
+            <p className="m-0 text-[1rem] text-[color:var(--text-soft)] leading-[1.88]">
               我们把“十二川器”年度评选、征文大赛、招新问答和“百川夜话”访谈做成固定活动，
               让作品推荐、创作表达和行业交流都能在站内留下可追溯的记录。
             </p>
-            <p>
+            <p className="m-0 text-[1rem] text-[color:var(--text-soft)] leading-[1.88]">
               如果你也会在深夜里冒出“我们来做一部视觉小说吧”的念头，
               这里会是你把热爱变成讨论、稿件、视频和合作的起点。
             </p>
           </div>
+          <aside className="rounded-[20px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-[clamp(14px,1.9vw,20px)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]" aria-label="社团关键节点">
+            <ul className="m-0 grid list-none gap-2.5 p-0 max-[1040px]:grid-cols-3 max-[760px]:grid-cols-1">
+              {manifestoHighlights.map((item) => (
+                <li className="grid gap-[5px] rounded-[14px] border border-[color:var(--line-soft)] bg-white/60 px-3 py-[11px]" key={item.label}>
+                  <span className="text-[0.75rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{item.label}</span>
+                  <strong className="font-[var(--font-display)] text-[1.26rem] text-[color:var(--text-strong)]">{item.value}</strong>
+                  <p className="m-0 text-[0.86rem] text-[color:var(--text-soft)] leading-[1.65]">{item.detail}</p>
+                </li>
+              ))}
+            </ul>
+          </aside>
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2 portal-brief-grid">
-        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <section className="grid items-stretch gap-4 lg:grid-cols-2">
+        <article className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">站内公告</p>
-              <h2>最新公告栏</h2>
+              <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">站内公告</p>
+              <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">最新公告栏</h2>
+              <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">集中查看站内公告与活动通知，快速了解近期更新。</p>
             </div>
           </div>
-          <div className="portal-brief-list">
+          <div className="grid gap-3.5">
             {notices.map((notice) => (
-              <div className="portal-brief-item" key={notice.id}>
-                <span>{notice.kicker || "公告"}</span>
-                <strong>{notice.title}</strong>
-                <p>{notice.description || notice.body}</p>
+              <div className="rounded-[18px] border border-[color:var(--line-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.8),rgba(245,248,252,0.78)),rgba(255,255,255,0.64)] p-[18px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_16px_rgba(46,73,112,0.06)] max-[760px]:rounded-[14px]" key={notice.id}>
+                <span className="inline-block text-[0.74rem] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">{notice.kicker || "公告"}</span>
+                <strong className="mt-2 block">{notice.title}</strong>
+                <p className="mt-2.5 text-[color:var(--text-soft)] leading-[1.8]">{notice.description || notice.body}</p>
               </div>
             ))}
-            {!notices.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有发布公告。</p> : null}
+            {!notices.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有发布公告。</p> : null}
           </div>
         </article>
 
-        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <article className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">先从哪里看起</p>
-              <h2>板块导航</h2>
+              <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">先从哪里看起</p>
+              <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">板块导航</h2>
+              <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">按内容类型挑选入口，减少首次浏览时的信息负担。</p>
             </div>
           </div>
-          <div className="portal-route-list">
+          <div className="grid gap-3.5">
             {portalPages.map((page) => (
               <button
-                className="portal-route-item"
+                className="rounded-[18px] border border-[color:var(--line-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.8),rgba(245,248,252,0.78)),rgba(255,255,255,0.64)] p-[18px] text-left text-inherit shadow-[inset_0_1px_0_rgba(255,255,255,0.72),0_8px_16px_rgba(46,73,112,0.06)] transition-[transform,border-color,background-color,box-shadow] duration-180 ease-linear hover:-translate-y-[3px] hover:border-[rgba(79,139,174,0.3)] hover:bg-[rgba(255,255,255,0.86)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_12px_24px_rgba(46,73,112,0.1)] max-[760px]:rounded-[14px]"
                 key={page.href}
                 type="button"
                 onClick={() => onNavigate(page.href)}
               >
-                <span>{page.kicker}</span>
-                <strong>{page.title}</strong>
-                <p>{page.description}</p>
+                <span className="inline-block text-[0.74rem] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">{page.kicker}</span>
+                <strong className="mt-2 block">{page.title}</strong>
+                <p className="mt-2.5 text-[color:var(--text-soft)] leading-[1.8]">{page.description}</p>
               </button>
             ))}
+            {!portalPages.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有配置导航入口。</p> : null}
           </div>
         </article>
       </section>
 
-      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-activity-panel">
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <section className="my-1 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-home__section">
+        <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动与聚会</p>
-            <h2>最近会遇到的事情</h2>
+            <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动与聚会</p>
+            <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">最近会遇到的事情</h2>
+            <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">以时间顺序整理社团活动，便于提前安排参与计划。</p>
           </div>
           {canAdmin ? (
             <button
@@ -228,21 +263,21 @@ export default function PortalPage({
             </button>
           ) : null}
         </div>
-        {canAdmin && activityActionState.error ? <p className="text-sm text-rose-500/90">{activityActionState.error}</p> : null}
-        {canAdmin && activityActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{activityActionState.success}</p> : null}
-        <div className="portal-timeline">
-          <span className="portal-timeline__line" aria-hidden="true" />
+        {canAdmin && activityActionState.error ? <p className="mb-2 text-sm text-rose-500/90">{activityActionState.error}</p> : null}
+        {canAdmin && activityActionState.success ? <p className="mb-2 text-sm text-[color:var(--text-muted)]">{activityActionState.success}</p> : null}
+        <div className="relative grid gap-6 py-1.5 max-[980px]:gap-4 max-[980px]:py-0.5">
+          <span className="absolute bottom-2.5 left-3 top-2.5 w-[3px] rounded-full bg-[linear-gradient(180deg,rgba(102,167,213,0.56),rgba(102,167,213,0.2))] max-[980px]:left-2.5" aria-hidden="true" />
           {societyActivities.map((activity, index) => (
             <article
-              className="portal-timeline-item"
+              className="relative mt-1.5 pl-[30px] first:mt-0 max-[980px]:mt-1 max-[980px]:pl-6"
               key={activity.id}
             >
-              <span className="portal-timeline-item__dot" aria-hidden="true" />
-              <div className="portal-timeline-item__body">
-                <div className="portal-timeline-item__head">
-                  <span>{activity.label || `节点 ${String(index + 1).padStart(2, "0")}`}</span>
+              <span className="absolute left-[5px] top-[22px] h-[14px] w-[14px] rounded-full border-[3px] border-[rgba(102,167,213,0.86)] bg-[#f8fbff] shadow-[0_0_0_2px_rgba(255,255,255,0.9),0_0_0_5px_rgba(102,167,213,0.12)] max-[980px]:left-[3px] max-[980px]:top-[18px] max-[980px]:h-3 max-[980px]:w-3" aria-hidden="true" />
+              <div className="relative overflow-hidden rounded-[14px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-4 py-[14px] shadow-[inset_0_1px_0_rgba(255,255,255,0.64),0_10px_22px_rgba(37,60,42,0.08)] max-[760px]:px-[13px] max-[760px]:py-3">
+                <div className="flex items-start justify-between gap-2.5">
+                  <span className="inline-block text-[0.9rem] font-bold tracking-[0.01em] text-[rgba(66,102,130,0.9)]">{activity.label || `节点 ${String(index + 1).padStart(2, "0")}`}</span>
                   {canAdmin ? (
-                    <div className="portal-timeline-item__actions">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
                         className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs"
                         type="button"
@@ -262,15 +297,15 @@ export default function PortalPage({
                     </div>
                   ) : null}
                 </div>
-                <strong>{activity.title}</strong>
-                <p>{activity.description || "活动描述待补充。"}</p>
+                <strong className="mt-2 block text-[1.08rem] leading-[1.5] text-[rgba(55,84,110,0.95)]">{activity.title}</strong>
+                <p className="mt-2.5 inline-flex max-w-full rounded-lg border border-[color:var(--line-soft)] bg-white/35 px-2.5 py-[3px] text-[0.85rem] leading-[1.6] text-[color:var(--text-soft)]">{activity.description || "活动描述待补充。"}</p>
               </div>
             </article>
           ))}
-          {!societyActivities.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有活动安排。</p> : null}
+          {!societyActivities.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有活动安排。</p> : null}
         </div>
         {canAdmin && activityEditorMode ? (
-          <form className="grid gap-3 portal-timeline-editor" onSubmit={(event) => void handleActivityEditorSubmit(event)}>
+          <form className="mt-3.5 grid gap-3 rounded-[14px] border border-dashed border-[rgba(102,167,213,0.38)] bg-[rgba(236,244,251,0.54)] p-4" onSubmit={(event) => void handleActivityEditorSubmit(event)}>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">时间轴编辑</p>
@@ -302,7 +337,7 @@ export default function PortalPage({
                 placeholder="填写该时间轴节点的说明"
               />
             </label>
-            <div className="portal-timeline-editor__actions">
+            <div className="flex flex-wrap gap-2.5">
               <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={activityActionState.pending}>
                 {activityActionState.pending ? "保存中..." : "保存"}
               </button>
@@ -314,18 +349,18 @@ export default function PortalPage({
         ) : null}
       </section>
 
-      <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <section className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">一句实话</p>
-            <h2>我们并不完美，但一直有人还想继续做下去</h2>
+            <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">一句实话</p>
+            <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">我们并不完美，但一直有人还想继续做下去</h2>
           </div>
         </div>
-        <p className="text-sm text-[color:var(--text-muted)]">
+        <p className="m-0 max-w-[74ch] text-sm text-[color:var(--text-muted)] leading-[1.86]">
           百川乃大未必已经完成过属于自己的视觉小说，站点也还在一点点长出来。
           但社团真正重要的并不是“已经做成了什么”，而是每一年总会有人重新把热情接过来。
         </p>
       </section>
-    </>
+    </div>
   );
 }

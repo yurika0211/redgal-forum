@@ -1,133 +1,3 @@
-.story-snippet-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.stories-feed-shell {
-  display: grid;
-  gap: 18px;
-  margin-top: 20px;
-}
-
-.story-snippet-item {
-  width: 100%;
-  padding: 14px 12px;
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-  color: inherit;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.52);
-  cursor: pointer;
-  transition:
-    border-color 140ms ease,
-    background-color 140ms ease,
-    transform 140ms ease;
-}
-
-.story-snippet-item:hover {
-  color: inherit;
-  transform: translateY(-1px);
-  border-color: var(--line-strong);
-  background: rgba(255, 255, 255, 0.78);
-}
-
-.story-snippet-item__layout {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.story-snippet-item__content {
-  flex: 1;
-  min-width: 0;
-}
-
-.story-snippet-item__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.story-snippet-item__head h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  color: var(--text-strong);
-  font-size: 1.1rem;
-  line-height: 1.4;
-}
-
-.story-snippet-item__visibility {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-}
-
-.story-snippet-item__excerpt {
-  margin: 10px 0 0;
-  color: var(--text-soft);
-  line-height: 1.8;
-}
-
-.story-snippet-item__meta {
-  margin: 10px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  font-size: 0.86rem;
-}
-
-.story-snippet-item__meta-divider {
-  color: var(--text-faint);
-}
-
-.story-snippet-item__meta--empty-tag {
-  margin-top: 8px;
-  font-size: 0.8rem;
-  color: var(--text-faint);
-}
-
-.story-snippet-item__tags {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.story-snippet-item__tag {
-  padding: 2px 8px;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  color: var(--text-muted);
-  font-size: 0.76rem;
-}
-
-.story-snippet-item__cover {
-  flex: 0 0 120px;
-  width: 120px;
-  aspect-ratio: 16 / 11;
-  overflow: hidden;
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.story-snippet-item__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 .story-article-view {
   display: grid;
   gap: 0;
@@ -172,12 +42,6 @@
   font-size: clamp(2rem, 4vw, 3.15rem);
 }
 
-.story-article-hero__line {
-  margin: 0;
-  color: rgba(246, 234, 244, 0.86);
-  font-size: 1rem;
-}
-
 .story-article-hero__tags {
   margin-top: 2px;
   display: flex;
@@ -216,7 +80,7 @@
   width: min(1320px, 100%);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 208px minmax(0, 1fr) 228px;
+  grid-template-columns: 248px minmax(0, 1fr) 228px;
   gap: 22px;
   align-items: start;
 }
@@ -243,23 +107,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.story-article-author-card__avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid rgba(125, 136, 162, 0.3);
-  background: rgba(255, 255, 255, 0.76);
-}
-
-.story-article-author-card__avatar--fallback {
-  display: grid;
-  place-items: center;
-  color: var(--text-strong);
-  font-family: var(--font-display);
-  font-size: 1.05rem;
 }
 
 .story-article-author-card__name-block {
@@ -310,11 +157,24 @@
   border: 0;
   border-radius: 0;
   background: transparent;
+  overflow-wrap: anywhere;
+}
+
+.story-article-main__body img,
+.story-article-main__body video,
+.story-article-main__body iframe {
+  max-width: 100%;
+}
+
+.story-article-main__body img,
+.story-article-main__body video {
+  height: auto;
+  display: block;
 }
 
 @media (max-width: 1320px) {
   .story-article-sheet__layout {
-    grid-template-columns: 188px minmax(0, 1fr) 208px;
+    grid-template-columns: 224px minmax(0, 1fr) 208px;
     gap: 16px;
   }
 }
@@ -453,17 +313,77 @@
 }
 
 @media (max-width: 640px) {
+  .story-list-panel__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .story-list-panel__actions {
+    width: 100%;
+    justify-content: flex-start !important;
+    gap: 8px;
+    padding-right: 2px;
+  }
+
+  .story-list-panel__actions > * {
+    flex: 0 1 auto;
+    margin-right: 0 !important;
+    max-width: 100%;
+  }
+
+  .story-snippet-item__layout {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .story-snippet-item__head {
+    gap: 8px;
+  }
+
+  .story-snippet-item__visibility {
+    align-self: flex-start;
+  }
+
+  .story-snippet-item__cover {
+    width: 100% !important;
+    max-width: 100%;
+    flex-basis: auto !important;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px !important;
+  }
+
+  .story-snippet-item__tag,
+  .story-snippet-item__visibility {
+    min-height: 1.72rem;
+    padding: 0.26rem 0.58rem;
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+
   .story-article-hero {
-    min-height: 276px;
-    padding: 28px 12px;
+    min-height: 0;
+    padding: 24px 12px 20px;
+  }
+
+  .story-article-hero__inner {
+    width: 100%;
+    gap: 10px;
   }
 
   .story-article-hero__inner h1 {
     font-size: clamp(1.7rem, 8.2vw, 2.2rem);
   }
 
-  .story-article-hero__line {
-    font-size: 0.92rem;
+  .story-article-hero__tags,
+  .story-article-hero__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .story-article-hero__actions > * {
+    flex: 1 1 132px;
   }
 
   .story-article-sheet {
@@ -477,7 +397,14 @@
   }
 
   .story-article-main__body {
-    padding: 16px 14px;
+    padding: 14px 12px;
+    overflow-x: hidden;
+  }
+
+  .story-article-main__body iframe {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
   }
 
   .story-article-author-card,
@@ -485,16 +412,6 @@
     position: static;
     max-height: none;
     overflow: visible;
-  }
-
-  .story-snippet-item__layout {
-    gap: 10px;
-  }
-
-  .story-snippet-item__cover {
-    flex-basis: 86px;
-    width: 86px;
-    border-radius: 8px;
   }
 
   .story-reading-foot {

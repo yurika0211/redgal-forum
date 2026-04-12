@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
+import { Badge, Button, Group, Paper, Stack, Text, Title } from "@mantine/core";
 import type { SiteGalleryEntry } from "../api";
 import StatusChip from "../components/StatusChip";
 import type { PagerState } from "../lib/pagination";
@@ -489,24 +490,30 @@ export default function GalleryPage({
 
   return (
     <section className="gallery-photo-shell gallery-photo-shell--editorial" style={layoutStyle}>
-      <div className="gallery-photo-shell__head gallery-photo-shell__head--art">
-        <div className="gallery-photo-shell__head-copy">
-          <p className="gallery-photo-shell__head-kicker">Gallery Curator</p>
-          <h2 className="gallery-photo-shell__art-title">光影艺术墙</h2>
-          <p className="gallery-photo-shell__head-note">把照片排成一面有呼吸感的展墙。</p>
-        </div>
+      <Paper className="gallery-photo-shell__head gallery-photo-shell__head--art gallery-mantine-hero" p="md" radius="lg" withBorder>
+        <Stack className="gallery-photo-shell__head-copy" gap={4}>
+          <Text className="gallery-photo-shell__head-kicker" size="xs" tt="uppercase">
+            Gallery Curator
+          </Text>
+          <Title className="gallery-photo-shell__art-title" order={2}>
+            光影艺术墙
+          </Title>
+          <Text className="gallery-photo-shell__head-note" size="sm">
+            把照片排成一面有呼吸感的展墙。
+          </Text>
+        </Stack>
         {canManageGallery ? (
           <div className="gallery-photo-shell__head-actions">
-            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => setIsEditorOpen((current) => !current)} type="button">
+            <Button variant="light" color="teal" radius="md" onClick={() => setIsEditorOpen((current) => !current)} type="button">
               {isEditorOpen ? "收起前台编辑" : "前台编辑"}
-            </button>
+            </Button>
           </div>
         ) : null}
-      </div>
+      </Paper>
 
       {canManageGallery && isEditorOpen ? (
         <section className="gallery-inline-admin">
-          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 gallery-inline-admin__card">
+          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
             <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
               <h3>{editingGalleryEntryID ? "编辑展示条目" : "新建展示条目"}</h3>
               <StatusChip tone="accent">{editingGalleryEntryID ? "编辑模式" : "创建模式"}</StatusChip>
@@ -569,12 +576,12 @@ export default function GalleryPage({
                     />
                   </label>
                   {uploadFileCount > 0 ? (
-                    <p className="gallery-inline-admin__upload-summary">
+                    <p className="text-xs text-[color:var(--text-muted)]">
                       已选择 {uploadFileCount} 张：{uploadFileNamesPreview}
                     </p>
                   ) : null}
                   {uploadFileCount > 1 && !editingGalleryEntryID ? (
-                    <p className="gallery-inline-admin__upload-summary">
+                    <p className="text-xs text-[color:var(--text-muted)]">
                       多图上传会自动按当前类型与排序批量创建条目。
                     </p>
                   ) : null}
@@ -639,7 +646,7 @@ export default function GalleryPage({
             </div>
           </article>
 
-          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 gallery-inline-admin__card">
+          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
             <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
               <h3>布局与条目列表</h3>
               <StatusChip tone="neutral">{adminGalleryPager.total} 条</StatusChip>
@@ -851,7 +858,11 @@ export default function GalleryPage({
               <div className="gallery-wall-carousel">
                 <div className="gallery-curation-grid gallery-curation-grid--wall">
                   {section.photos.map((photo, photoIndex) => (
-                    <figure
+                    <Paper
+                      component="figure"
+                      withBorder
+                      radius="xs"
+                      shadow="sm"
                       className={`gallery-curation-card gallery-wall-frame gallery-wall-frame--${(photoIndex % 5) + 1}`}
                       key={photo.id}
                     >
@@ -871,7 +882,7 @@ export default function GalleryPage({
                       >
                         <img alt={photo.alt} loading="lazy" src={photo.src} />
                       </div>
-                    </figure>
+                    </Paper>
                   ))}
                 </div>
               </div>
@@ -897,9 +908,9 @@ export default function GalleryPage({
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{activeLightboxPhoto.sectionKicker}</p>
                 <h3>{activeLightboxPhoto.title}</h3>
               </div>
-              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => setLightboxIndex(-1)} type="button">
+              <Button variant="default" radius="md" onClick={() => setLightboxIndex(-1)} type="button">
                 关闭
-              </button>
+              </Button>
             </div>
             <div className="gallery-lightbox__media">
               <img alt={activeLightboxPhoto.alt} src={activeLightboxPhoto.src} />
@@ -923,28 +934,26 @@ export default function GalleryPage({
                 )}
                 {canManageGallery && activeLightboxPhoto.entryID ? (
                   <div className="gallery-lightbox__annotation-actions">
-                    <button
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isAnnotationSaving}
-                      onClick={() => void handleLightboxAnnotationSave()}
-                      type="button"
-                    >
+                    <Button variant="light" color="teal" radius="md" disabled={isAnnotationSaving} onClick={() => void handleLightboxAnnotationSave()} type="button">
                       {isAnnotationSaving ? "保存中..." : "保存注释"}
-                    </button>
+                    </Button>
                   </div>
                 ) : null}
                 {lightboxAnnotationFeedback ? <p className="text-sm text-[color:var(--text-muted)]">{lightboxAnnotationFeedback}</p> : null}
               </div>
-              <div className="gallery-lightbox__meta">
-                <span>{activeLightboxPhoto.sectionTitle}</span>
-                <span>{activeLightboxPhoto.marker}</span>
-                <span>
-                  {lightboxIndex + 1} / {lightboxPhotos.length}
-                </span>
-              </div>
+              <Group className="gallery-lightbox__meta" gap="xs">
+                <Badge variant="light" color="teal">
+                  {activeLightboxPhoto.sectionTitle}
+                </Badge>
+                <Badge variant="outline" color="gray">
+                  {activeLightboxPhoto.marker}
+                </Badge>
+                <Badge variant="default">{lightboxIndex + 1} / {lightboxPhotos.length}</Badge>
+              </Group>
               <div className="gallery-lightbox__actions">
-                <button
-                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+                <Button
+                  variant="default"
+                  radius="md"
                   disabled={lightboxPhotos.length <= 1}
                   onClick={() =>
                     setLightboxIndex((current) => (current - 1 + lightboxPhotos.length) % lightboxPhotos.length)
@@ -952,9 +961,11 @@ export default function GalleryPage({
                   type="button"
                 >
                   上一张
-                </button>
-                <button
-                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+                </Button>
+                <Button
+                  variant="filled"
+                  color="teal"
+                  radius="md"
                   disabled={lightboxPhotos.length <= 1}
                   onClick={() =>
                     setLightboxIndex((current) => (current + 1 + lightboxPhotos.length) % lightboxPhotos.length)
@@ -962,7 +973,7 @@ export default function GalleryPage({
                   type="button"
                 >
                   下一张
-                </button>
+                </Button>
               </div>
             </div>
           </article>

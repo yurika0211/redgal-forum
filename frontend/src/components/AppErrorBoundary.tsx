@@ -38,8 +38,8 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
     }
 
     return (
-      <section className="app-error-boundary">
-        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm app-error-boundary__panel">
+      <section className="grid min-h-[40vh] place-items-center p-4">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">页面异常</p>

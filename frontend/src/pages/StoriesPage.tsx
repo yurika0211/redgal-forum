@@ -225,7 +225,7 @@ export default function StoriesPage({
     const isEditingMode = Boolean(articleEditingTargetID);
 
     return (
-      <section className="grid gap-4">
+      <section className="mt-5 grid gap-4">
         <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-2 py-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/stories")}>
@@ -393,12 +393,12 @@ export default function StoriesPage({
               ← 返回列表
             </button>
             <h1>{activeArticle?.title || "文章详情"}</h1>
-            <p className="story-article-hero__line">创建时间：{articleCreatedAt}</p>
-            <p className="story-article-hero__line">更新时间：{articleUpdatedAt}</p>
-            <p className="story-article-hero__line">
+            <p className="text-sm text-[color:var(--text-muted)]">创建时间：{articleCreatedAt}</p>
+            <p className="text-sm text-[color:var(--text-muted)]">更新时间：{articleUpdatedAt}</p>
+            <p className="text-sm text-[color:var(--text-muted)]">
               {readMinutes} 分钟阅读 · {commentCount} 条评论 · {likeCount} 次点赞
             </p>
-            <p className="story-article-hero__line">
+            <p className="text-sm text-[color:var(--text-muted)]">
               作者：
               {activeArticle?.author ? (
                 <button
@@ -461,11 +461,11 @@ export default function StoriesPage({
                 {authorAvatarURL ? (
                   <img
                     alt={`${authorName} 的头像`}
-                    className="story-article-author-card__avatar"
+                    className="h-10 w-10 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40"
                     src={authorAvatarURL}
                   />
                 ) : (
-                  <div className="story-article-author-card__avatar story-article-author-card__avatar--fallback">
+                  <div className="h-10 w-10 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40 inline-flex items-center justify-center font-semibold text-[color:var(--text-main)]">
                     {toAuthorInitial(authorName)}
                   </div>
                 )}
@@ -553,14 +553,14 @@ export default function StoriesPage({
 
   return (
     <>
-      <section className="stories-feed-shell grid gap-4">
-        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <section className="mt-5 grid gap-[18px]">
+        <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm story-list-panel">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3 story-list-panel__head">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)] text-xs tracking-[0.14em] text-[color:var(--text-faint)]">最新文章</p>
               <h2 className="text-xl font-semibold text-[color:var(--text-strong)]">专栏内容</h2>
             </div>
-            <div className="stories-list-toolbar flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 story-list-panel__actions">
               <StatusChip tone="accent">{articlePager.total} 篇</StatusChip>
               <button
                 className={`px-2.5 py-1 text-xs inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${ canWriteArticle ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]" : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]" }`}
@@ -583,7 +583,7 @@ export default function StoriesPage({
             />
           </label>
           {articlesError ? <p className="text-sm text-rose-500/90">{articlesError}</p> : null}
-          <div className="story-snippet-list grid gap-2">
+          <div className="story-snippet-list mt-2 grid gap-2.5">
             {storyFeed.map((article) => {
               const previewImage = extractMarkdownPreviewImage(article.content);
               const visibleTags = article.tags
@@ -594,22 +594,22 @@ export default function StoriesPage({
 
               return (
                 <button
-                  className="story-snippet-item grid w-full rounded-xl border border-[color:var(--line-soft)] bg-white/55 px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-white/80"
+                  className="story-snippet-item grid w-full rounded-xl border border-[color:var(--line-soft)] bg-white/[0.52] px-3 py-[14px] text-left transition hover:-translate-y-px hover:border-[color:var(--line-strong)] hover:bg-white/[0.78]"
                   key={article.id}
                   type="button"
                   onClick={() => onNavigate(`/stories/${encodeURIComponent(article.id)}`)}
                 >
-                  <div className="story-snippet-item__layout flex items-start justify-between gap-3">
+                  <div className="story-snippet-item__layout flex items-start justify-between gap-[14px] max-[640px]:gap-2.5">
                     <div className="story-snippet-item__content min-w-0 flex-1">
-                      <div className="story-snippet-item__head flex flex-wrap items-center justify-between gap-2">
+                      <div className="story-snippet-item__head flex flex-wrap items-baseline justify-between gap-2.5">
                         <h3 className="text-lg font-semibold leading-snug text-[color:var(--text-strong)]">{article.title}</h3>
-                        <span className="story-snippet-item__visibility inline-flex rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">
+                        <span className="story-snippet-item__visibility inline-flex items-center rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-[0.78rem] text-[color:var(--text-muted)]">
                           {normalizeVisibilityLabel(article.visibility)}
                         </span>
                       </div>
-                      <p className="story-snippet-item__excerpt mt-2 text-sm leading-7 text-[color:var(--text-soft)]">{excerpt(article.summary || article.content, 190)}</p>
-                      <p className="story-snippet-item__meta mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
-                        <span className="story-snippet-item__meta-author">
+                      <p className="story-snippet-item__excerpt mt-2.5 text-sm leading-[1.8] text-[color:var(--text-soft)]">{excerpt(article.summary || article.content, 190)}</p>
+                      <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
+                        <span className="font-medium text-[color:var(--text-main)]">
                           {buildPublicProfileHref(article.author) ? (
                             <span
                               className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium"
@@ -624,28 +624,28 @@ export default function StoriesPage({
                             authorLabel
                           )}
                         </span>
-                        <span className="story-snippet-item__meta-divider text-[color:var(--text-faint)]" aria-hidden="true">
+                        <span className="text-[color:var(--text-faint)]" aria-hidden="true">
                           ·
                         </span>
-                        <span className="story-snippet-item__meta-time">
+                        <span className="">
                           {formatPublishedAgo(article.created_at)}
                         </span>
                       </p>
                       {visibleTags.length ? (
                         <div className="story-snippet-item__tags mt-2 flex flex-wrap gap-1.5">
                           {visibleTags.map((tag) => (
-                            <span className="story-snippet-item__tag rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-[11px] text-[color:var(--text-muted)]" key={`${article.id}-tag-${tag}`}>
+                            <span className="story-snippet-item__tag rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-[0.76rem] text-[color:var(--text-muted)]" key={`${article.id}-tag-${tag}`}>
                               #{tag}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <p className="story-snippet-item__meta story-snippet-item__meta--empty-tag mt-2 text-xs text-[color:var(--text-faint)]">暂无标签</p>
+                        <p className="mt-2 text-xs text-[color:var(--text-faint)]">暂无标签</p>
                       )}
                     </div>
                     {previewImage ? (
-                      <div className="story-snippet-item__cover h-20 w-28 shrink-0 overflow-hidden rounded-lg border border-[color:var(--line-soft)] bg-white/35">
-                        <img alt={`${article.title} 头图`} className="h-full w-full object-cover" src={previewImage} />
+                      <div className="story-snippet-item__cover w-[120px] basis-[120px] shrink-0 aspect-[16/11] overflow-hidden rounded-xl border border-[color:var(--line-soft)] bg-white/[0.18] max-[640px]:w-[86px] max-[640px]:basis-[86px] max-[640px]:rounded-lg">
+                        <img alt={`${article.title} 头图`} className="block h-full w-full object-cover" src={previewImage} />
                       </div>
                     ) : null}
                   </div>

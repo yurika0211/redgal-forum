@@ -304,7 +304,7 @@ export default function ForumPage({
       }
 
       return (
-        <div className="forum-comment-sublist">
+        <div className="mt-1.5 grid gap-2">
           {nodes.map((node) => (
             <article
               className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 ml-4"
@@ -321,7 +321,7 @@ export default function ForumPage({
                     {node.reply.reply_to_author ? renderAuthorName(node.reply.reply_to_author, { withAtPrefix: true }) : null}
                   </p>
                 </div>
-                <div className="forum-reply-actions">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
@@ -350,7 +350,7 @@ export default function ForumPage({
               <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/forum")}>
                 返回讨论板
               </button>
-              <div className="forum-reply-actions">
+              <div className="flex flex-wrap items-center gap-2">
                 <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void onShareThread()}>
                   分享主题
                 </button>
@@ -383,7 +383,7 @@ export default function ForumPage({
               <span>{activeForumThread ? `${activeForumThread.like_count} 点赞` : "点赞读取中"}</span>
               <span>{activeForumThread ? `${activeForumThread.favorite_count} 收藏` : "收藏读取中"}</span>
             </div>
-            <div className="forum-detail-status">
+            <div className="flex flex-wrap gap-2.5">
               {activeForumThread?.is_pinned ? <StatusChip tone="accent">置顶</StatusChip> : null}
               {activeForumThread?.locked ? <StatusChip tone="warn">已锁定</StatusChip> : null}
               {activeForumThread ? (
@@ -442,7 +442,7 @@ export default function ForumPage({
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">回复区</p>
                 <h2>正文评论列表</h2>
               </div>
-              <div className="forum-thread-toolbar">
+              <div className="flex flex-wrap gap-2.5">
                 <button
                   className={`inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 ${onlyShowThreadAuthor ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)]" : ""}`}
                   type="button"
@@ -459,7 +459,7 @@ export default function ForumPage({
                 </button>
               </div>
             </div>
-            <div className="forum-thread-replies__helper">
+            <div className="mb-3 grid gap-1">
               <p className="text-sm text-[color:var(--text-muted)]">
                 阅读模式：{onlyShowThreadAuthor ? "只看楼主" : "全部楼层"}。
               </p>
@@ -475,7 +475,7 @@ export default function ForumPage({
                 ) : null}
               </p>
             </div>
-            <div className="forum-comment-list">
+            <div className="m-0 grid gap-0">
               {onlyShowThreadAuthor ? (
                 opReplies.length ? (
                 opReplies.map((reply) => (
@@ -490,7 +490,7 @@ export default function ForumPage({
                             {reply.reply_to_author ? renderAuthorName(reply.reply_to_author, { withAtPrefix: true }) : null}
                           </p>
                         </div>
-                        <div className="forum-reply-actions">
+                        <div className="flex flex-wrap items-center gap-2">
                           <StatusChip tone="accent">楼主</StatusChip>
                           <button
                             className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
@@ -522,7 +522,7 @@ export default function ForumPage({
                           <span>{formatDateTime(node.reply.created_at)}</span>
                         </p>
                       </div>
-                      <div className="forum-reply-actions">
+                      <div className="flex flex-wrap items-center gap-2">
                         {node.reply.author === activeForumThread?.author ? (
                           <StatusChip tone="accent">楼主</StatusChip>
                         ) : null}
@@ -567,7 +567,7 @@ export default function ForumPage({
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">底部互动区</p>
                 <h2>{replyTarget ? `回复 ${formatForumFloor(replyTarget.floor_no)}` : "快捷回复"}</h2>
               </div>
-              <div className="forum-reply-actions">
+              <div className="flex flex-wrap items-center gap-2">
                 <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onInsertReplySnippet("\n![](https://)")}>
                   图片
                 </button>
@@ -737,11 +737,11 @@ export default function ForumPage({
 
             {featuredListThread ? (
               <button
-                className="forum-featured-text-item"
+                className="grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3"
                 type="button"
                 onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(featuredListThread.id)}`)}
               >
-                <span className="forum-featured-text-item__kicker">最新活跃主题</span>
+                <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">最新活跃主题</span>
                 <strong>{featuredListThread.title}</strong>
                 <span>
                   {renderAuthorName(featuredListThread.author, { nestedInClickable: true })} · {featuredListThread.reply_count} 回复 ·{" "}
@@ -757,14 +757,14 @@ export default function ForumPage({
 
   return (
     <>
-      <section className="grid gap-4 forum-list-page forum-list-page--compact">
+      <section className="forum-list-page grid grid-cols-1 gap-4">
         <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm forum-feed-panel">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3 forum-feed-panel__head">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)] text-xs tracking-[0.14em] text-[color:var(--text-faint)]">帖子流</p>
               <h2 className="text-xl font-semibold text-[color:var(--text-strong)]">讨论串列表</h2>
             </div>
-            <div className="forum-list-page__toolbar flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 forum-feed-panel__head-actions">
               <StatusChip tone="accent">{threadPager.total} 条主题</StatusChip>
               <button
                 className={`px-2.5 py-1 text-xs inline-flex items-center rounded-lg border px-3 py-1.5 text-sm transition ${ canCompose ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] hover:bg-[color:var(--surface-card)]" : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)]" }`}
@@ -776,7 +776,7 @@ export default function ForumPage({
             </div>
           </div>
           {threadsError ? <p className="text-sm text-rose-500/90">{threadsError}</p> : null}
-          <div className="forum-board-filter-row flex flex-wrap items-center gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2 forum-feed-panel__filters">
             <label className="grid gap-1 min-w-[220px] flex-1" htmlFor="forum-thread-search">
               <span className="text-xs text-[color:var(--text-muted)]">关键词搜索</span>
               <input
@@ -803,20 +803,20 @@ export default function ForumPage({
               </button>
             ))}
           </div>
-          <div className="forum-thread-text-list mt-2 grid gap-2">
+          <div className="forum-thread-text-list mt-2 grid gap-0 border-t border-dashed border-[color:var(--line-soft)]">
             {filteredThreadFeed.map((thread) => {
               return (
                 <button
-                  className="forum-thread-text-item grid w-full rounded-xl border border-[color:var(--line-soft)] bg-white/55 px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)] hover:bg-white/80"
+                  className="forum-thread-text-item grid w-full border-b border-dashed border-[color:var(--line-soft)] bg-transparent px-0 pb-3.5 pt-3 text-left transition hover:translate-x-0.5"
                   key={thread.id}
                   type="button"
                   onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
                 >
-                  <div className="forum-thread-text-item__head flex flex-wrap items-center justify-between gap-2">
-                    <strong className="text-base font-semibold text-[color:var(--text-strong)]">{thread.title}</strong>
-                    <span className="forum-thread-text-item__board rounded-full border border-[color:var(--line-soft)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">/{thread.board}</span>
+                  <div className="forum-thread-text-item__head flex flex-wrap items-center justify-between gap-3 max-[900px]:flex-col max-[900px]:items-start">
+                    <strong className="text-[1.04rem] font-semibold text-[color:var(--text-strong)]">{thread.title}</strong>
+                    <span className="forum-thread-text-item__board whitespace-nowrap text-[0.82rem] text-[color:var(--text-muted)]">/{thread.board}</span>
                   </div>
-                  <p className="forum-thread-text-item__meta mt-2 flex flex-wrap items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
+                  <p className="forum-thread-text-item__meta mt-2 flex flex-wrap items-center gap-[10px] text-[0.84rem] text-[color:var(--text-muted)]">
                     {renderAuthorName(thread.author, { nestedInClickable: true })}
                     {thread.tripcode ? <span>{thread.tripcode}</span> : null}
                     {thread.is_pinned ? <span>置顶</span> : null}
@@ -834,11 +834,11 @@ export default function ForumPage({
           </div>
           {featuredListThread ? (
             <button
-              className="forum-featured-text-item"
+              className="grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3"
               type="button"
               onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(featuredListThread.id)}`)}
             >
-              <span className="forum-featured-text-item__kicker">最新活跃主题</span>
+              <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">最新活跃主题</span>
               <strong>{featuredListThread.title}</strong>
               <span>
                 {renderAuthorName(featuredListThread.author, { nestedInClickable: true })} · {featuredListThread.reply_count} 回复 ·{" "}

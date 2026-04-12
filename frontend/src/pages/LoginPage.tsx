@@ -51,7 +51,7 @@ export default function LoginPage({
   const fieldClassName =
     "mt-1 w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]";
   const submitButtonClassName =
-    "inline-flex w-full items-center justify-center rounded-lg border border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] px-3 py-2 text-sm font-semibold text-[color:var(--text-strong)] transition hover:bg-[color:var(--surface-card)] disabled:cursor-not-allowed disabled:opacity-55";
+    "inline-flex w-full items-center justify-center rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55";
   const ghostButtonClassName =
     "inline-flex items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 text-sm text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/75";
 

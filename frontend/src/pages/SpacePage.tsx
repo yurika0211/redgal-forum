@@ -1714,7 +1714,7 @@ export default function SpacePage({
   }
 
   return (
-    <section className="admin-shell space-shell">
+    <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
       <WorkspaceSidebar
         activeItemId={spaceActivePage}
         footerAvatarLabel={displayProfile?.nickname || displayProfile?.username || viewingProfileLabel}
@@ -1737,7 +1737,7 @@ export default function SpacePage({
         tone="space"
       />
 
-      <div className="admin-content space-content">
+      <div className="grid gap-4">
         <section style={{ display: spaceActivePage === "profile" ? undefined : "none" }}>
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm space-master-panel">
             {viewingPublicProfileUsername ? (
@@ -1757,11 +1757,11 @@ export default function SpacePage({
                   {displayProfile.avatar_url ? (
                     <img
                       alt={displayProfile.nickname}
-                      className="profile-stage__avatar"
+                      className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40"
                       src={displayProfile.avatar_url}
                     />
                   ) : (
-                    <div className="profile-stage__avatar profile-stage__avatar--fallback">
+                    <div className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40 inline-flex items-center justify-center font-semibold text-[color:var(--text-main)]">
                       {getAvatarFallback(displayProfile)}
                     </div>
                   )}
@@ -1871,9 +1871,9 @@ export default function SpacePage({
                         </label>
                         <div className="space-profile-editor__preview">
                           {profileForm.avatar_url.trim() ? (
-                            <img alt="头像预览" className="profile-stage__avatar" src={profileForm.avatar_url} />
+                            <img alt="头像预览" className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40" src={profileForm.avatar_url} />
                           ) : (
-                            <div className="profile-stage__avatar profile-stage__avatar--fallback">
+                            <div className="h-14 w-14 rounded-full border border-[color:var(--line-soft)] object-cover bg-white/40 inline-flex items-center justify-center font-semibold text-[color:var(--text-main)]">
                               {getAvatarFallback(displayProfile)}
                             </div>
                           )}
@@ -2141,8 +2141,8 @@ export default function SpacePage({
                         </button>
                       ))}
                     </div>
-                    <div className="space-bgm-item__editor-fields">
-                      <label className="space-bgm-item__editor-field">
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <label className="grid gap-1.5">
                         <span>评分</span>
                         <select
                           value={typeof expandedShowcaseDraft.myScore === "number" ? String(expandedShowcaseDraft.myScore) : ""}
@@ -2159,7 +2159,7 @@ export default function SpacePage({
                           })}
                         </select>
                       </label>
-                      <label className="space-bgm-item__editor-field space-bgm-item__editor-field--comment">
+                      <label className="grid gap-1.5 md:col-span-2">
                         <span>短评</span>
                         <input
                           type="text"
