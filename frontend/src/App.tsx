@@ -500,7 +500,7 @@ const ADMIN_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "moderation",
     title: "审核内容",
     kicker: "审核",
-    description: "展示墙投稿与 Bangumi 任务状态。",
+    description: "集中处理展示墙投稿和 Bangumi 同步任务。",
     children: [
       { id: "moderation-wall", label: "展示墙投稿审核" },
       { id: "moderation-bangumi", label: "Bangumi 导入任务" },
@@ -510,7 +510,7 @@ const ADMIN_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "dashboard",
     title: "数据看板",
     kicker: "看板",
-    description: "核心指标、待办提醒与快捷入口。",
+    description: "先看核心指标，再处理待办与快捷入口。",
     children: [
       { id: "dashboard-overview", label: "核心指标速览" },
       { id: "dashboard-todos", label: "待办提醒" },
@@ -521,33 +521,33 @@ const ADMIN_SIDEBAR_SECTIONS: ReadonlyArray<{
     id: "site",
     title: "站点内容管理",
     kicker: "内容管理",
-    description: "内容块、接龙活动、征文活动与系统说明。",
+    description: "维护内容块、活动信息和站内公告。",
     children: [
       { id: "site-blocks", label: "内容块编辑" },
       { id: "site-relays", label: "接龙活动" },
       { id: "site-contests", label: "征文活动" },
-      { id: "site-notes", label: "系统说明" },
+      { id: "site-notes", label: "公告中心" },
     ],
   },
   {
     id: "gallery",
-    title: "展示条目列表",
+    title: "展示资源管理",
     kicker: "展示资源",
-    description: "展示资源录入、编辑与列表维护。",
+    description: "创建、编辑、上下线展示条目。",
     children: [
-      { id: "gallery-editor", label: "新建展示条目" },
-      { id: "gallery-list", label: "展示条目列表" },
+      { id: "gallery-editor", label: "条目编辑器" },
+      { id: "gallery-list", label: "条目列表" },
     ],
   },
   {
     id: "members",
     title: "成员与审核管理",
     kicker: "成员",
-    description: "成员状态流转、认证审批与权限说明。",
+    description: "处理成员状态、认证审批与权限分工。",
     children: [
-      { id: "members-users", label: "成员状态" },
+      { id: "members-users", label: "成员列表与状态" },
       { id: "members-verifications", label: "认证审批" },
-      { id: "members-permissions", label: "权限建议" },
+      { id: "members-permissions", label: "权限分工" },
     ],
   },
 ] as const;
@@ -716,6 +716,110 @@ function wallSubmissionStatusLabel(value: string): string {
       return "已驳回";
     default:
       return "未知状态";
+  }
+}
+
+function adminRoleLabel(value: string): string {
+  switch (value) {
+    case "member":
+      return "成员";
+    case "moderator":
+      return "版主";
+    case "admin":
+      return "管理员";
+    case "super_admin":
+      return "超级管理员";
+    default:
+      return value || "未分配";
+  }
+}
+
+function formatAdminRoles(roles: readonly string[] | null | undefined): string {
+  if (!roles?.length) {
+    return "只读账号";
+  }
+
+  return roles.map((role) => adminRoleLabel(role)).join(" / ");
+}
+
+function adminUserStatusLabel(value: string): string {
+  switch (value) {
+    case "pending_verification":
+      return "待认证";
+    case "active":
+      return "正常";
+    case "suspended":
+      return "已禁言";
+    case "banned":
+      return "已封禁";
+    case "approved":
+      return "已通过";
+    case "rejected":
+      return "已驳回";
+    default:
+      return value || "未知状态";
+  }
+}
+
+function activityStatusLabel(value: string): string {
+  switch (value) {
+    case "draft":
+      return "草稿";
+    case "open":
+      return "进行中";
+    case "reviewing":
+      return "评审中";
+    case "closed":
+      return "已结束";
+    case "archived":
+      return "已归档";
+    case "deleted":
+      return "已删除";
+    default:
+      return value || "未知状态";
+  }
+}
+
+function bangumiJobStatusLabel(value: string): string {
+  switch (value) {
+    case "queued":
+      return "排队中";
+    case "running":
+      return "执行中";
+    case "succeeded":
+      return "已成功";
+    case "failed":
+      return "失败";
+    case "cancelled":
+      return "已取消";
+    default:
+      return value || "未知状态";
+  }
+}
+
+function bangumiJobTypeLabel(value: string): string {
+  switch (value) {
+    case "collection_sync":
+      return "收藏同步";
+    default:
+      return value || "未指定类型";
+  }
+}
+
+function bangumiCollectionStatusLabel(value: string): string {
+  switch (value) {
+    case "wish":
+      return "想看";
+    case "doing":
+      return "在看";
+    case "collect":
+      return "看过";
+    case "on_hold":
+      return "搁置";
+    case "dropped":
+      return "抛弃";
+    default:
+      return value || "未指定";
   }
 }
 
@@ -5184,32 +5288,59 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
   function renderAdminPage(): ReactNode {
     if (!session) {
       return (
-        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm text-center mt-2">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">管理后台</p>
-              <h2>请先登录管理员账号</h2>
+        <section className="admin-access-guard admin-access-guard--login rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="admin-access-guard__head mb-3 flex flex-wrap items-start justify-between gap-3">
+            <div className="admin-access-guard__title-wrap">
+              <p className="admin-access-guard__kicker text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">管理后台</p>
+              <h2 className="admin-access-guard__title">请先登录管理账号</h2>
             </div>
             <StatusChip tone="warn">需要登录</StatusChip>
           </div>
-          <p className="text-sm text-[color:var(--text-muted)]">后台工作台只对管理员开放。先登录，再进入管理后台。</p>
+          <p className="admin-access-guard__desc text-sm text-[color:var(--text-muted)]">后台工作台仅对管理员和超级管理员开放，登录后会自动校验角色权限。</p>
+          <p className="admin-access-guard__hint">你可以先登录账号，系统会根据角色自动切换到可访问的后台页面。</p>
+          <div className="admin-access-guard__actions">
+            <button
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105"
+              type="button"
+              onClick={() => handleNavigate("/login")}
+            >
+              前往登录
+            </button>
+            <button
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80"
+              type="button"
+              onClick={() => handleNavigate("/")}
+            >
+              返回首页
+            </button>
+          </div>
         </section>
       );
     }
 
     if (!canAdmin) {
       return (
-        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm text-center mt-2">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">管理后台</p>
-              <h2>当前账号没有后台权限</h2>
+        <section className="admin-access-guard admin-access-guard--forbidden rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="admin-access-guard__head mb-3 flex flex-wrap items-start justify-between gap-3">
+            <div className="admin-access-guard__title-wrap">
+              <p className="admin-access-guard__kicker text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">管理后台</p>
+              <h2 className="admin-access-guard__title">当前账号没有后台权限</h2>
             </div>
-            <StatusChip tone="warn">只读用户</StatusChip>
+            <StatusChip tone="warn">权限不足</StatusChip>
           </div>
-          <p className="text-sm text-[color:var(--text-muted)]">
-            当前角色：{profile?.roles?.join(", ") || "未返回角色信息"}。管理员或超级管理员才能进入后台工作台。
+          <p className="admin-access-guard__desc text-sm text-[color:var(--text-muted)]">
+            当前角色：{formatAdminRoles(profile?.roles)}。仅管理员或超级管理员可以访问后台工作台。
           </p>
+          <p className="admin-access-guard__hint">如需开通权限，请联系超级管理员完成角色分配。</p>
+          <div className="admin-access-guard__actions">
+            <button
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80"
+              type="button"
+              onClick={() => handleNavigate("/space")}
+            >
+              返回个人空间
+            </button>
+          </div>
         </section>
       );
     }
@@ -5241,13 +5372,13 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
     return (
       <>
-        <section className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] mt-2">
+        <section className="grid items-start gap-4 lg:grid-cols-[252px_minmax(0,1fr)]">
           <WorkspaceSidebar
             activeItemId={adminActivePage}
             footerAvatarLabel={profile?.nickname || profile?.username || "后台成员"}
             footerAvatarUrl={profile?.avatar_url || undefined}
             footerBadge={pendingVerificationUsers.length ? `${pendingVerificationUsers.length} 待审` : "就绪"}
-            footerSubtitle={`角色：${profile?.roles?.join(" / ") || "只读账号"}`}
+            footerSubtitle={`角色：${formatAdminRoles(profile?.roles)}`}
             footerTitle={profile?.nickname || profile?.username || "后台成员"}
             headerAvatarLabel="Rubedo"
             headerBadge={`${ADMIN_SIDEBAR_SECTIONS.length} 组`}
@@ -5259,7 +5390,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             tone="admin"
           />
 
-          <div className="grid gap-4">
+          <div className="admin-main grid gap-4">
 
         <section className="grid gap-4" style={{ display: adminActivePage === "dashboard-overview" ? undefined : "none" }}>
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
@@ -5267,6 +5398,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">数据看板</p>
                 <h2>核心指标速览</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">用于快速判断社区规模与管理负载。</p>
               </div>
               <StatusChip tone="accent">管理员</StatusChip>
             </div>
@@ -5292,7 +5424,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">待办提醒</p>
-                <h2>当前需要优先处理的事项</h2>
+                <h2>当前优先事项</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">建议先处理认证审批，再检查内容审核。</p>
               </div>
               <StatusChip tone={(adminDashboard?.pending_verification_users ?? 0) > 0 ? "warn" : "success"}>
                 {adminDashboard?.pending_verification_users ?? 0} 条
@@ -5306,14 +5439,14 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     {adminDashboard?.pending_verification_users ?? 0} 条
                   </StatusChip>
                 </div>
-                <p>当前最需要处理的是成员认证与状态流转。审核通过后，前台更多功能才会开放给成员。</p>
+                <p>审核通过后，论坛与空间的完整功能才会开放给成员。</p>
               </div>
               <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                   <h3>展示墙投稿</h3>
                   <StatusChip tone="accent">{wallSubmissionsPager.total} 条</StatusChip>
                 </div>
-                <p>展示墙投稿已经进入后台审核流，可以切到“展示墙投稿审核”分页继续处理。</p>
+                <p>可切到“展示墙投稿审核”分页处理通过、驳回或要求修改。</p>
               </div>
               {canSuperAdmin && superAdminDashboard ? (
                 <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
@@ -5339,15 +5472,16 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">快捷操作</p>
                 <h2>高频入口</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">按日常运营顺序整理的常用跳转入口。</p>
               </div>
               <StatusChip tone="neutral">快捷入口</StatusChip>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { title: "发布新接龙", body: "在接龙活动页创建并维护接龙活动。", next: "site-relays" as const },
-                { title: "发布新征文", body: "在征文活动页创建并维护征文活动。", next: "site-contests" as const },
-                { title: "维护首页内容", body: "内容块管理可直接修改 Portal、Highlight、Join Step 等前台区块。", next: "site-blocks" as const },
-                { title: "审核成员申请", body: "用户与审核区可处理待认证用户。", next: "members-verifications" as const },
+                { title: "发布新接龙", body: "创建活动并设置时间、规则与参与范围。", next: "site-relays" as const },
+                { title: "发布新征文", body: "发布征文主题并维护投稿开放状态。", next: "site-contests" as const },
+                { title: "维护首页内容", body: "统一维护首页卡片、公告和加入流程文案。", next: "site-blocks" as const },
+                { title: "处理认证申请", body: "进入认证审批页，集中处理待审成员。", next: "members-verifications" as const },
               ].map((item) => (
                 <button
                   className="grid gap-1 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 text-left transition hover:-translate-y-0.5 hover:border-[color:var(--line-strong)]"
@@ -5372,8 +5506,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">成员表单</p>
-                <h2>成员与审核管理</h2>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">成员管理</p>
+                <h2>成员列表与状态维护</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">用于处理禁言、封禁、降级与认证相关操作。</p>
               </div>
               <StatusChip tone="accent">{adminUsersPager.total} 人</StatusChip>
             </div>
@@ -5401,10 +5536,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                           <span className="text-xs text-zinc-500">@{user.username}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-zinc-500">{user.roles.join(", ") || "无角色"}</TableCell>
+                      <TableCell className="text-zinc-500">{formatAdminRoles(user.roles)}</TableCell>
                       <TableCell>
                         <StatusChip tone={user.verified ? "success" : user.status === "pending_verification" ? "warn" : "neutral"}>
-                          {user.status}
+                          {adminUserStatusLabel(user.status)}
                         </StatusChip>
                       </TableCell>
                       <TableCell className="text-zinc-500">{user.verified ? "已认证" : "未认证"}</TableCell>
@@ -5506,6 +5641,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">审核队列</p>
                 <h2>认证审批</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">仅展示含待审请求的成员，可直接做通过或驳回。</p>
               </div>
               <StatusChip tone="warn">{pendingVerificationUsers.length} 条</StatusChip>
             </div>
@@ -5520,10 +5656,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       <h3>{user.nickname || user.username}</h3>
                       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                         <span>@{user.username}</span>
-                        <span>{user.roles.join(", ") || "无角色"}</span>
+                        <span>{formatAdminRoles(user.roles)}</span>
                       </p>
                     </div>
-                    <StatusChip tone="warn">{user.status}</StatusChip>
+                    <StatusChip tone="warn">{adminUserStatusLabel(user.status)}</StatusChip>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                     <span>待审请求 {user.pending_verification_id}</span>
@@ -5549,7 +5685,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">权限说明</p>
-                <h2>权限分工建议</h2>
+                <h2>权限分工与操作边界</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">明确谁负责配置、谁负责执行，避免重复操作和越权。</p>
               </div>
             </div>
             <div className="grid gap-3">
@@ -5580,8 +5717,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       {forumAvailabilityActionState.pending
                         ? "更新中..."
                         : forumEnabled
-                          ? "关闭论坛"
-                          : "开启论坛"}
+                          ? "暂停论坛"
+                          : "恢复论坛"}
                     </button>
                     <button
                       className={`inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 ${anonymousEnabled ? "border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30" : ""}`}
@@ -5592,11 +5729,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       {forumAvailabilityActionState.pending
                         ? "更新中..."
                         : anonymousEnabled
-                          ? "关闭匿名板"
-                          : "开启匿名板"}
+                          ? "暂停匿名板"
+                          : "恢复匿名板"}
                     </button>
                   </div>
-                  <p className="text-sm text-[color:var(--text-muted)]">关闭后会拦截对应板块的列表、详情、发帖和回复请求。</p>
+                  <p className="text-sm text-[color:var(--text-muted)]">暂停后会拦截对应板块的列表、详情、发帖和回复请求。</p>
                 </div>
               ) : null}
               <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
@@ -5604,21 +5741,21 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   <h3>超级管理员</h3>
                   <StatusChip tone="accent">全站权限</StatusChip>
                 </div>
-                <p>负责系统级配置、人员状态维护和全站风险处理。</p>
+                <p>负责系统级配置、风险处置和跨模块最终决策。</p>
               </div>
               <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                   <h3>内容编辑</h3>
                   <StatusChip tone="neutral">内容管理</StatusChip>
                 </div>
-                <p>负责首页内容块、公告文案、展示墙资源和活动封面的更新。</p>
+                <p>负责首页内容块、公告文案、展示资源与活动描述维护。</p>
               </div>
               <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
                 <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
                   <h3>招新审核</h3>
                   <StatusChip tone="warn">审核流程</StatusChip>
                 </div>
-                <p>重点处理待认证用户、状态流转和面试后的最终结论。</p>
+                <p>重点处理待认证成员、状态流转与审批结论留痕。</p>
               </div>
             </div>
           </article>
@@ -5634,6 +5771,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">内容管理</p>
                 <h2>{editingContentBlockID ? "编辑站点内容块" : "新建站点内容块"}</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">首页与门户区块统一在这里维护，建议先写摘要再补正文。</p>
               </div>
               <StatusChip tone="accent">内容块</StatusChip>
             </div>
@@ -5657,15 +5795,15 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 <input name="title" value={contentBlockForm.title} onChange={handleContentBlockFieldChange} required />
               </label>
               <label>
-                <span>别名</span>
+                <span>别名（slug）</span>
                 <input name="slug" value={contentBlockForm.slug} onChange={handleContentBlockFieldChange} />
               </label>
               <label>
-                <span>路径</span>
+                <span>路由路径</span>
                 <input name="path" value={contentBlockForm.path} onChange={handleContentBlockFieldChange} placeholder="/forum" />
               </label>
               <label>
-                <span>短标题</span>
+                <span>角标 / 小标题</span>
                 <input name="kicker" value={contentBlockForm.kicker} onChange={handleContentBlockFieldChange} />
               </label>
               <label>
@@ -5674,7 +5812,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   name="label"
                   value={contentBlockForm.label}
                   onChange={handleContentBlockFieldChange}
-                  placeholder={contentBlockForm.block_type === "portal_activity" ? "YYYY-MM-DD，例如 2026-04-06" : ""}
+                  placeholder={contentBlockForm.block_type === "portal_activity" ? "活动建议使用日期，如 2026-04-06" : "用于前台识别，如 公告 / 置顶 / 报名中"}
                 />
               </label>
               <label>
@@ -5686,12 +5824,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 <textarea name="body" rows={4} value={contentBlockForm.body} onChange={handleContentBlockFieldChange} />
               </label>
               <label>
-                <span>排序</span>
+                <span>排序权重</span>
                 <input name="sort_order" value={contentBlockForm.sort_order} onChange={handleContentBlockFieldChange} />
               </label>
               <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
                 <input name="active" checked={contentBlockForm.active} onChange={handleContentBlockFieldChange} type="checkbox" />
-                <span>启用这个内容块</span>
+                <span>保存后立即在前台生效</span>
               </label>
               <div className="flex flex-wrap items-center gap-2">
                 <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={contentBlockActionState.pending}>
@@ -5708,7 +5846,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">当前内容块</p>
-                <h2>站点内容管理</h2>
+                <h2>已配置内容块</h2>
               </div>
               <StatusChip tone="neutral">{adminContentBlocksPager.total} 条</StatusChip>
             </div>
@@ -5738,7 +5876,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   </div>
                 </div>
               ))}
-              {!adminContentBlocks.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有内容块数据。</p> : null}
+              {!adminContentBlocks.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有内容块，请先在左侧创建。</p> : null}
             </div>
             {renderPager(adminContentBlocksPager, (page) => setAdminContentBlocksPager((current) => ({ ...current, page })), "暂无内容块。")}
           </article>
@@ -5754,6 +5892,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">展示资源</p>
                 <h2>{editingGalleryEntryID ? "编辑展示条目" : "新建展示条目"}</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">用于维护展示墙条目基础信息，不影响原图文件。</p>
               </div>
               <StatusChip tone="accent">{editingGalleryEntryID ? "编辑模式" : "创建模式"}</StatusChip>
             </div>
@@ -5780,7 +5919,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 <input name="title" onChange={handleGalleryFieldChange} value={galleryForm.title} required />
               </label>
               <label>
-                <span>别名</span>
+                <span>别名（slug）</span>
                 <input name="slug" onChange={handleGalleryFieldChange} value={galleryForm.slug} />
               </label>
               <label>
@@ -5796,7 +5935,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 <input name="extra_text" onChange={handleGalleryFieldChange} value={galleryForm.extra_text} />
               </label>
               <label>
-                <span>排序</span>
+                <span>排序权重</span>
                 <input name="sort_order" onChange={handleGalleryFieldChange} value={galleryForm.sort_order} />
               </label>
               <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
@@ -5824,7 +5963,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">当前展示资源</p>
-                <h2>展示条目列表</h2>
+                <h2>展示条目与上下线状态</h2>
               </div>
               <StatusChip tone="neutral">{adminGalleryPager.total} 条</StatusChip>
             </div>
@@ -5868,6 +6007,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动管理</p>
                 <h2>接龙活动管理</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">可创建活动并控制状态流转，避免活动发布时间冲突。</p>
               </div>
               <StatusChip tone="accent">接龙</StatusChip>
             </div>
@@ -5920,20 +6060,20 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   <div>
                     <strong>{relay.title}</strong>
                     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                      <span>{relay.status}</span>
+                      <span>{activityStatusLabel(relay.status)}</span>
                       <span>{relay.entry_count} 条参与</span>
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {["draft", "open", "closed"].map((status) => (
                       <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" key={status} type="button" onClick={() => void handleRelayStatusChange(relay.id, status)}>
-                        {status}
+                        {activityStatusLabel(status)}
                       </button>
                     ))}
                   </div>
                 </div>
               ))}
-              {!relays.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有活动。</p> : null}
+              {!relays.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有接龙活动，可在左侧直接创建。</p> : null}
             </div>
             {renderPager(relayPager, (page) => setRelayPager((current) => ({ ...current, page })), "暂无活动。")}
           </article>
@@ -5949,6 +6089,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动管理</p>
                 <h2>征文活动管理</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">支持征文创建、时间维护与状态切换。</p>
               </div>
               <StatusChip tone="accent">征文</StatusChip>
             </div>
@@ -6001,20 +6142,20 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   <div>
                     <strong>{contest.title}</strong>
                     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                      <span>{contest.status}</span>
+                      <span>{activityStatusLabel(contest.status)}</span>
                       <span>{contest.submission_count} 篇投稿</span>
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {["draft", "open", "closed"].map((status) => (
                       <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" key={status} type="button" onClick={() => void handleContestStatusChange(contest.id, status)}>
-                        {status}
+                        {activityStatusLabel(status)}
                       </button>
                     ))}
                   </div>
                 </div>
               ))}
-              {!contests.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有征文活动。</p> : null}
+              {!contests.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有征文活动，可先发布本期主题。</p> : null}
             </div>
             {renderPager(contestPager, (page) => setContestPager((current) => ({ ...current, page })), "暂无征文活动。")}
           </article>
@@ -6030,6 +6171,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">互动管理</p>
                 <h2>展示墙投稿审核</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">逐条审核投稿质量，决定发布、退回修改或驳回。</p>
               </div>
               <StatusChip tone="accent">{wallSubmissionsPager.total} 条</StatusChip>
             </div>
@@ -6053,10 +6195,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void handleWallSubmissionReview(entry.id, "approved")}>
-                      通过
+                      通过发布
                     </button>
                     <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void handleWallSubmissionReview(entry.id, "changes_requested")}>
-                      要求修改
+                      退回修改
                     </button>
                     <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30" type="button" onClick={() => void handleWallSubmissionReview(entry.id, "rejected")}>
                       驳回
@@ -6081,11 +6223,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">Bangumi 同步任务</p>
                 <h2>导入任务列表</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">用于追踪任务执行情况和失败原因，无需手工审批。</p>
               </div>
               <StatusChip tone="accent">{adminBangumiJobsPager.total} 条</StatusChip>
             </div>
             {adminBangumiJobsError ? <p className="text-sm text-rose-500/90">{adminBangumiJobsError}</p> : null}
-            <p className="text-sm text-[color:var(--text-muted)]">导入任务由系统自动执行并回写状态，无需人工审批。</p>
+            <p className="text-sm text-[color:var(--text-muted)]">任务执行失败时可在卡片内查看错误信息并定位请求参数。</p>
             <div className="grid gap-3">
               {adminBangumiJobs.map((job) => (
                 <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={job.job_id}>
@@ -6094,7 +6237,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       <h3>任务 #{job.job_id}</h3>
                       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                         <span>{job.username || "未知用户"}</span>
-                        <span>{job.job_type || "collection_sync"}</span>
+                        <span>{bangumiJobTypeLabel(job.job_type || "collection_sync")}</span>
                         {job.created_at ? <span>{formatDateTime(job.created_at)}</span> : null}
                       </p>
                     </div>
@@ -6107,7 +6250,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                             : "accent"
                       }
                     >
-                      {job.status}
+                      {bangumiJobStatusLabel(job.status)}
                     </StatusChip>
                   </div>
                   {job.request_payload ? (
@@ -6125,7 +6268,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                         <span>subject_ids: {JSON.stringify(job.request_payload.subject_ids || [])}</span>
                       ) : null}
                       {"status" in (job.request_payload || {}) ? (
-                        <span>目标状态: {String(job.request_payload.status || "")}</span>
+                        <span>目标状态: {bangumiCollectionStatusLabel(String(job.request_payload.status || ""))}</span>
                       ) : null}
                       {"visibility" in (job.request_payload || {}) ? (
                         <span>可见范围: {String(job.request_payload.visibility || "")}</span>
@@ -6135,12 +6278,12 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   {job.error_message ? <p className="text-sm text-rose-500/90">{job.error_message}</p> : null}
                 </div>
               ))}
-              {!adminBangumiJobs.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有 Bangumi 导入任务。</p> : null}
+              {!adminBangumiJobs.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有 Bangumi 同步任务。</p> : null}
             </div>
             {renderPager(
               adminBangumiJobsPager,
               (page) => setAdminBangumiJobsPager((current) => ({ ...current, page })),
-              "暂无 Bangumi 任务。",
+              "暂无 Bangumi 同步任务。",
             )}
           </article>
 
@@ -6154,7 +6297,8 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">公告中心</p>
-                <h2>发布站点公告</h2>
+                <h2>发布公告与系统说明</h2>
+                <p className="text-sm text-[color:var(--text-muted)]">用于发布首页公告，建议标题简洁、摘要明确。</p>
               </div>
               <StatusChip tone="accent">公告块</StatusChip>
             </div>
@@ -6247,7 +6391,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     <p>{notice.description || notice.body || "暂无公告说明。"}</p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                       <span>{notice.label || "公告"}</span>
-                      <span>sort: {notice.sort_order}</span>
+                      <span>排序: {notice.sort_order}</span>
                       <span>slug: {notice.slug}</span>
                     </div>
                     <p className="text-sm text-[color:var(--text-muted)]">点击卡片载入编辑区。</p>
@@ -6263,7 +6407,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   </div>
                 </div>
               ))}
-              {!announcementBlocks.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有公告。</p> : null}
+              {!announcementBlocks.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有公告，可先发布一条站点通知。</p> : null}
             </div>
           </article>
         </section>

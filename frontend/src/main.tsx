@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { MantineProvider } from "@mantine/core";
+import "@mantine/core/styles.css";
 import App from "./App";
 import AppErrorBoundary from "./components/AppErrorBoundary";
-import "@mantine/core/styles.css";
 import "katex/dist/katex.min.css";
 import "./index.css";
 
