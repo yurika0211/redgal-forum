@@ -445,46 +445,33 @@ export default function StoriesPage({
           }
         >
           <div className="story-article-hero__inner">
-            <div className="story-article-hero__nav">
-              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/stories")}>
-                ← 返回列表
-              </button>
-            </div>
+            <button className="story-article-hero__back" type="button" onClick={() => onNavigate("/stories")}>
+              ← 返回列表
+            </button>
             <div className="story-article-hero__headline">
               <h1>{activeArticle?.title || "文章详情"}</h1>
             </div>
-            <dl className="story-article-hero__meta" aria-label="文章信息">
-              <div className="story-article-hero__meta-item">
-                <dt>发布时间</dt>
-                <dd>{articleCreatedAt}</dd>
-              </div>
-              <div className="story-article-hero__meta-item">
-                <dt>更新时间</dt>
-                <dd>{articleUpdatedAt}</dd>
-              </div>
-              <div className="story-article-hero__meta-item">
-                <dt>阅读统计</dt>
-                <dd>
-                  {readMinutes} 分钟阅读 · {commentCount} 条评论 · {likeCount} 次点赞
-                </dd>
-              </div>
-              <div className="story-article-hero__meta-item">
-                <dt>作者</dt>
-                <dd>
-                  {activeArticle?.author ? (
-                    <button
-                      className="inline-flex items-center text-[color:var(--color-primary)] underline decoration-dotted underline-offset-2 transition hover:text-[color:var(--text-strong)] font-medium story-article-hero__author-link"
-                      type="button"
-                      onClick={() => navigateToAuthorSpace(activeArticle.author)}
-                    >
-                      {activeArticle.author}
-                    </button>
-                  ) : (
-                    "未知"
-                  )}
-                </dd>
-              </div>
-            </dl>
+            <div className="story-article-hero__meta" aria-label="文章信息">
+              <p className="story-article-hero__meta-line">发布：{articleCreatedAt}</p>
+              <p className="story-article-hero__meta-line">更新：{articleUpdatedAt}</p>
+              <p className="story-article-hero__meta-line">
+                {readMinutes} 分钟阅读 · {commentCount} 条评论 · {likeCount} 次点赞
+              </p>
+              <p className="story-article-hero__meta-line">
+                作者：
+                {activeArticle?.author ? (
+                  <button
+                    className="story-article-hero__author-link"
+                    type="button"
+                    onClick={() => navigateToAuthorSpace(activeArticle.author)}
+                  >
+                    {activeArticle.author}
+                  </button>
+                ) : (
+                  "未知"
+                )}
+              </p>
+            </div>
             {activeArticle?.tags.length ? (
               <div className="story-article-hero__tags" aria-label="文章标签">
                 {activeArticle.tags.map((tag) => (
@@ -498,10 +485,10 @@ export default function StoriesPage({
               </div>
             ) : null}
             {canEditActiveArticle || canDeleteArticle ? (
-              <div className="story-article-hero__actions" aria-label="文章操作">
+              <div className="story-article-hero__admin" aria-label="文章操作">
                 {canEditActiveArticle && activeArticle ? (
                   <button
-                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="story-article-hero__admin-link"
                     type="button"
                     onClick={() => onStartArticleEdit(activeArticle)}
                     disabled={articleManageActionState.pending || articleActionState.pending}
@@ -511,7 +498,7 @@ export default function StoriesPage({
                 ) : null}
                 {canDeleteArticle ? (
                   <button
-                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 story-reading-delete-button"
+                    className="story-article-hero__admin-link story-article-hero__admin-link--danger"
                     type="button"
                     onClick={() => void handleDeleteArticle()}
                     disabled={articleManageActionState.pending}
@@ -563,10 +550,6 @@ export default function StoriesPage({
             </aside>
 
             <article className="story-article-main story-article-sheet__main">
-              <div className="story-article-main__meta" aria-label="文章时间信息">
-                <p className="story-article-main__date">发布：{articleCreatedAt}</p>
-                <p className="story-article-main__date">更新：{articleUpdatedAt}</p>
-              </div>
               {articleDetailError ? (
                 <p className="text-sm text-rose-500/90">{articleDetailError}</p>
               ) : activeArticle ? (

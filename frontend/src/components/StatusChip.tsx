@@ -4,6 +4,7 @@ import type { StatusTone } from "../types/app";
 interface StatusChipProps {
   tone?: StatusTone;
   children: ReactNode;
+  className?: string;
 }
 
 const TONE_CLASS: Record<StatusTone, string> = {
@@ -20,11 +21,18 @@ const TONE_CLASS: Record<StatusTone, string> = {
 export default function StatusChip({
   tone = "neutral",
   children,
+  className,
 }: StatusChipProps) {
+  const mergedClassName = [
+    "status-chip inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide",
+    TONE_CLASS[tone],
+    className || "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <span
-      className={`status-chip inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide ${TONE_CLASS[tone]}`}
-    >
+    <span className={mergedClassName}>
       {children}
     </span>
   );

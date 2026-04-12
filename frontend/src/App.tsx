@@ -851,6 +851,22 @@ function activityStatusLabel(value: string): string {
   }
 }
 
+const FLOW_ACTIVITY_STATUSES = ["draft", "open", "closed"] as const;
+
+function canProgressActivityStatus(currentStatus: string, nextStatus: string): boolean {
+  if (currentStatus === nextStatus) {
+    return false;
+  }
+
+  const currentIndex = FLOW_ACTIVITY_STATUSES.indexOf(currentStatus as (typeof FLOW_ACTIVITY_STATUSES)[number]);
+  const nextIndex = FLOW_ACTIVITY_STATUSES.indexOf(nextStatus as (typeof FLOW_ACTIVITY_STATUSES)[number]);
+  if (currentIndex === -1 || nextIndex === -1) {
+    return true;
+  }
+
+  return nextIndex > currentIndex;
+}
+
 function bangumiJobStatusLabel(value: string): string {
   switch (value) {
     case "queued":
@@ -937,13 +953,29 @@ function createAnnouncementFormState(): AnnouncementFormState {
 }
 
 function slugifyValue(input: string): string {
-  const normalized = input.trim().toLowerCase();
+  const normalized = sanitizeUnsafeTerm(input.trim().toLowerCase(), "safe");
   if (!normalized) {
     return "item";
   }
 
   const slug = normalized.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "");
   return slug || "item";
+}
+
+const UNSAFE_TERM_PATTERNS = [/鸡巴/giu, /鸡8/giu, /jiba/giu];
+
+function sanitizeUnsafeTerm(input: string, replacement: string): string {
+  return UNSAFE_TERM_PATTERNS.reduce((current, pattern) => current.replace(pattern, replacement), input);
+}
+
+function sanitizeDisplayText(input: string | null | undefined, fallback = "未命名"): string {
+  const raw = (input || "").trim();
+  if (!raw) {
+    return fallback;
+  }
+
+  const sanitized = sanitizeUnsafeTerm(raw, "***");
+  return sanitized || fallback;
 }
 
 function createAnnouncementSlug(title: string): string {
@@ -3929,7 +3961,8 @@ function App() {
     }
 
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`确定删除展示条目「${entry.title}」吗？`);
+      const safeTitle = sanitizeDisplayText(entry.title, "未命名条目");
+      const confirmed = window.confirm(`确定删除展示条目「${safeTitle}」吗？`);
       if (!confirmed) {
         return;
       }
@@ -4553,7 +4586,8 @@ function App() {
     }
 
     if (typeof window !== "undefined") {
-      const confirmed = window.confirm(`确定删除内容块「${block.title}」吗？`);
+      const safeTitle = sanitizeDisplayText(block.title, "未命名内容块");
+      const confirmed = window.confirm(`确定删除内容块「${safeTitle}」吗？`);
       if (!confirmed) {
         return;
       }
@@ -4900,8 +4934,11 @@ function App() {
     }
   }
 
-  async function handleRelayStatusChange(relayID: string, status: string): Promise<void> {
+  async function handleRelayStatusChange(relayID: string, status: string, currentStatus?: string): Promise<void> {
     if (!session) {
+      return;
+    }
+    if (currentStatus && !canProgressActivityStatus(currentStatus, status)) {
       return;
     }
 
@@ -4972,8 +5009,11 @@ function App() {
     }
   }
 
-  async function handleContestStatusChange(contestID: string, status: string): Promise<void> {
+  async function handleContestStatusChange(contestID: string, status: string, currentStatus?: string): Promise<void> {
     if (!session) {
+      return;
+    }
+    if (currentStatus && !canProgressActivityStatus(currentStatus, status)) {
       return;
     }
 
@@ -5514,7 +5554,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
     return (
       <>
-        <section className="grid items-start gap-4 lg:grid-cols-[252px_minmax(0,1fr)]">
+        <section className="grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
           <WorkspaceSidebar
             activeItemId={adminActivePage}
             footerAvatarLabel={profile?.nickname || profile?.username || "后台成员"}
@@ -5529,7 +5569,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             onItemSelect={(itemId) => setAdminActivePage(itemId as AdminPageKey)}
             sections={adminSidebarSections}
             showHeader={false}
-            tone="admin"
+            tone="space"
           />
 
           <div className="admin-main grid gap-4">
@@ -5999,30 +6039,36 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             {adminContentBlocksError ? <p className="text-sm text-rose-500/90">{adminContentBlocksError}</p> : null}
             <div className="grid gap-3">
-              {adminContentBlocks.map((block) => (
-                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={block.id}>
-                  <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                    <h3>{block.title}</h3>
-                    <StatusChip tone={block.active ? "success" : "warn"}>
-                      {contentBlockTypeLabel(block.block_type)}
-                    </StatusChip>
+              {adminContentBlocks.map((block) => {
+                const safeTitle = sanitizeDisplayText(block.title, "未命名内容块");
+                const safeDescription = sanitizeDisplayText(block.description || block.body, "暂无说明。");
+                const safeSlug = sanitizeDisplayText(block.slug, "--");
+
+                return (
+                  <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={block.id}>
+                    <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                      <h3>{safeTitle}</h3>
+                      <StatusChip tone={block.active ? "success" : "neutral"}>
+                        {contentBlockTypeLabel(block.block_type)}
+                      </StatusChip>
+                    </div>
+                    <p>{safeDescription}</p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
+                      <span>slug: {safeSlug}</span>
+                      <span>排序: {block.sort_order}</span>
+                      {block.path ? <span>路径: {block.path}</span> : null}
+                    </div>
+                    <div className="admin-cms-item__actions flex flex-wrap items-center gap-1.5">
+                      <button className="admin-cms-item__action" type="button" onClick={() => handleContentBlockEditStart(block)}>
+                        编辑
+                      </button>
+                      <button className="admin-cms-item__action admin-cms-item__action--danger" type="button" onClick={() => void handleContentBlockDelete(block)}>
+                        删除
+                      </button>
+                    </div>
                   </div>
-                  <p>{block.description || block.body || "暂无说明。"}</p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                    <span>slug: {block.slug}</span>
-                    <span>排序: {block.sort_order}</span>
-                    {block.path ? <span>路径: {block.path}</span> : null}
-                  </div>
-                  <div className="admin-cms-item__actions flex flex-wrap items-center gap-1.5">
-                    <button className="admin-cms-item__action inline-flex items-center justify-center rounded-md border border-[color:var(--line-soft)] bg-transparent px-2 py-1 text-xs font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/70" type="button" onClick={() => handleContentBlockEditStart(block)}>
-                      编辑
-                    </button>
-                    <button className="admin-cms-item__action admin-cms-item__action--danger inline-flex items-center justify-center rounded-md border border-rose-300 bg-transparent px-2 py-1 text-xs font-medium text-rose-500 transition hover:border-rose-400 hover:bg-rose-50/40" type="button" onClick={() => void handleContentBlockDelete(block)}>
-                      删除
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {!adminContentBlocks.length ? <p className="text-sm text-[color:var(--text-muted)]">当前没有内容块，请先在左侧创建。</p> : null}
             </div>
             {renderPager(adminContentBlocksPager, (page) => setAdminContentBlocksPager((current) => ({ ...current, page })), "暂无内容块。")}
@@ -6045,10 +6091,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             {galleryActionState.error ? <p className="text-sm text-rose-500/90">{galleryActionState.error}</p> : null}
             {galleryActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{galleryActionState.success}</p> : null}
-            <form className="grid gap-3" onSubmit={(event) => void handleGallerySubmit(event)}>
-              <label>
+            <form className="form-layout admin-cms-form admin-gallery-form" onSubmit={(event) => void handleGallerySubmit(event)}>
+              <label className="form-field">
                 <span>条目类型</span>
                 <select
+                  className="form-control"
                   disabled={Boolean(editingGalleryEntryID)}
                   name="entry_type"
                   onChange={handleGalleryFieldChange}
@@ -6061,39 +6108,43 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   <option value="track">留声机</option>
                 </select>
               </label>
-              <label>
+              <label className="form-field">
                 <span>标题</span>
-                <input name="title" onChange={handleGalleryFieldChange} value={galleryForm.title} required />
+                <input className="form-control" name="title" onChange={handleGalleryFieldChange} value={galleryForm.title} required />
               </label>
-              <label>
-                <span>别名（slug）</span>
-                <input name="slug" onChange={handleGalleryFieldChange} value={galleryForm.slug} />
-              </label>
-              <label>
-                <span>副标题</span>
-                <input name="subtitle" onChange={handleGalleryFieldChange} value={galleryForm.subtitle} />
-              </label>
-              <label>
+              <div className="form-grid-2 admin-gallery-form__grid">
+                <label className="form-field">
+                  <span>别名（slug）</span>
+                  <input className="form-control" name="slug" onChange={handleGalleryFieldChange} value={galleryForm.slug} />
+                </label>
+                <label className="form-field">
+                  <span>副标题</span>
+                  <input className="form-control" name="subtitle" onChange={handleGalleryFieldChange} value={galleryForm.subtitle} />
+                </label>
+              </div>
+              <label className="form-field">
                 <span>正文 / 描述</span>
-                <textarea name="body" onChange={handleGalleryFieldChange} rows={4} value={galleryForm.body} />
+                <textarea className="form-control" name="body" onChange={handleGalleryFieldChange} rows={5} value={galleryForm.body} />
               </label>
-              <label>
-                <span>额外文本</span>
-                <input name="extra_text" onChange={handleGalleryFieldChange} value={galleryForm.extra_text} />
-              </label>
-              <label>
-                <span>排序权重</span>
-                <input name="sort_order" onChange={handleGalleryFieldChange} value={galleryForm.sort_order} />
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+              <div className="form-grid-2 admin-gallery-form__grid">
+                <label className="form-field">
+                  <span>额外文本</span>
+                  <input className="form-control" name="extra_text" onChange={handleGalleryFieldChange} value={galleryForm.extra_text} />
+                </label>
+                <label className="form-field">
+                  <span>排序权重</span>
+                  <input className="form-control" name="sort_order" onChange={handleGalleryFieldChange} value={galleryForm.sort_order} />
+                </label>
+              </div>
+              <label className="form-check admin-gallery-form__check">
                 <input checked={galleryForm.active} name="active" onChange={handleGalleryFieldChange} type="checkbox" />
                 <span>设为公开展示</span>
               </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" disabled={galleryActionState.pending} type="submit">
+              <div className="form-actions admin-gallery-form__actions">
+                <button className="admin-gallery-form__submit inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" disabled={galleryActionState.pending} type="submit">
                   {galleryActionState.pending ? "保存中..." : editingGalleryEntryID ? "更新展示条目" : "创建展示条目"}
                 </button>
-                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={resetGalleryEditor} type="button">
+                <button className="admin-cms-form__reset inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60" onClick={resetGalleryEditor} type="button">
                   清空表单
                 </button>
               </div>
@@ -6115,29 +6166,41 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <StatusChip tone="neutral">{adminGalleryPager.total} 条</StatusChip>
             </div>
             <div className="grid gap-3">
-              {adminGalleryEntries.map((entry) => (
-                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={entry.id}>
-                  <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                    <h3>{entry.title}</h3>
-                    <StatusChip tone={entry.active ? "success" : "warn"}>
-                      {entry.active ? "已启用" : "已隐藏"}
-                    </StatusChip>
+              {adminGalleryEntries.map((entry) => {
+                const safeTitle = sanitizeDisplayText(entry.title, "未命名条目");
+                const safeBody = sanitizeDisplayText(entry.body, "暂无描述。");
+                const safeSlug = sanitizeDisplayText(entry.slug, "--");
+
+                return (
+                  <div className="admin-gallery-list-item rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={entry.id}>
+                    <div className="admin-gallery-list-item__head">
+                      <h3>{safeTitle}</h3>
+                      <StatusChip
+                        className={entry.active ? "admin-status-chip admin-status-chip--active" : "admin-status-chip admin-status-chip--inactive"}
+                        tone={entry.active ? "success" : "neutral"}
+                      >
+                        {entry.active ? "已启用" : "已隐藏"}
+                      </StatusChip>
+                    </div>
+                    <p>{safeBody}</p>
+                    <div className="admin-gallery-list-item__meta">
+                      <div className="admin-gallery-list-item__meta-copy text-xs text-[color:var(--text-muted)]">
+                        <span>{galleryEntryTypeLabel(entry.entry_type)}</span>
+                        <span>slug: {safeSlug}</span>
+                      </div>
+                      <div className="admin-gallery-list-item__actions">
+                        <button className="admin-gallery-list-item__action" onClick={() => handleGalleryEditStart(entry)} type="button">
+                          编辑
+                        </button>
+                        <span aria-hidden="true" className="admin-gallery-list-item__divider">|</span>
+                        <button className="admin-gallery-list-item__action admin-gallery-list-item__action--danger" onClick={() => void handleGalleryDelete(entry)} type="button">
+                          删除
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <p>{entry.body || "暂无描述。"}</p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                    <span>{galleryEntryTypeLabel(entry.entry_type)}</span>
-                    <span>slug: {entry.slug}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" onClick={() => handleGalleryEditStart(entry)} type="button">
-                      编辑
-                    </button>
-                    <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30" onClick={() => void handleGalleryDelete(entry)} type="button">
-                      删除
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {!adminGalleryEntries.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有可管理的展示条目。</p> : null}
             </div>
             {renderPager(adminGalleryPager, (page) => setAdminGalleryPager((current) => ({ ...current, page })), "暂无可管理条目。")}
@@ -6161,35 +6224,39 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             {adminActivityError ? <p className="text-sm text-rose-500/90">{adminActivityError}</p> : null}
             {relayActionState.error ? <p className="text-sm text-rose-500/90">{relayActionState.error}</p> : null}
             {relayActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{relayActionState.success}</p> : null}
-            <form className="grid gap-3" onSubmit={(event) => void handleRelaySubmit(event)}>
+            <form className="form-layout admin-cms-form" onSubmit={(event) => void handleRelaySubmit(event)}>
               <h3>发布新接龙活动</h3>
-              <label>
+              <label className="form-field">
                 <span>标题</span>
-                <input name="title" value={relayForm.title} onChange={handleRelayFieldChange} required />
+                <input className="form-control" name="title" value={relayForm.title} onChange={handleRelayFieldChange} required />
               </label>
-              <label>
+              <label className="form-field">
                 <span>描述</span>
-                <textarea name="description" rows={3} value={relayForm.description} onChange={handleRelayFieldChange} />
+                <textarea className="form-control" name="description" rows={3} value={relayForm.description} onChange={handleRelayFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>规则</span>
-                <textarea name="rules" rows={3} value={relayForm.rules} onChange={handleRelayFieldChange} />
+                <textarea className="form-control" name="rules" rows={3} value={relayForm.rules} onChange={handleRelayFieldChange} />
               </label>
-              <label>
-                <span>开始时间</span>
-                <input name="starts_at" type="datetime-local" value={relayForm.starts_at} onChange={handleRelayFieldChange} />
-              </label>
-              <label>
-                <span>结束时间</span>
-                <input name="ends_at" type="datetime-local" value={relayForm.ends_at} onChange={handleRelayFieldChange} />
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+              <div className="form-grid-2">
+                <label className="form-field">
+                  <span>开始时间</span>
+                  <input className="form-control" name="starts_at" type="datetime-local" value={relayForm.starts_at} onChange={handleRelayFieldChange} />
+                </label>
+                <label className="form-field">
+                  <span>结束时间</span>
+                  <input className="form-control" name="ends_at" type="datetime-local" value={relayForm.ends_at} onChange={handleRelayFieldChange} />
+                </label>
+              </div>
+              <label className="form-check admin-cms-form__check">
                 <input name="allow_unverified" type="checkbox" checked={relayForm.allow_unverified} onChange={handleRelayFieldChange} />
                 <span>允许未认证用户参与</span>
               </label>
-              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={relayActionState.pending}>
-                {relayActionState.pending ? "创建中..." : "创建接龙活动"}
-              </button>
+              <div className="form-actions admin-cms-form__actions">
+                <button className="admin-cms-form__submit inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={relayActionState.pending}>
+                  {relayActionState.pending ? "创建中..." : "创建接龙活动"}
+                </button>
+              </div>
             </form>
           </article>
 
@@ -6211,9 +6278,20 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       <span>{relay.entry_count} 条参与</span>
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {["draft", "open", "closed"].map((status) => (
-                      <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" key={status} type="button" onClick={() => void handleRelayStatusChange(relay.id, status)}>
+                  <div className="admin-activity-status__actions">
+                    {FLOW_ACTIVITY_STATUSES.map((status) => (
+                      <button
+                        aria-pressed={relay.status === status}
+                        className={`admin-activity-status__button ${
+                          relay.status === status
+                            ? `admin-activity-status__button--active admin-activity-status__button--${status}`
+                            : ""
+                        }`}
+                        disabled={relayActionState.pending || !canProgressActivityStatus(relay.status, status)}
+                        key={status}
+                        type="button"
+                        onClick={() => void handleRelayStatusChange(relay.id, status, relay.status)}
+                      >
                         {activityStatusLabel(status)}
                       </button>
                     ))}
@@ -6243,35 +6321,37 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             {adminActivityError ? <p className="text-sm text-rose-500/90">{adminActivityError}</p> : null}
             {contestActionState.error ? <p className="text-sm text-rose-500/90">{contestActionState.error}</p> : null}
             {contestActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{contestActionState.success}</p> : null}
-            <form className="grid gap-3" onSubmit={(event) => void handleContestSubmit(event)}>
+            <form className="form-layout admin-cms-form" onSubmit={(event) => void handleContestSubmit(event)}>
               <h3>发布新征文活动</h3>
-              <label>
+              <label className="form-field">
                 <span>标题</span>
-                <input name="title" value={contestForm.title} onChange={handleContestFieldChange} required />
+                <input className="form-control" name="title" value={contestForm.title} onChange={handleContestFieldChange} required />
               </label>
-              <label>
+              <label className="form-field">
                 <span>描述</span>
-                <textarea name="description" rows={3} value={contestForm.description} onChange={handleContestFieldChange} />
+                <textarea className="form-control" name="description" rows={3} value={contestForm.description} onChange={handleContestFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>规则</span>
-                <textarea name="rules" rows={3} value={contestForm.rules} onChange={handleContestFieldChange} />
+                <textarea className="form-control" name="rules" rows={3} value={contestForm.rules} onChange={handleContestFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>开始时间</span>
-                <input name="starts_at" type="datetime-local" value={contestForm.starts_at} onChange={handleContestFieldChange} />
+                <input className="form-control" name="starts_at" type="datetime-local" value={contestForm.starts_at} onChange={handleContestFieldChange} />
               </label>
-              <label>
+              <label className="form-field">
                 <span>结束时间</span>
-                <input name="ends_at" type="datetime-local" value={contestForm.ends_at} onChange={handleContestFieldChange} />
+                <input className="form-control" name="ends_at" type="datetime-local" value={contestForm.ends_at} onChange={handleContestFieldChange} />
               </label>
-              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+              <label className="form-check admin-cms-form__check">
                 <input name="allow_article_repost" type="checkbox" checked={contestForm.allow_article_repost} onChange={handleContestFieldChange} />
                 <span>允许文章转载投稿</span>
               </label>
-              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={contestActionState.pending}>
-                {contestActionState.pending ? "创建中..." : "创建征文活动"}
-              </button>
+              <div className="form-actions admin-cms-form__actions">
+                <button className="admin-cms-form__submit inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={contestActionState.pending}>
+                  {contestActionState.pending ? "创建中..." : "创建征文活动"}
+                </button>
+              </div>
             </form>
           </article>
 
@@ -6293,9 +6373,20 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                       <span>{contest.submission_count} 篇投稿</span>
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {["draft", "open", "closed"].map((status) => (
-                      <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" key={status} type="button" onClick={() => void handleContestStatusChange(contest.id, status)}>
+                  <div className="admin-activity-status__actions">
+                    {FLOW_ACTIVITY_STATUSES.map((status) => (
+                      <button
+                        aria-pressed={contest.status === status}
+                        className={`admin-activity-status__button ${
+                          contest.status === status
+                            ? `admin-activity-status__button--active admin-activity-status__button--${status}`
+                            : ""
+                        }`}
+                        disabled={contestActionState.pending || !canProgressActivityStatus(contest.status, status)}
+                        key={status}
+                        type="button"
+                        onClick={() => void handleContestStatusChange(contest.id, status, contest.status)}
+                      >
                         {activityStatusLabel(status)}
                       </button>
                     ))}
@@ -6451,20 +6542,22 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             </div>
             {announcementActionState.error ? <p className="text-sm text-rose-500/90">{announcementActionState.error}</p> : null}
             {announcementActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{announcementActionState.success}</p> : null}
-            <form className="grid gap-3" onSubmit={(event) => void handleAnnouncementSubmit(event)}>
+            <form className="form-layout admin-cms-form" onSubmit={(event) => void handleAnnouncementSubmit(event)}>
               <div className="grid gap-3 md:grid-cols-2">
-                <label>
+                <label className="form-field">
                   <span>公告分类</span>
                   <input
+                    className="form-control"
                     name="kicker"
                     value={announcementForm.kicker}
                     onChange={handleAnnouncementFieldChange}
                     placeholder="例如：置顶通知 / 活动提醒 / 维护公告"
                   />
                 </label>
-                <label>
+                <label className="form-field">
                   <span>发布时间</span>
                   <input
+                    className="form-control"
                     name="published_on"
                     type="date"
                     value={announcementForm.published_on}
@@ -6472,9 +6565,10 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   />
                 </label>
               </div>
-              <label>
+              <label className="form-field">
                 <span>公告标题</span>
                 <input
+                  className="form-control"
                   name="title"
                   value={announcementForm.title}
                   onChange={handleAnnouncementFieldChange}
@@ -6482,18 +6576,20 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   required
                 />
               </label>
-              <label>
+              <label className="form-field">
                 <span>公告摘要</span>
                 <input
+                  className="form-control"
                   name="description"
                   value={announcementForm.description}
                   onChange={handleAnnouncementFieldChange}
                   placeholder="例如：原定 19:00 调整为 19:30，地点不变，请提前 10 分钟入场。"
                 />
               </label>
-              <label>
+              <label className="form-field">
                 <span>公告正文</span>
                 <textarea
+                  className="form-control"
                   name="body"
                   rows={4}
                   value={announcementForm.body}
@@ -6501,15 +6597,16 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                   placeholder="补充活动流程、调整原因或注意事项（可选）。"
                 />
               </label>
-              <label>
+              <label className="form-field">
                 <span>排序</span>
                 <input
+                  className="form-control"
                   name="sort_order"
                   value={announcementForm.sort_order}
                   onChange={handleAnnouncementFieldChange}
                 />
               </label>
-              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
+              <label className="form-check admin-cms-form__check">
                 <input
                   name="active"
                   type="checkbox"
@@ -6518,9 +6615,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                 />
                 <span>发布后立即展示</span>
               </label>
-              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={announcementActionState.pending}>
-                {announcementActionState.pending ? "发布中..." : "发布公告"}
-              </button>
+              <div className="form-actions admin-cms-form__actions">
+                <button className="admin-cms-form__submit inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={announcementActionState.pending}>
+                  {announcementActionState.pending ? "发布中..." : "发布公告"}
+                </button>
+              </div>
             </form>
           </article>
 
@@ -6533,39 +6632,48 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               <StatusChip tone="neutral">{announcementBlocks.length} 条</StatusChip>
             </div>
             <div className="grid gap-3">
-              {announcementBlocks.map((notice) => (
-                <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={notice.id}>
-                  <button
-                    className={`w-full text-left ${editingContentBlockID === notice.id ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)]" : ""}`}
-                    type="button"
-                    onClick={() => handleContentBlockEditStart(notice)}
-                  >
-                    <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-                      <h3>{notice.title}</h3>
-                      <StatusChip tone={notice.active ? "success" : "warn"}>
-                        {notice.active ? "已启用" : "已隐藏"}
-                      </StatusChip>
-                    </div>
-                    <p>{notice.description || notice.body || "暂无公告说明。"}</p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                      <span>分类: {notice.kicker || "公告"}</span>
-                      <span>时间: {notice.label || "未填写"}</span>
-                      <span>排序: {notice.sort_order}</span>
-                      <span>slug: {notice.slug}</span>
-                    </div>
-                    <p className="text-sm text-[color:var(--text-muted)]">点击卡片载入编辑区。</p>
-                  </button>
-                  <div className="mt-2 flex justify-end">
+              {announcementBlocks.map((notice) => {
+                const safeTitle = sanitizeDisplayText(notice.title, "未命名公告");
+                const safeDescription = sanitizeDisplayText(notice.description || notice.body, "暂无公告说明。");
+                const safeSlug = sanitizeDisplayText(notice.slug, "--");
+
+                return (
+                  <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={notice.id}>
                     <button
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30"
+                      className={`w-full text-left ${editingContentBlockID === notice.id ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)]" : ""}`}
                       type="button"
-                      onClick={() => void handleContentBlockDelete(notice)}
+                      onClick={() => handleContentBlockEditStart(notice)}
                     >
-                      删除
+                      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                        <h3>{safeTitle}</h3>
+                        <StatusChip
+                          className={notice.active ? "admin-status-chip admin-status-chip--active" : "admin-status-chip admin-status-chip--inactive"}
+                          tone={notice.active ? "success" : "neutral"}
+                        >
+                          {notice.active ? "已启用" : "已隐藏"}
+                        </StatusChip>
+                      </div>
+                      <p>{safeDescription}</p>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
+                        <span>分类: {notice.kicker || "公告"}</span>
+                        <span>时间: {notice.label || "未填写"}</span>
+                        <span>排序: {notice.sort_order}</span>
+                        <span>slug: {safeSlug}</span>
+                      </div>
+                      <p className="text-sm text-[color:var(--text-muted)]">点击卡片载入编辑区。</p>
                     </button>
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30"
+                        type="button"
+                        onClick={() => void handleContentBlockDelete(notice)}
+                      >
+                        删除
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {!announcementBlocks.length ? <p className="text-sm text-[color:var(--text-muted)]">当前还没有公告，可先发布一条站点通知。</p> : null}
             </div>
           </article>

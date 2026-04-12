@@ -248,7 +248,7 @@ function Header({
           aria-controls="site-header-panel"
           aria-expanded={menuOpen}
           aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] md:hidden"
+          className="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] md:hidden"
           type="button"
           onClick={() => {
             setMenuOpen((current) => !current);

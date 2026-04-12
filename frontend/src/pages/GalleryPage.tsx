@@ -577,8 +577,7 @@ export default function GalleryPage({
           <div className="gallery-photo-shell__head-actions">
             <Button
               className="gallery-photo-shell__hero-cta"
-              variant="filled"
-              color="teal"
+              variant="outline"
               radius="md"
               onClick={() => setIsEditorOpen((current) => !current)}
               type="button"

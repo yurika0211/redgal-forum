@@ -2928,31 +2928,47 @@ export default function SpacePage({
                 </div>
               </div>
             ) : null}
-            <div className="grid gap-2">
-              {spaceFriends.map((friend) => (
-                <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={friend.id}>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <UserAvatar
-                        fallbackMode="initial"
-                        label={friend.name || friend.username || "好友"}
-                        shape="circle"
-                        size="sm"
-                        src={friend.avatarURL}
-                        statusTone={getSpaceFriendTone(friend.status)}
-                      />
-                      <strong>{friend.name}</strong>
+            <div className={isViewingPublicProfile ? "space-friend-avatar-grid" : "grid gap-2"}>
+              {spaceFriends.map((friend) =>
+                isViewingPublicProfile ? (
+                  <button
+                    className="space-friend-avatar-entry"
+                    key={friend.id}
+                    type="button"
+                    title={`查看 @${friend.username} 的主页`}
+                    aria-label={`查看 ${friend.name || friend.username || "好友"} 的主页`}
+                    onClick={() => void handleViewSpaceFriendProfile(friend)}
+                    disabled={spaceFriendActionState.pending}
+                  >
+                    <UserAvatar
+                      fallbackMode="initial"
+                      label={friend.name || friend.username || "好友"}
+                      shape="circle"
+                      size="lg"
+                      src={friend.avatarURL}
+                      statusTone={getSpaceFriendTone(friend.status)}
+                    />
+                  </button>
+                ) : (
+                  <div className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3" key={friend.id}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <UserAvatar
+                          fallbackMode="initial"
+                          label={friend.name || friend.username || "好友"}
+                          shape="circle"
+                          size="sm"
+                          src={friend.avatarURL}
+                          statusTone={getSpaceFriendTone(friend.status)}
+                        />
+                        <strong>{friend.name}</strong>
+                      </div>
+                      <StatusChip tone={getSpaceFriendTone(friend.status)}>{friend.status}</StatusChip>
                     </div>
-                    <StatusChip tone={getSpaceFriendTone(friend.status)}>{friend.status}</StatusChip>
-                  </div>
-                  <p>{friend.note}</p>
-                  <div className="grid gap-1 text-xs text-[color:var(--text-muted)]">
-                    <span>@{friend.username}</span>
-                    <StatusChip tone={friend.isReal ? "success" : "neutral"}>
-                      {friend.isReal ? "真实账号" : "本地好友"}
-                    </StatusChip>
-                  </div>
-                  {!isViewingPublicProfile ? (
+                    <p>{friend.note}</p>
+                    <div className="grid gap-1 text-xs text-[color:var(--text-muted)]">
+                      <span>@{friend.username}</span>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {!session ? (
                         <button
@@ -2977,9 +2993,9 @@ export default function SpacePage({
                         </button>
                       ) : null}
                     </div>
-                  ) : null}
-                </div>
-              ))}
+                  </div>
+                ),
+              )}
               {spaceFriendsLoading ? <p className="text-sm text-[color:var(--text-muted)]">好友关系同步中...</p> : null}
               {!spaceFriendsLoading && !spaceFriends.length ? (
                 <p className="text-sm text-[color:var(--text-muted)]">{isViewingPublicProfile ? "这个空间暂时没有公开好友。" : "好友列表为空，先添加一个真实好友吧。"}</p>

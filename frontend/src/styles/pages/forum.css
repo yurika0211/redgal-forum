@@ -1,5 +1,5 @@
 .forum-list-page {
-  width: min(100%, 1160px);
+  width: min(100%, 1080px);
   max-width: 100%;
   min-width: 0;
   margin-inline: auto;
@@ -71,6 +71,27 @@
   min-width: 0;
 }
 
+.forum-feed-panel__hero-grid {
+  min-width: 0;
+}
+
+.forum-feed-panel__hero-copy {
+  max-width: 720px;
+}
+
+.forum-feed-panel__hero-actions {
+  justify-self: end;
+}
+
+.forum-feed-panel__kicker {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
 .forum-feed-panel__hero::after {
   content: none;
 }
@@ -109,6 +130,15 @@
   background: #fff;
 }
 
+.forum-feed-panel__search-label {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .forum-feed-panel__filters-head {
   display: grid;
   gap: 2px;
@@ -122,8 +152,9 @@
 
 .forum-feed-panel__filters-kicker {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-soft);
   font-size: 0.72rem;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -152,9 +183,19 @@
 
 .forum-feed-panel__board-title {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  letter-spacing: 0.1em;
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.forum-feed-panel__list-kicker {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -262,6 +303,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 8px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--line-soft) 84%, transparent);
   min-width: 0;
 }
 
@@ -359,6 +403,46 @@
   white-space: nowrap;
 }
 
+.forum-thread-master__body {
+  min-width: 0;
+}
+
+.forum-thread-master__stats {
+  row-gap: 6px;
+}
+
+.forum-thread-master__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.forum-thread-master__stat + .forum-thread-master__stat::before {
+  content: "•";
+  color: color-mix(in srgb, var(--text-muted) 68%, transparent);
+}
+
+.forum-thread-danger-link {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.forum-thread-danger-link:hover:not(:disabled) {
+  border-color: rgba(220, 120, 138, 0.36) !important;
+  background: rgba(250, 219, 228, 0.42) !important;
+}
+
+.forum-nested-reply-list {
+  min-width: 0;
+}
+
+.forum-nested-reply {
+  border: 0;
+  border-left: 3px solid color-mix(in srgb, var(--line-strong) 56%, transparent);
+  box-shadow: none;
+}
+
 .forum-featured-jump {
   position: relative;
   overflow: hidden;
@@ -376,15 +460,15 @@
 }
 
 .forum-compose-button {
-  border-color: rgba(213, 76, 103, 0.44);
-  background: #d54c67;
+  border-color: rgba(193, 82, 108, 0.42);
+  background: #c1526c;
   color: #fff7fb;
-  box-shadow: 0 8px 18px rgba(146, 49, 74, 0.24);
+  box-shadow: 0 8px 18px rgba(132, 52, 73, 0.2);
 }
 
 .forum-compose-button:hover {
-  border-color: rgba(198, 67, 92, 0.58);
-  background: #c7435d;
+  border-color: rgba(180, 72, 97, 0.54);
+  background: #b84a62;
 }
 
 .forum-feed-panel__list-head {
@@ -401,6 +485,7 @@
 .forum-pagination-shell {
   border-top: 1px solid color-mix(in srgb, var(--line-soft) 80%, transparent);
   background: transparent;
+  padding-inline: 14px;
 }
 
 .forum-pagination-shell .pagination-bar__actions button {
@@ -446,9 +531,13 @@
 
 @media (min-width: 1024px) {
   .forum-feed-panel__filters-body {
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 62%) minmax(0, 38%);
     column-gap: 14px;
     align-items: end;
+  }
+
+  .forum-feed-panel__search {
+    max-width: 680px;
   }
 
   .forum-feed-panel__board-group {
@@ -466,6 +555,10 @@
   .forum-list-page {
     width: 100%;
     max-width: none;
+  }
+
+  .forum-feed-panel__hero-actions {
+    justify-self: stretch;
   }
 
   .forum-thread-search-input {

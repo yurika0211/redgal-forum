@@ -262,6 +262,10 @@ textarea.form-control {
 }
 
 .status-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 2px;
   max-width: 100%;
   line-height: 1.28;
   text-align: center;
@@ -278,11 +282,17 @@ textarea.form-control {
 
 .admin-access-guard__head {
   align-items: flex-start;
+  min-width: 0;
+}
+
+.admin-access-guard__head > * {
+  min-width: 0;
 }
 
 .admin-access-guard__title-wrap {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .admin-access-guard__kicker {
@@ -297,6 +307,8 @@ textarea.form-control {
   font-family: var(--font-display);
   font-size: clamp(1.26rem, 2.4vw, 1.52rem);
   line-height: 1.28;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .admin-access-guard__desc {
@@ -304,6 +316,8 @@ textarea.form-control {
   color: var(--text-soft);
   font-size: 0.95rem;
   line-height: 1.7;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .admin-access-guard__hint {
@@ -311,6 +325,13 @@ textarea.form-control {
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.64;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.admin-access-guard__head .status-chip {
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
 .admin-access-guard__actions {
@@ -377,6 +398,16 @@ textarea.form-control {
     transform: none;
   }
 
+  .admin-access-guard__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .admin-access-guard__head .status-chip {
+    justify-self: start;
+  }
+
   .admin-access-guard__actions {
     flex-direction: column;
     align-items: stretch;
@@ -423,11 +454,11 @@ textarea.form-control {
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  opacity: 0.2;
+  opacity: 0.48;
   background: linear-gradient(
     180deg,
-    rgba(249, 247, 250, 0.28) 0%,
-    rgba(245, 245, 245, 0.46) 100%
+    rgba(249, 247, 250, 0.14) 0%,
+    rgba(245, 245, 245, 0.24) 100%
   );
 }
 
@@ -443,7 +474,7 @@ textarea.form-control {
   background-size: cover;
   opacity: 0;
   transform: scale(1.04);
-  filter: saturate(0.94) brightness(1.04) contrast(0.94);
+  filter: saturate(1.02) brightness(1.08) contrast(1);
   mix-blend-mode: normal;
   animation:
     background-crossfade 24s ease-in-out infinite,
@@ -470,14 +501,14 @@ html[data-theme="night"] .background-stage .background-slide {
 .background-overlay {
   inset: 0;
   background:
-    radial-gradient(circle at top left, rgba(79, 139, 174, 0.12), transparent 34%),
-    radial-gradient(circle at top right, rgba(195, 128, 159, 0.1), transparent 32%),
-    radial-gradient(circle at bottom center, rgba(127, 204, 163, 0.08), transparent 36%),
+    radial-gradient(circle at top left, rgba(79, 139, 174, 0.08), transparent 34%),
+    radial-gradient(circle at top right, rgba(195, 128, 159, 0.06), transparent 32%),
+    radial-gradient(circle at bottom center, rgba(127, 204, 163, 0.05), transparent 36%),
     linear-gradient(
       160deg,
-      rgba(249, 247, 250, 0.3) 0%,
-      rgba(245, 245, 245, 0.52) 52%,
-      rgba(245, 245, 245, 0.68) 100%
+      rgba(249, 247, 250, 0.16) 0%,
+      rgba(245, 245, 245, 0.28) 52%,
+      rgba(245, 245, 245, 0.38) 100%
     );
   animation: background-overlay-drift 18s ease-in-out infinite;
   will-change: transform;

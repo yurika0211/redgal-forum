@@ -266,7 +266,7 @@ export default function ForumPage({
               />
               <span>不顶帖 (Sage)</span>
             </label>
-            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={replyActionState.pending}>
+            <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--color-primary)]/44 bg-[color:var(--color-primary)] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={replyActionState.pending}>
               {replyActionState.pending ? "提交中..." : "提交回复"}
             </button>
           </div>
@@ -304,10 +304,10 @@ export default function ForumPage({
       }
 
       return (
-        <div className="mt-1.5 grid gap-2">
+        <div className="forum-nested-reply-list mt-1.5 grid gap-2">
           {nodes.map((node) => (
             <article
-              className="grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3 ml-4"
+              className="forum-nested-reply grid gap-2 rounded-xl bg-[color:var(--surface-card)]/76 p-3 ml-4"
               key={node.reply.id}
               style={{ marginLeft: `${Math.min(depth, 4) * 14}px` }}
             >
@@ -345,7 +345,7 @@ export default function ForumPage({
     return (
       <>
         <section className="grid gap-4">
-          <article className="ui-card-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-2">
+          <article className="forum-thread-master ui-card-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm grid gap-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5" type="button" onClick={() => onNavigate("/forum")}>
                 返回讨论板
@@ -356,7 +356,7 @@ export default function ForumPage({
                 </button>
                 {canDeleteThread ? (
                   <button
-                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 story-reading-delete-button"
+                    className="forum-thread-danger-link inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-transparent px-3 py-1.5 text-sm font-medium text-rose-500 transition hover:border-rose-200 hover:bg-rose-50/30 disabled:cursor-not-allowed disabled:opacity-60"
                     type="button"
                     onClick={() => void handleDeleteThread()}
                     disabled={threadManageActionState.pending}
@@ -377,11 +377,8 @@ export default function ForumPage({
             </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
               {activeForumThread ? renderAuthorName(activeForumThread.author) : <span>读取中</span>}
-              <span>{activeForumThread?.board || "分区读取中"}</span>
-              <span>{activeForumThread ? `${activeForumThread.view_count} 浏览` : "浏览读取中"}</span>
-              <span>{activeForumThread ? `${activeForumThread.reply_count} 回复` : "回复读取中"}</span>
-              <span>{activeForumThread ? `${activeForumThread.like_count} 点赞` : "点赞读取中"}</span>
-              <span>{activeForumThread ? `${activeForumThread.favorite_count} 收藏` : "收藏读取中"}</span>
+              <span>{activeForumThread ? `${formatPublishedAgo(activeForumThread.created_at)} 发布` : "发布时间读取中"}</span>
+              <span>{activeForumThread ? `${formatDateTime(activeForumThread.last_post_at)} 最后活跃` : "活跃时间读取中"}</span>
             </div>
             <div className="flex flex-wrap gap-2.5">
               {activeForumThread?.is_pinned ? <StatusChip tone="accent">置顶</StatusChip> : null}
@@ -401,6 +398,23 @@ export default function ForumPage({
                 ))}
               </div>
             ) : null}
+            <div className="forum-thread-master__body rounded-xl border border-[color:var(--line-soft)]/75 bg-[color:var(--surface-card)]/72 px-3.5 py-3">
+              {threadDetailError ? (
+                <p className="text-sm text-rose-500/90">{threadDetailError}</p>
+              ) : activeForumThread ? (
+                <div className="grid gap-3 text-sm leading-7 text-[color:var(--text-main)]">
+                  <RichContent content={activeForumThread.content} />
+                </div>
+              ) : (
+                <p className="text-sm text-[color:var(--text-muted)]">主题详情加载中。</p>
+              )}
+            </div>
+            <div className="forum-thread-master__stats flex flex-wrap items-center gap-2 text-xs text-[color:var(--text-muted)]">
+              <span className="forum-thread-master__stat">{activeForumThread ? `${activeForumThread.view_count} 浏览` : "浏览读取中"}</span>
+              <span className="forum-thread-master__stat">{activeForumThread ? `${activeForumThread.reply_count} 回复` : "回复读取中"}</span>
+              <span className="forum-thread-master__stat">{activeForumThread ? `${activeForumThread.like_count} 点赞` : "点赞读取中"}</span>
+              <span className="forum-thread-master__stat">{activeForumThread ? `${activeForumThread.favorite_count} 收藏` : "收藏读取中"}</span>
+            </div>
           </article>
 
           {threadPreviewImage ? (
@@ -408,33 +422,6 @@ export default function ForumPage({
               <img alt={activeForumThread?.title || "主题封面"} src={threadPreviewImage} />
             </section>
           ) : null}
-
-          <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm detail-main detail-main--thread forum-thread-reading">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">正文</p>
-                <h2>{activeForumThread?.title || "讨论主题"}</h2>
-              </div>
-              {activeForumThread ? (
-                <StatusChip tone={activeForumThread.anonymous ? "warn" : "neutral"}>
-                  {activeForumThread.author}
-                </StatusChip>
-              ) : null}
-            </div>
-            {threadDetailError ? (
-              <p className="text-sm text-rose-500/90">{threadDetailError}</p>
-            ) : activeForumThread ? (
-              <div className="grid gap-3 text-sm leading-7 text-[color:var(--text-main)]">
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                  {formatPublishedAgo(activeForumThread.created_at)} ·{" "}
-                  {formatDateTime(activeForumThread.last_post_at)} 最后活跃
-                </p>
-                <RichContent content={activeForumThread.content} />
-              </div>
-            ) : (
-              <p className="text-sm text-[color:var(--text-muted)]">主题详情加载中。</p>
-            )}
-          </section>
 
           <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm detail-thread-replies">
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -747,22 +734,22 @@ export default function ForumPage({
 
   return (
     <>
-      <section className="forum-list-page mx-auto grid w-full min-w-0 max-w-[1160px] grid-cols-1 gap-4">
+      <section className="forum-list-page mx-auto grid w-full min-w-0 max-w-[1080px] grid-cols-1 gap-4">
         <article className="forum-feed-panel mx-auto w-full min-w-0 rounded-[24px] border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-3 shadow-sm sm:p-4">
           <div className="forum-feed-panel__hero forum-feed-panel__section grid gap-3">
-            <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-              <div className="grid min-w-0 gap-2">
-                <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--text-faint)]">帖子流</p>
+            <div className="forum-feed-panel__hero-grid grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <div className="forum-feed-panel__hero-copy grid min-w-0 gap-2">
+                <p className="forum-feed-panel__kicker">帖子流</p>
                 <h2 className="text-[1.55rem] font-semibold leading-tight text-[color:var(--text-strong)]">讨论串列表</h2>
                 <p className="text-sm leading-6 text-[color:var(--text-soft)]">浏览活跃主题并按分区快速筛选。</p>
               </div>
-              <div className="flex w-full min-w-0 flex-col items-stretch gap-2 lg:w-auto lg:items-end">
+              <div className="forum-feed-panel__hero-actions flex w-full min-w-0 flex-col items-stretch gap-2 lg:w-auto lg:items-end">
                 <StatusChip tone="accent">{threadPager.total} 条主题</StatusChip>
                 <button
                   className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition ${
                     canCompose
                       ? "forum-compose-button px-5"
-                      : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white/90"
+                      : "border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white"
                   }`}
                   type="button"
                   onClick={() => onNavigate("/forum/editor")}
@@ -781,7 +768,7 @@ export default function ForumPage({
             </div>
             <div className="forum-feed-panel__filters-body">
               <label className="form-field forum-feed-panel__search" htmlFor="forum-thread-search">
-                <span className="text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">关键词搜索</span>
+                <span className="forum-feed-panel__search-label">关键词搜索</span>
                 <input
                   id="forum-thread-search"
                   className="form-control forum-thread-search-input"
@@ -800,7 +787,7 @@ export default function ForumPage({
                         className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm transition ${
                           selectedForumBoard === board
                             ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] shadow-[0_4px_12px_rgba(79,139,174,0.16)]"
-                            : "border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white/90"
+                            : "border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white"
                         }`}
                         key={board}
                         type="button"
@@ -818,8 +805,8 @@ export default function ForumPage({
 
           <div className="forum-feed-panel__section forum-feed-panel__section--list">
             <div className="forum-feed-panel__list-head mt-1 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[0.73rem] uppercase tracking-[0.12em] text-[color:var(--text-faint)]">主题列表</p>
-              <span className="inline-flex items-center rounded-full border border-[color:var(--line-soft)] bg-white/62 px-2 py-0.5 text-[0.72rem] text-[color:var(--text-muted)]">
+              <p className="forum-feed-panel__list-kicker">主题列表</p>
+              <span className="inline-flex items-center rounded-full border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-2 py-0.5 text-[0.72rem] text-[color:var(--text-muted)]">
                 {filteredThreadFeed.length} 条结果
               </span>
             </div>
@@ -828,13 +815,13 @@ export default function ForumPage({
               {filteredThreadFeed.map((thread) => {
                 return (
                   <button
-                    className="forum-thread-text-item group relative grid w-full min-w-0 gap-1.5 overflow-hidden rounded-xl px-3 py-2.5 text-left transition duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--line-strong)] focus-visible:ring-offset-1"
+                    className="forum-thread-text-item group relative grid w-full min-w-0 gap-2.5 overflow-hidden rounded-xl px-3 py-3 text-left transition duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--line-strong)] focus-visible:ring-offset-1"
                     key={thread.id}
                     type="button"
                     title={thread.title}
                     onClick={() => onNavigate(`/forum/threads/${encodeURIComponent(thread.id)}`)}
                   >
-                    <div className="forum-thread-text-item__head grid min-w-0 gap-1.5">
+                    <div className="forum-thread-text-item__head grid min-w-0 gap-2">
                       <strong className="forum-thread-text-item__title">
                         {thread.title}
                       </strong>
@@ -866,12 +853,12 @@ export default function ForumPage({
                 );
               })}
               {!filteredThreadFeed.length ? (
-                <p className="rounded-xl border border-dashed border-[color:var(--line-soft)] bg-[color:var(--surface-card)]/72 px-3.5 py-4 text-sm text-[color:var(--text-muted)]">
+                <p className="rounded-xl border border-dashed border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3.5 py-4 text-sm text-[color:var(--text-muted)]">
                   {isLoadingData ? "讨论数据加载中。" : "当前筛选条件下没有可展示的讨论主题。"}
                 </p>
               ) : null}
             </div>
-            <div className="forum-pagination-shell mt-4 rounded-xl p-2.5 sm:p-3">
+            <div className="forum-pagination-shell mt-4 rounded-xl p-3 sm:p-3">
               <PaginationBar pager={threadPager} onPageChange={onThreadPageChange} emptyText="暂无讨论主题。" />
             </div>
           </div>

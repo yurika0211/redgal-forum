@@ -387,6 +387,22 @@ html[data-theme="night"] .home-notice-modal__body p::before {
     inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
+.portal-home__intro,
+.portal-home__manifesto-grid,
+.portal-home__manifesto-grid > * {
+  min-width: 0;
+}
+
+.portal-home__title,
+.portal-home__lead {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.portal-home__manifesto-grid {
+  grid-template-columns: minmax(0, 1.12fr) minmax(260px, 0.88fr);
+}
+
 .portal-home__section::before {
   content: "";
   position: absolute;
@@ -404,6 +420,12 @@ html[data-theme="night"] .portal-home__section {
 
 html[data-theme="night"] .portal-home__section::before {
   background: rgba(127, 188, 227, 0.34);
+}
+
+@media (max-width: 1040px) {
+  .portal-home__manifesto-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .portal-notice-list,
@@ -609,6 +631,19 @@ html[data-theme="night"] .portal-nav-card__icon {
 
   .portal-home__section {
     border-radius: 20px;
+  }
+
+  .portal-home__intro {
+    max-width: 100%;
+  }
+
+  .portal-home__title {
+    font-size: clamp(1.64rem, 8.5vw, 2.1rem);
+    line-height: 1.18;
+  }
+
+  .portal-home__lead {
+    line-height: 1.72;
   }
 
   .portal-notice-list,
