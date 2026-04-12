@@ -1,0 +1,31 @@
+ M frontend/public/bg2.png
+ M frontend/src/App.css
+ M frontend/src/App.tsx
+ M frontend/src/components/AuthPanel.tsx
+ M frontend/src/components/ForumProgressPanel.tsx
+ M frontend/src/components/GalleryShowcase.tsx
+ M frontend/src/components/PaginationBar.tsx
+ M frontend/src/components/WorkspaceSidebar.tsx
+ M frontend/src/index.css
+ M frontend/src/main.tsx
+ M frontend/src/pages/AnonymousPage.tsx
+ M frontend/src/pages/ForumPage.tsx
+ M frontend/src/pages/GalleryPage.tsx
+ M frontend/src/pages/HomePage.tsx
+ M frontend/src/pages/LoginPage.tsx
+ M frontend/src/pages/PortalPage.tsx
+ M frontend/src/pages/SpacePage.tsx
+ M frontend/src/pages/StoriesPage.tsx
+ M frontend/src/styles/base.css
+ M frontend/src/styles/components/sidebar.css
+ M frontend/src/styles/pages/forum.css
+ M frontend/src/styles/pages/gallery.css
+ M frontend/src/styles/pages/home-portal.css
+ M frontend/src/styles/pages/space.css
+ M frontend/src/styles/pages/stories.css
+ M frontend/src/styles/themes/skins.css
+ M frontend/src/styles/themes/theme-polish.css
+?? frontend/src/components/UserAvatar.tsx
+?? frontend/src/styles/components/avatar.css
+?? frontend/src/styles/themes/bg2-harmony-override.css
+?? workspace/
