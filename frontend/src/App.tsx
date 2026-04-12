@@ -5322,7 +5322,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
                     <StatusChip tone="accent">超级管理员</StatusChip>
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
-                    <span>内容块 {superAdminDashboard.site_content_blocks}</span>
+                    <span>内容配置项 {superAdminDashboard.site_content_blocks}</span>
                     <span>展示条目 {superAdminDashboard.gallery_entries}</span>
                     <span>活动 {superAdminDashboard.relay_events + superAdminDashboard.writing_contests}</span>
                     <span>待处理举报 {superAdminDashboard.content_reports_open}</span>

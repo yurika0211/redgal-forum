@@ -8,7 +8,6 @@ import GalleryShowcase from "../components/GalleryShowcase";
 import StatusChip from "../components/StatusChip";
 import {
   cloneHomeConfig,
-  resolveHomePrompt,
   type HomeConfig,
 } from "../lib/homeConfig";
 import type { PagerState } from "../lib/pagination";
@@ -150,8 +149,13 @@ export default function HomePage({
   const [editorState, setEditorState] = useState<HomeEditorState>(EMPTY_EDITOR_STATE);
   const [cardEditor, setCardEditor] = useState<CardEditorSession | null>(null);
 
-  const terminalSpaceID = (displayProfile?.username || "guest").trim();
-  const terminalPrompt = resolveHomePrompt(homeConfig.hero.terminalPromptTemplate, terminalSpaceID);
+  const displayName = (displayProfile?.nickname || displayProfile?.username || "访客").trim() || "访客";
+  const summaryFocus = homeConfig.history.sideTitle || homeConfig.hero.terminalStatus || "优先完成核心分区巡检。";
+  const summaryOverview = `${articlePager.total} 篇专栏 · ${threadPager.total} 条主题 · ${wallPager.total} 条公开展墙`;
+  const summaryCollection = `${displayName} 已整理 ${collectionTotal} 项收藏`;
+  const summaryNavigationNote = showExtendedSections
+    ? "扩展模块已展开，可继续查看规则区与展示墙。"
+    : "建议先浏览沿革与入口卡片，再按需展开规则区与展示墙。";
 
   const historyCards = [
     {
@@ -475,26 +479,27 @@ export default function HomePage({
 
       <section className="hero-panel landing-hero home-hero">
         <div className="landing-hero__copy home-hero__copy">
-          <div className="home-terminal">
-            <div className="home-terminal__bar">
-              <div className="home-terminal__lights" aria-hidden="true">
-                <span />
-                <span />
-                <span />
+          <div className="home-summary">
+            <p className="home-summary__kicker">首页速览</p>
+            <h2 className="home-summary__title">{homeConfig.history.title || "视觉小说研今日运营重点"}</h2>
+            <p className="home-summary__description">
+              {homeConfig.history.paragraphs[0] || "先查看站点重点与内容规模，再进入分区处理具体事务。"}
+            </p>
+            <dl className="home-summary__list">
+              <div>
+                <dt>当前重点</dt>
+                <dd>{summaryFocus}</dd>
               </div>
-            </div>
-
-            <div className="home-terminal__body">
-              <p className="home-terminal__command home-terminal__typing home-terminal__typing--command">
-                {homeConfig.hero.terminalCommand}
-              </p>
-              <p className="home-terminal__status home-terminal__typing home-terminal__typing--status">
-                {homeConfig.hero.terminalStatus}
-              </p>
-              <p className="home-terminal__prompt home-terminal__typing home-terminal__typing--body-1">
-                {terminalPrompt}
-              </p>
-            </div>
+              <div>
+                <dt>内容规模</dt>
+                <dd>{summaryOverview}</dd>
+              </div>
+              <div>
+                <dt>我的进度</dt>
+                <dd>{summaryCollection}</dd>
+              </div>
+            </dl>
+            <p className="home-summary__note">{summaryNavigationNote}</p>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
