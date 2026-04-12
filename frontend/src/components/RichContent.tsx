@@ -114,11 +114,12 @@ export default function RichContent({ content }: RichContentProps) {
           .filter(Boolean) as RegExpMatchArray[];
 
         if (imageLines.length === lines.length && imageLines.length > 0) {
+          const imageGridClassName = imageLines.length > 1 ? "grid gap-3 sm:grid-cols-2" : "grid gap-3";
           return (
-            <div className="grid gap-3 sm:grid-cols-2" key={key}>
+            <div className={imageGridClassName} key={key}>
               {imageLines.map((match, imageIndex) => (
-                <figure className="grid gap-1 rounded-lg border border-[color:var(--line-soft)] bg-white/45 p-2" key={`${key}-image-${imageIndex}`}>
-                  <img alt={match[1] || "详情图片"} src={match[2]} />
+                <figure className="grid w-full gap-1 rounded-lg border border-[color:var(--line-soft)] bg-white/45 p-2" key={`${key}-image-${imageIndex}`}>
+                  <img alt={match[1] || "详情图片"} className="block h-auto w-full" src={match[2]} />
                   {match[1] ? <figcaption>{match[1]}</figcaption> : null}
                 </figure>
               ))}
@@ -134,25 +135,35 @@ export default function RichContent({ content }: RichContentProps) {
         if (headingMatch) {
           const [, marks, title] = headingMatch;
           const headingAnchorID = headingAnchors[headingIndex]?.anchorID;
+          const headingLevel = Math.min(marks.length, 4);
+          const headingClassName = `story-rich-heading story-rich-heading--level-${String(headingLevel)}`;
           headingIndex += 1;
-          if (marks.length === 1) {
+          if (headingLevel === 1) {
             return (
-              <h2 className="mt-2 text-2xl font-semibold text-[color:var(--text-strong)]" id={headingAnchorID} key={key}>
-                {title}
+              <h2 className={headingClassName} id={headingAnchorID} key={key}>
+                {renderInlineFormattedText(title, `${key}-heading`)}
               </h2>
             );
           }
-          if (marks.length === 2) {
+          if (headingLevel === 2) {
             return (
-              <h3 className="mt-2 text-xl font-semibold text-[color:var(--text-strong)]" id={headingAnchorID} key={key}>
-                {title}
+              <h3 className={headingClassName} id={headingAnchorID} key={key}>
+                {renderInlineFormattedText(title, `${key}-heading`)}
               </h3>
             );
           }
+          if (headingLevel === 3) {
+            return (
+              <h4 className={headingClassName} id={headingAnchorID} key={key}>
+                {renderInlineFormattedText(title, `${key}-heading`)}
+              </h4>
+            );
+          }
+
           return (
-            <h4 className="mt-2 text-lg font-semibold text-[color:var(--text-strong)]" id={headingAnchorID} key={key}>
-              {title}
-            </h4>
+            <h5 className={headingClassName} id={headingAnchorID} key={key}>
+              {renderInlineFormattedText(title, `${key}-heading`)}
+            </h5>
           );
         }
 

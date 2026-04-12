@@ -527,7 +527,7 @@ export default function StoriesPage({
                   fallbackMode="initial"
                   label={authorName}
                   shape="circle"
-                  size="md"
+                  size="xl"
                   src={authorAvatarURL}
                   statusTone={authorProfile?.verified ? "success" : "neutral"}
                 />
@@ -539,7 +539,7 @@ export default function StoriesPage({
               <p className="story-article-author-card__bio">{authorBio}</p>
               {buildPublicProfileHref(authorSpaceTarget) ? (
                 <button
-                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 story-article-author-card__link"
+                  className="story-article-author-card__link"
                   type="button"
                   onClick={() => navigateToAuthorSpace(authorSpaceTarget)}
                 >
