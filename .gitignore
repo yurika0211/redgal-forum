@@ -55,3 +55,6 @@ temp/
 
 # Project docs
 docs/
+
+# Sprint evidence screenshots (large generated artifacts)
+workspace/sprints/*/evidence/screens/
