@@ -25,7 +25,7 @@ export default function GalleryShowcase({
 }: GalleryShowcaseProps) {
   return (
     <section className={className}>
-      <section className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+      <section className="ui-card-sub grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
         <div className="grid gap-1">
           <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">相册墙</p>
           <h2>相册</h2>
@@ -46,7 +46,7 @@ export default function GalleryShowcase({
         </ol>
       </section>
 
-      <section className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+      <section className="ui-card-sub grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
         <div className="grid gap-1">
           <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">拍立得板</p>
           <h2>拍立得</h2>
@@ -67,7 +67,7 @@ export default function GalleryShowcase({
         </ol>
       </section>
 
-      <section className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+      <section className="ui-card-sub grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
         <div className="grid gap-1">
           <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">旧纸页</p>
           <h2>旧纸</h2>
@@ -88,7 +88,7 @@ export default function GalleryShowcase({
         </ol>
       </section>
 
-      <section className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+      <section className="ui-card-sub grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
         <div className="grid gap-1">
           <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">时间线</p>
           <h2>时间轴</h2>
@@ -107,7 +107,7 @@ export default function GalleryShowcase({
         </ol>
       </section>
 
-      <section className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+      <section className="ui-card-sub grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
         <div className="grid gap-1">
           <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">留声机</p>
           <h2>留声机</h2>

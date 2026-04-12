@@ -401,7 +401,7 @@ export default function HomePage({
   return (
     <>
       {canAdmin ? (
-        <section className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <section className="ui-card-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">前台编辑</p>
@@ -428,15 +428,19 @@ export default function HomePage({
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">卡片编辑</p>
                 <h2 id="home-card-editor-title">{cardEditor.title}</h2>
+                <p className="form-help mt-1">先确认字段信息，再保存同步到首页展示卡片。</p>
               </div>
             </div>
-            <form className="grid gap-3" onSubmit={(event) => void handleCardEditorSubmit(event)}>
-              <div className="grid gap-3">
+            <form className="form-layout home-card-editor__form" onSubmit={(event) => void handleCardEditorSubmit(event)}>
+              <div className="form-section">
+                <p className="form-section__kicker">字段设置</p>
+                <h3 className="form-section__title">卡片内容</h3>
                 {cardEditor.fields.map((field) => (
-                  <label className="grid gap-1.5" key={field.name}>
-                    <span>{field.label}</span>
+                  <label className="form-field" key={field.name}>
+                    <span className="form-field__label">{field.label}</span>
                     {field.options ? (
                       <select
+                        className="form-control"
                         name={field.name}
                         value={cardEditor.values[field.name] ?? ""}
                         onChange={handleCardEditorFieldChange}
@@ -449,6 +453,7 @@ export default function HomePage({
                       </select>
                     ) : field.multiline ? (
                       <textarea
+                        className="form-control"
                         name={field.name}
                         rows={4}
                         value={cardEditor.values[field.name] ?? ""}
@@ -456,6 +461,7 @@ export default function HomePage({
                       />
                     ) : (
                       <input
+                        className="form-control"
                         name={field.name}
                         value={cardEditor.values[field.name] ?? ""}
                         onChange={handleCardEditorFieldChange}
@@ -464,7 +470,7 @@ export default function HomePage({
                   </label>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="form-actions justify-end">
                 <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={editorState.pending}>
                   {editorState.pending ? "保存中..." : "保存"}
                 </button>
@@ -560,7 +566,7 @@ export default function HomePage({
         </div>
       </section>
 
-      <section className="mt-[18px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+      <section className="ui-card-panel mt-[18px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">推荐浏览</p>

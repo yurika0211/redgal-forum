@@ -31,7 +31,7 @@ export default function ForumProgressPanel({
 
   return (
     <div className="grid gap-3">
-      <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+      <div className="ui-card-sub rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
           <div>
             <h3>等级与签到</h3>
@@ -92,7 +92,7 @@ export default function ForumProgressPanel({
       </div>
 
       {mode === "full" && forumProgress?.recent_logs?.length ? (
-        <div className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+        <div className="ui-card-sub rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
           <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
             <h3>经验值明细</h3>
             <StatusChip tone="neutral">{forumProgress.recent_logs.length} 条</StatusChip>

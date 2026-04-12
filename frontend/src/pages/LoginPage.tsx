@@ -48,16 +48,15 @@ export default function LoginPage({
 }: LoginPageProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const isLoginMode = mode === "login";
-  const fieldClassName =
-    "mt-1 w-full rounded-lg border border-[color:var(--line-soft)] bg-white/70 px-3 py-2 text-sm text-[color:var(--text-main)] outline-none transition placeholder:text-[color:var(--text-faint)] focus:border-[color:var(--line-strong)] focus:ring-2 focus:ring-[color:var(--surface-tint-blue)]";
+  const fieldClassName = "form-control";
   const submitButtonClassName =
-    "inline-flex w-full items-center justify-center rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55";
+    "inline-flex w-full min-h-[44px] items-center justify-center rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-2 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-55";
   const ghostButtonClassName =
-    "inline-flex items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 text-sm text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/75";
+    "inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 text-sm text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/75";
 
   return (
-    <section className="mx-auto grid w-full max-w-md px-4 py-8">
-      <article className="grid gap-4 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/90 p-5 shadow-[0_16px_36px_rgba(0,0,0,0.12)]">
+    <section className="mx-auto grid w-full max-w-md px-4 pb-8">
+      <article className="ui-card-panel grid gap-4 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/90 p-5 shadow-[0_16px_36px_rgba(0,0,0,0.12)]">
         <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)]" aria-hidden="true">
           <span className="h-5 w-5 rounded-full bg-[color:var(--color-lilac)]/70" />
         </div>
@@ -86,9 +85,9 @@ export default function LoginPage({
           </div>
         ) : isLoginMode ? (
           <>
-            <form className="grid gap-3" onSubmit={(event) => void onLoginSubmit(event)}>
-              <label>
-                <span className="text-xs text-[color:var(--text-muted)]">账号</span>
+            <form className="form-layout" onSubmit={(event) => void onLoginSubmit(event)}>
+              <label className="form-field">
+                <span>账号</span>
                 <input
                   autoComplete="username"
                   className={fieldClassName}
@@ -98,8 +97,8 @@ export default function LoginPage({
                   value={authForm.account}
                 />
               </label>
-              <label>
-                <span className="text-xs text-[color:var(--text-muted)]">密码</span>
+              <label className="form-field">
+                <span>密码</span>
                 <input
                   autoComplete="current-password"
                   className={fieldClassName}
@@ -134,9 +133,9 @@ export default function LoginPage({
           </>
         ) : (
           <>
-            <form className="grid gap-3" onSubmit={(event) => void onRegisterSubmit(event)}>
-              <label>
-                <span className="text-xs text-[color:var(--text-muted)]">学号</span>
+            <form className="form-layout" onSubmit={(event) => void onRegisterSubmit(event)}>
+              <label className="form-field">
+                <span>学号</span>
                 <input
                   autoComplete="off"
                   className={fieldClassName}
@@ -146,8 +145,8 @@ export default function LoginPage({
                   value={registerForm.student_id}
                 />
               </label>
-              <label>
-                <span className="text-xs text-[color:var(--text-muted)]">用户名</span>
+              <label className="form-field">
+                <span>用户名</span>
                 <input
                   autoComplete="username"
                   className={fieldClassName}
@@ -157,8 +156,8 @@ export default function LoginPage({
                   value={registerForm.username}
                 />
               </label>
-              <label>
-                <span className="text-xs text-[color:var(--text-muted)]">密码</span>
+              <label className="form-field">
+                <span>密码</span>
                 <input
                   autoComplete="new-password"
                   className={fieldClassName}

@@ -241,7 +241,7 @@ export default function AnonymousPage({
   }
 
   return (
-    <section className="mt-3 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm md:mt-4 anonymous-chat-room">
+    <section className="ui-card-panel rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm anonymous-chat-room">
       {anonymousThreadsError ? <p className="text-sm text-rose-500/90">{anonymousThreadsError}</p> : null}
 
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">

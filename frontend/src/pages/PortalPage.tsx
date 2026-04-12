@@ -161,7 +161,7 @@ export default function PortalPage({
 
   return (
     <div className="grid gap-[clamp(16px,2.6vw,30px)]">
-      <section className="portal-home__section mt-2 grid gap-[26px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+      <section className="ui-card-panel portal-home__section grid gap-[26px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
         <div className="grid max-w-[76ch] gap-3">
           <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">社团介绍 / manifesto</p>
           <h1 className="m-0 font-[var(--font-display)] text-[clamp(2.05rem,3.7vw,3.3rem)] leading-[1.08] text-[color:var(--text-strong)]">从 2017 到现在，我们把热爱写进了持续发生的社团活动。</h1>

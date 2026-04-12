@@ -19,7 +19,7 @@ export default function PaginationBar({
   }
 
   return (
-    <div className="pagination-bar mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2">
+    <div className="ui-card-sub pagination-bar mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2">
       <span className="pagination-bar__summary text-xs text-[color:var(--text-muted)]">
         第 {pager.page} / {Math.max(pager.totalPages, 1)} 页，共 {pager.total} 条，每页 {pager.pageSize} 条
       </span>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
-import { Badge, Button, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Group, Paper } from "@mantine/core";
 import type { SiteGalleryEntry } from "../api";
 import StatusChip from "../components/StatusChip";
 import type { PagerState } from "../lib/pagination";
@@ -74,6 +74,7 @@ interface GalleryCurationSection {
   id: string;
   type: GallerySectionType;
   kicker: string;
+  typeLabel: string;
   title: string;
   summary: string;
   photos: GallerySectionPhoto[];
@@ -111,6 +112,7 @@ const GALLERY_SECTION_ORDER: SiteGalleryEntry["entry_type"][] = [
   "timeline",
   "track",
 ];
+const GALLERY_SECTION_INDEX = new Map(GALLERY_SECTION_ORDER.map((type, index) => [type, index] as const));
 
 const GALLERY_SECTION_META: Record<
   SiteGalleryEntry["entry_type"],
@@ -142,6 +144,8 @@ const GALLERY_SECTION_META: Record<
     summary: "声音条目可与图片混排，形成一组有氛围的视听章节。",
   },
 };
+
+const UNSAFE_ACTIVITY_TAG_PATTERN = /鸡巴|鸡8|jiba/iu;
 
 function readStoredGalleryLayout(): GalleryLayoutState {
   if (typeof window === "undefined") {
@@ -230,22 +234,39 @@ function moveEntryByID(
 }
 
 function deriveActivityTag(entry: SiteGalleryEntry): string {
-  const subtitle = (entry.subtitle || "").trim();
+  const subtitle = sanitizeActivityTag(entry.subtitle || "");
   if (subtitle) {
     return subtitle;
   }
 
-  const normalizedTitle = entry.title.trim().replace(/(?:\s*[-_/]?\s*)?#?\d{1,3}$/u, "").trim();
+  const normalizedTitle = sanitizeActivityTag(
+    entry.title.trim().replace(/(?:\s*[-_/]?\s*)?#?\d{1,3}$/u, "").trim(),
+  );
   if (normalizedTitle) {
     return normalizedTitle;
   }
 
-  const slugBase = entry.slug.trim().replace(/-[a-z0-9]{6,}-\d+$/i, "").replace(/-\d+$/i, "").trim();
+  const slugBase = sanitizeActivityTag(
+    entry.slug
+      .trim()
+      .replace(/-[a-z0-9]{6,}-\d+$/i, "")
+      .replace(/-\d+$/i, "")
+      .replace(/[-_]+/g, " ")
+      .trim(),
+  );
   if (slugBase) {
-    return slugBase.replace(/[-_]+/g, " ");
+    return slugBase;
   }
 
   return galleryEntryTypeLabel(entry.entry_type);
+}
+
+function sanitizeActivityTag(value: string): string {
+  const normalized = value.replace(/#/g, "").replace(/\s+/g, " ").trim();
+  if (!normalized || UNSAFE_ACTIVITY_TAG_PATTERN.test(normalized)) {
+    return "";
+  }
+  return normalized.slice(0, 24);
 }
 
 function normalizeActivityKey(value: string): string {
@@ -325,6 +346,7 @@ export default function GalleryPage({
   const activeImageEntries = galleryEntriesRaw
     .filter((entry) => entry.active && isLikelyImageSource(entry.extra_text || ""))
     .sort((left, right) => left.sort_order - right.sort_order || left.id.localeCompare(right.id));
+  const activeEntriesCount = galleryEntriesRaw.filter((entry) => entry.active).length;
 
   const activitySectionMap = new Map<
     string,
@@ -362,15 +384,28 @@ export default function GalleryPage({
     existing.photos.push(photo);
   });
 
-  const curationSections: GalleryCurationSection[] = Array.from(activitySectionMap.values()).map((section) => ({
-    id: section.id,
-    type: section.type,
-    kicker: section.kicker,
-    title: section.kicker,
-    summary: "",
-    photos: section.photos,
-    notes: [],
-  }));
+  const curationSections: GalleryCurationSection[] = Array.from(activitySectionMap.values())
+    .sort((left, right) => {
+      const leftIndex = GALLERY_SECTION_INDEX.get(left.type) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = GALLERY_SECTION_INDEX.get(right.type) ?? Number.MAX_SAFE_INTEGER;
+      if (leftIndex !== rightIndex) {
+        return leftIndex - rightIndex;
+      }
+      return left.kicker.localeCompare(right.kicker, "zh-CN");
+    })
+    .map((section) => {
+      const meta = GALLERY_SECTION_META[section.type];
+      return {
+        id: section.id,
+        type: section.type,
+        kicker: section.kicker,
+        typeLabel: meta.kicker,
+        title: section.kicker,
+        summary: `${meta.summary} 本组共 ${section.photos.length} 张图。`,
+        photos: section.photos,
+        notes: [],
+      };
+    });
 
   const lightboxPhotos = curationSections.flatMap((section, sectionIndex) =>
     section.photos.map<GalleryLightboxPhoto>((photo, photoIndex) => ({
@@ -407,6 +442,19 @@ export default function GalleryPage({
     uploadFileCount <= 3
       ? pendingUploadFiles.map((file) => file.name).join("，")
       : `${pendingUploadFiles.slice(0, 3).map((file) => file.name).join("，")} 等`;
+  const curationStats = [
+    { id: "total", label: "总条目", value: galleryEntriesRaw.length },
+    { id: "active", label: "公开条目", value: activeEntriesCount },
+    { id: "images", label: "图片卡片", value: activeImageEntries.length },
+    { id: "sections", label: "章节分组", value: curationSections.length },
+  ];
+  const galleryTypeDistribution = [
+    { id: "album", label: "相册", value: galleryAlbums.length },
+    { id: "polaroid", label: "拍立得", value: galleryPolaroids.length },
+    { id: "paper", label: "旧纸", value: galleryPapers.length },
+    { id: "timeline", label: "时间轴", value: galleryTimeline.length },
+    { id: "track", label: "留声机", value: galleryTracks.length },
+  ].filter((item) => item.value > 0);
 
   useEffect(() => {
     if (!lightboxPhotos.length) {
@@ -488,23 +536,53 @@ export default function GalleryPage({
     }
   }
 
+  function scrollToSection(sectionID: string): void {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const section = document.getElementById(`gallery-curation-section-${sectionID}`);
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <section className="gallery-photo-shell gallery-photo-shell--editorial" style={layoutStyle}>
       <Paper className="gallery-photo-shell__head gallery-photo-shell__head--art gallery-mantine-hero" p="md" radius="lg" withBorder>
-        <Stack className="gallery-photo-shell__head-copy" gap={4}>
-          <Text className="gallery-photo-shell__head-kicker" size="xs" tt="uppercase">
-            Gallery Curator
-          </Text>
-          <Title className="gallery-photo-shell__art-title" order={2}>
-            光影艺术墙
-          </Title>
-          <Text className="gallery-photo-shell__head-note" size="sm">
-            把照片排成一面有呼吸感的展墙。
-          </Text>
-        </Stack>
+        <div className="gallery-photo-shell__head-copy">
+          <p className="gallery-photo-shell__head-kicker">Gallery Curation</p>
+          <h2 className="gallery-photo-shell__art-title">光影艺术墙</h2>
+          <p className="gallery-photo-shell__head-note">按活动章节浏览图片，点击任意卡片可查看大图与注释。</p>
+          <div className="gallery-photo-shell__hero-metrics">
+            {curationStats.map((item) => (
+              <div className="gallery-photo-shell__hero-stat" key={item.id}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+          {galleryTypeDistribution.length ? (
+            <div className="gallery-photo-shell__hero-type-row" aria-label="内容构成">
+              <span className="gallery-photo-shell__hero-type-label">内容构成</span>
+              <div className="gallery-photo-shell__hero-type-chips">
+                {galleryTypeDistribution.map((item) => (
+                  <StatusChip key={item.id} tone="neutral">
+                    {item.label} {item.value}
+                  </StatusChip>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
         {canManageGallery ? (
           <div className="gallery-photo-shell__head-actions">
-            <Button variant="light" color="teal" radius="md" onClick={() => setIsEditorOpen((current) => !current)} type="button">
+            <Button
+              className="gallery-photo-shell__hero-cta"
+              variant="filled"
+              color="teal"
+              radius="md"
+              onClick={() => setIsEditorOpen((current) => !current)}
+              type="button"
+            >
               {isEditorOpen ? "收起前台编辑" : "前台编辑"}
             </Button>
           </div>
@@ -518,54 +596,68 @@ export default function GalleryPage({
               <h3>{editingGalleryEntryID ? "编辑展示条目" : "新建展示条目"}</h3>
               <StatusChip tone="accent">{editingGalleryEntryID ? "编辑模式" : "创建模式"}</StatusChip>
             </div>
+            <p className="gallery-inline-admin__hint">优先填写标题和图片信息，再补充描述与排序，保存后即可在前台展示。</p>
             {galleryActionState.error ? <p className="text-sm text-rose-500/90">{galleryActionState.error}</p> : null}
             {galleryActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{galleryActionState.success}</p> : null}
-            <form className="grid gap-3 gallery-inline-admin__form" onSubmit={(event) => void onGallerySubmit(event)}>
-              <label>
-                <span>条目类型</span>
-                <select
-                  disabled={Boolean(editingGalleryEntryID)}
-                  name="entry_type"
-                  onChange={onGalleryFieldChange}
-                  value={galleryForm.entry_type}
-                >
-                  <option value="album">相册</option>
-                  <option value="polaroid">拍立得</option>
-                  <option value="paper">旧纸</option>
-                  <option value="timeline">时间轴</option>
-                  <option value="track">留声机</option>
-                </select>
-              </label>
-              <label>
-                <span>标题</span>
-                <input name="title" onChange={onGalleryFieldChange} value={galleryForm.title} required />
-              </label>
-              <label>
-                <span>别名</span>
-                <input name="slug" onChange={onGalleryFieldChange} value={galleryForm.slug} />
-              </label>
-              <label>
-                <span>副标题</span>
-                <input name="subtitle" onChange={onGalleryFieldChange} value={galleryForm.subtitle} />
-              </label>
-              <label>
-                <span>正文 / 描述</span>
-                <textarea name="body" onChange={onGalleryFieldChange} rows={4} value={galleryForm.body} />
-              </label>
-              <label>
-                <span>{extraTextLabel}</span>
-                <input
-                  name="extra_text"
-                  onChange={onGalleryFieldChange}
-                  placeholder={galleryForm.entry_type === "track" ? "例如 03:24" : "可填写图片链接"}
-                  value={galleryForm.extra_text}
-                />
-              </label>
+            <form className="form-layout gallery-inline-admin__form" onSubmit={(event) => void onGallerySubmit(event)}>
+              <section className="form-section gallery-inline-admin__group">
+                <p className="form-section__kicker">基础信息</p>
+                <h4 className="form-section__title">展示条目元数据</h4>
+                <div className="form-grid-2">
+                  <label className="form-field">
+                    <span>条目类型</span>
+                    <select
+                      className="form-control"
+                      disabled={Boolean(editingGalleryEntryID)}
+                      name="entry_type"
+                      onChange={onGalleryFieldChange}
+                      value={galleryForm.entry_type}
+                    >
+                      <option value="album">相册</option>
+                      <option value="polaroid">拍立得</option>
+                      <option value="paper">旧纸</option>
+                      <option value="timeline">时间轴</option>
+                      <option value="track">留声机</option>
+                    </select>
+                  </label>
+                  <label className="form-field">
+                    <span>标题</span>
+                    <input className="form-control" name="title" onChange={onGalleryFieldChange} value={galleryForm.title} required />
+                  </label>
+                  <label className="form-field">
+                    <span>别名（slug）</span>
+                    <input className="form-control" name="slug" onChange={onGalleryFieldChange} value={galleryForm.slug} />
+                  </label>
+                  <label className="form-field">
+                    <span>副标题</span>
+                    <input className="form-control" name="subtitle" onChange={onGalleryFieldChange} value={galleryForm.subtitle} />
+                  </label>
+                </div>
+              </section>
+
+              <section className="form-section gallery-inline-admin__group">
+                <p className="form-section__kicker">媒体资源</p>
+                <h4 className="form-section__title">图文与素材</h4>
+                <label className="form-field">
+                  <span>正文 / 描述</span>
+                  <textarea className="form-control" name="body" onChange={onGalleryFieldChange} rows={4} value={galleryForm.body} />
+                </label>
+                <label className="form-field">
+                  <span>{extraTextLabel}</span>
+                  <input
+                    className="form-control"
+                    name="extra_text"
+                    onChange={onGalleryFieldChange}
+                    placeholder={galleryForm.entry_type === "track" ? "例如 03:24" : "可填写图片链接"}
+                    value={galleryForm.extra_text}
+                  />
+                </label>
               {galleryForm.entry_type !== "track" ? (
                 <>
-                  <label className="gallery-inline-admin__upload-field">
+                  <label className="gallery-inline-admin__upload-field form-field">
                     <span>多图片上传（可一次选择多张）</span>
                     <input
+                      className="form-control"
                       accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/svg+xml"
                       multiple
                       onChange={(event) => {
@@ -587,7 +679,7 @@ export default function GalleryPage({
                   ) : null}
                   {galleryUploadState.error ? <p className="text-sm text-rose-500/90">{galleryUploadState.error}</p> : null}
                   {galleryUploadState.success ? <p className="text-sm text-[color:var(--text-muted)]">{galleryUploadState.success}</p> : null}
-                  <div className="flex flex-wrap items-center gap-2 gallery-inline-admin__upload-actions">
+                  <div className="form-actions gallery-inline-admin__upload-actions">
                     <button
                       className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={galleryUploadState.pending || uploadFileCount <= 0}
@@ -607,15 +699,22 @@ export default function GalleryPage({
                   </div>
                 </>
               ) : null}
-              <label>
-                <span>排序</span>
-                <input name="sort_order" onChange={onGalleryFieldChange} value={galleryForm.sort_order} />
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm text-[color:var(--text-muted)]">
-                <input checked={galleryForm.active} name="active" onChange={onGalleryFieldChange} type="checkbox" />
-                <span>设为公开展示</span>
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
+              </section>
+
+              <section className="form-section gallery-inline-admin__group">
+                <p className="form-section__kicker">发布设置</p>
+                <h4 className="form-section__title">排序与可见性</h4>
+                <label className="form-field">
+                  <span>排序权重</span>
+                  <input className="form-control" name="sort_order" onChange={onGalleryFieldChange} value={galleryForm.sort_order} />
+                </label>
+                <label className="form-check">
+                  <input checked={galleryForm.active} name="active" onChange={onGalleryFieldChange} type="checkbox" />
+                  <span>保存后立即公开展示</span>
+                </label>
+              </section>
+
+              <div className="form-actions">
                 <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" disabled={galleryActionState.pending} type="submit">
                   {galleryActionState.pending ? "保存中..." : editingGalleryEntryID ? "更新展示条目" : "创建展示条目"}
                 </button>
@@ -651,16 +750,17 @@ export default function GalleryPage({
               <h3>布局与条目列表</h3>
               <StatusChip tone="neutral">{adminGalleryPager.total} 条</StatusChip>
             </div>
-            <p className="gallery-inline-admin__hint">布局设置保存到当前浏览器，条目编辑会直接写入站点数据。</p>
+            <p className="gallery-inline-admin__hint">布局设置仅保存在当前浏览器，条目编辑会直接写入站点数据。</p>
             <form
-              className="grid gap-3 gallery-inline-admin__layout"
+              className="form-layout gallery-inline-admin__layout"
               onSubmit={(event) => {
                 event.preventDefault();
               }}
             >
-              <label>
+              <label className="form-field">
                 <span>图片列数</span>
                 <select
+                  className="form-control"
                   value={layoutState.columns}
                   onChange={(event) =>
                     setLayoutState((current) => ({
@@ -674,9 +774,10 @@ export default function GalleryPage({
                   <option value="3">3 列</option>
                 </select>
               </label>
-              <label>
+              <label className="form-field">
                 <span>图片比例</span>
                 <select
+                  className="form-control"
                   value={layoutState.cardAspect}
                   onChange={(event) =>
                     setLayoutState((current) => ({
@@ -691,7 +792,7 @@ export default function GalleryPage({
                   <option value="portrait">竖向</option>
                 </select>
               </label>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="form-actions">
                 <button
                   className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                   type="button"
@@ -844,16 +945,45 @@ export default function GalleryPage({
         </section>
       ) : null}
 
+      {curationSections.length > 1 ? (
+        <nav className="gallery-topic-nav" aria-label="展示墙章节导航">
+          <div className="gallery-topic-nav__head">
+            <span className="gallery-topic-nav__label">快速跳转</span>
+            <p className="gallery-topic-nav__hint">按章节定位图片区块，避免长列表来回滚动。</p>
+          </div>
+          <div className="gallery-topic-nav__items">
+            {curationSections.map((section) => (
+              <button
+                className="gallery-topic-nav__button"
+                key={`nav-${section.id}`}
+                onClick={() => scrollToSection(section.id)}
+                type="button"
+              >
+                #{section.kicker} ({section.photos.length})
+              </button>
+            ))}
+          </div>
+        </nav>
+      ) : null}
+
       <div className="gallery-curation-layout gallery-curation-layout--notes-hidden">
         <div className="gallery-curation-stack">
           {curationSections.map((section) => (
             <article
-              className={`gallery-curation-section gallery-curation-section--${section.type}`}
+              className={`ui-card-panel gallery-curation-section gallery-curation-section--${section.type}`}
               id={`gallery-curation-section-${section.id}`}
               key={section.id}
             >
-              <div className="gallery-curation-section__head gallery-curation-section__head--tag-only">
-                <span className="gallery-topic-tag">#{section.kicker}</span>
+              <div className="gallery-curation-section__head">
+                <div className="gallery-curation-section__intro">
+                  <span className="gallery-topic-tag">#{section.kicker}</span>
+                  <h3>{section.title}</h3>
+                  <p className="gallery-curation-section__summary">{section.summary}</p>
+                </div>
+                <div className="gallery-curation-section__meta">
+                  <StatusChip tone="neutral">{section.typeLabel}</StatusChip>
+                  <StatusChip tone="accent">{section.photos.length} 张</StatusChip>
+                </div>
               </div>
               <div className="gallery-wall-carousel">
                 <div className="gallery-curation-grid gallery-curation-grid--wall">
@@ -889,7 +1019,11 @@ export default function GalleryPage({
             </article>
           ))}
           {!curationSections.length ? (
-            <p className="text-sm text-[color:var(--text-muted)]">当前还没有展示图片，管理员可在上方直编中创建条目并填写图片链接。</p>
+            <p className="gallery-empty-state text-sm text-[color:var(--text-muted)]">
+              {canManageGallery
+                ? "当前还没有展示图片，可展开“前台编辑”创建条目并填写图片链接。"
+                : "展示墙正在准备中，稍后会陆续更新新的图像章节。"}
+            </p>
           ) : null}
         </div>
       </div>
@@ -950,6 +1084,7 @@ export default function GalleryPage({
                 </Badge>
                 <Badge variant="default">{lightboxIndex + 1} / {lightboxPhotos.length}</Badge>
               </Group>
+              <p className="gallery-lightbox__hint">支持键盘 ← / → 切换，Esc 关闭预览。</p>
               <div className="gallery-lightbox__actions">
                 <Button
                   variant="default"

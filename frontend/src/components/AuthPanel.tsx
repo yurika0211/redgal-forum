@@ -31,7 +31,7 @@ export default function AuthPanel({
 
   if (isAuthenticated && session) {
     return (
-      <div className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4">
+      <div className="ui-card-sub grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4">
         <p className="text-sm text-[color:var(--text-muted)]">当前会话已建立，个人空间会自动同步账号信息。</p>
         <span className="block max-w-full overflow-x-auto rounded-md border border-dashed border-[color:var(--line-soft)] bg-white/45 px-2 py-1.5 font-mono text-xs text-[color:var(--text-muted)]">
           {session.accessToken}
@@ -45,7 +45,7 @@ export default function AuthPanel({
   }
 
   return (
-    <form className="grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onLoginSubmit(event)}>
+    <form className="ui-card-sub grid gap-3 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-4" onSubmit={(event) => void onLoginSubmit(event)}>
       <p className="text-sm text-[color:var(--text-muted)]">登录后将同步当前账号会话。</p>
       <label className="grid gap-1.5">
         <span className="text-xs uppercase tracking-[0.12em] text-[color:var(--text-muted)]">账号</span>

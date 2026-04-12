@@ -273,7 +273,7 @@
   max-height: min(82dvh, 680px);
   overflow: auto;
   display: grid;
-  gap: 14px;
+  gap: 16px;
   padding: clamp(20px, 3.2vw, 30px);
   scrollbar-gutter: stable both-edges;
   overscroll-behavior: contain;
@@ -292,35 +292,71 @@
   gap: 12px;
 }
 
+.home-notice-modal__head p {
+  margin: 0;
+  color: #4d647a;
+  font-weight: 700;
+}
+
 .home-notice-modal__panel h2 {
   margin: 0;
-  color: var(--text-strong);
+  color: #17344c;
   font-family: var(--font-display);
   font-size: clamp(1.32rem, 2.7vw, 2rem);
+  font-weight: 700;
   line-height: 1.24;
 }
 
 .home-notice-modal__summary {
   margin: 0;
-  color: var(--text-strong);
-  line-height: 1.72;
+  color: #25455f;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.78;
 }
 
 .home-notice-modal__body {
   display: grid;
-  gap: 10px;
+  gap: 9px;
+  counter-reset: notice-line;
 }
 
 .home-notice-modal__body p {
   margin: 0;
-  color: var(--text-main);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  color: #1f3548;
   font-weight: 500;
-  line-height: 1.84;
+  line-height: 1.8;
+}
+
+.home-notice-modal__body p::before {
+  counter-increment: notice-line;
+  content: counter(notice-line, decimal-leading-zero);
+  margin-top: 0.1em;
+  color: #4f7ea4;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .home-notice-modal__actions {
   display: flex;
   justify-content: flex-end;
+}
+
+html[data-theme="night"] .home-notice-modal__head p,
+html[data-theme="night"] .home-notice-modal__panel h2,
+html[data-theme="night"] .home-notice-modal__summary,
+html[data-theme="night"] .home-notice-modal__body p {
+  color: #ffffff;
+}
+
+html[data-theme="night"] .home-notice-modal__body p::before {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 @media (max-width: 640px) {
