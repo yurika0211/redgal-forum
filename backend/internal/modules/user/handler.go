@@ -81,6 +81,10 @@ func (h *Handler) ListFriends(c *gin.Context) {
 func (h *Handler) ListUserFriends(c *gin.Context) {
 	friends, err := h.service.ListUserFriends(c.Request.Context(), c.Param("username"), pagination.FromGin(c))
 	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			response.Error(c, http.StatusNotFound, err.Error())
+			return
+		}
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}

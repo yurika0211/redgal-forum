@@ -152,9 +152,11 @@ func registerForumRoutes(api *gin.RouterGroup, deps Dependencies) {
 	member.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser(), middleware.RateLimit("forum-write"))
 	member.GET("/me/progression", deps.ForumHandler.GetProgress)
 	member.GET("/me/thread-reply-snapshots", deps.ForumHandler.ListMyThreadReplySnapshots)
+	member.GET("/me/favorites", deps.ForumHandler.ListMyFavoritedThreads)
 	member.POST("/sign-in", deps.ForumHandler.SignIn)
 	member.POST("/threads", deps.ForumHandler.CreateThread)
 	member.POST("/threads/:threadID/replies", deps.ForumHandler.CreateReply)
+	member.PATCH("/threads/:threadID/engagement", deps.ForumHandler.UpdateThreadEngagement)
 
 	anonymous := group.Group("/anonymous")
 	anonymous.Use(middleware.RequireAuthenticated(), middleware.RequireVerifiedUser())

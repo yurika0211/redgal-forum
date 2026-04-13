@@ -107,64 +107,182 @@ function Header({
 
   const groupedNavigation = navigationGroups?.filter((group) => group.items.length > 0) ?? [];
   const hasGroupedNavigation = groupedNavigation.length > 0;
+  const actionButtonClassName =
+    "inline-flex items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80";
+  const desktopNavLinkClassName =
+    "inline-flex items-center rounded-md px-2 py-1 text-sm text-[color:var(--text-main)] transition hover:bg-white/60";
+  const desktopNavLinkActiveClassName =
+    "bg-[color:var(--surface-tint-blue)] font-semibold text-[color:var(--text-strong)]";
+  const mobileNavLinkClassName =
+    "inline-flex items-center rounded-md px-2 py-1.5 text-sm text-[color:var(--text-main)] transition hover:bg-white/60";
 
   return (
-    <header className={`site-header ${hidden ? "site-header--hidden" : ""}`}>
-      <div className="site-header__line" aria-hidden="true" />
-      <a
-        className="site-header__brand"
-        href="/"
-        onClick={(event) => handleNavigate(event, "/")}
-      >
-        <span className="site-header__brand-mark" aria-hidden="true">
-          <span className="site-header__brand-core" />
-        </span>
-        <div className="site-header__brand-copy">
-          <p className="site-header__eyebrow">绯月回廊</p>
-          <p className="site-header__title">Rubedo Forum</p>
-          <p className="site-header__subtitle">视觉小说社团与内容归档</p>
-        </div>
-      </a>
+    <header
+      className={`sticky top-0 z-50 mt-0.5 w-full border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)]/95 shadow-[0_10px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-all duration-200 ${
+        hidden ? "pointer-events-none md:-translate-y-[112%] md:opacity-0" : "translate-y-0 opacity-100"
+      }`}
+    >
+      <div className="flex items-center gap-2 px-3 py-2">
+        <a
+          className="inline-flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 transition hover:bg-white/40"
+          href="/"
+          onClick={(event) => handleNavigate(event, "/")}
+        >
+          <span
+            aria-hidden="true"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] shadow-sm"
+          >
+            <span className="h-3.5 w-3.5 rounded-full bg-[color:var(--color-lilac)]/70" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[10px] uppercase tracking-[0.16em] text-[color:var(--text-muted)]">redgal forum</span>
+            <span className="block truncate text-sm font-semibold text-[color:var(--text-strong)]">百川乃大视觉小说研</span>
+          </span>
+        </a>
 
-      <button
-        aria-controls="site-header-panel"
-        aria-expanded={menuOpen}
-        aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
-        className={`site-header__menu ${menuOpen ? "site-header__menu--open" : ""}`}
-        type="button"
-        onClick={() => {
-          setMenuOpen((current) => !current);
-        }}
-      >
-        <svg className="site-header__menu-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path className="site-header__menu-path site-header__menu-path--top" d="M5 7h14" />
-          <path className="site-header__menu-path site-header__menu-path--middle" d="M4 12h16" />
-          <path className="site-header__menu-path site-header__menu-path--bottom" d="M5 17h14" />
-        </svg>
-      </button>
+        <nav className="mx-2 hidden min-w-0 flex-1 flex-wrap items-center gap-1 md:flex" aria-label="Primary">
+          {navigation.map((link) => (
+            <a
+              aria-current={currentPath === link.href ? "page" : undefined}
+              className={`${desktopNavLinkClassName} ${
+                currentPath === link.href ? desktopNavLinkActiveClassName : ""
+              }`}
+              href={link.href}
+              key={link.href}
+              onClick={(event) => handleNavigate(event, link.href)}
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="hidden items-center gap-2 md:flex">
+          <div className="relative" ref={notificationsRef}>
+            <button
+              aria-expanded={notificationOpen}
+              aria-label="打开通知中心"
+              className={actionButtonClassName}
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                setNotificationOpen((current) => !current);
+              }}
+            >
+              <span aria-hidden="true">◎</span>
+              <span>通知</span>
+              {unreadNotificationCount > 0 ? (
+                <span className="ml-1 rounded-full bg-[color:var(--color-primary)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </span>
+              ) : null}
+            </button>
+            <section
+              className={`absolute right-0 top-[calc(100%+8px)] z-20 w-[min(92vw,360px)] rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel-strong)] p-2 shadow-[0_12px_30px_rgba(0,0,0,0.16)] transition ${
+                notificationOpen ? "pointer-events-auto scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0"
+              }`}
+              aria-label="通知中心"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                <strong className="text-sm text-[color:var(--text-strong)]">通知中心</strong>
+                <button
+                  className="text-xs text-[color:var(--text-muted)] underline-offset-2 transition hover:text-[color:var(--text-main)] hover:underline"
+                  type="button"
+                  onClick={() => onNotificationsMarkAllRead()}
+                >
+                  全部已读
+                </button>
+              </div>
+              {notifications.length ? (
+                <div className="grid max-h-80 gap-1 overflow-y-auto">
+                  {notifications.map((notification) => (
+                    <button
+                      className={`grid gap-0.5 rounded-lg border px-2.5 py-2 text-left transition ${
+                        notification.unread
+                          ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)]/55"
+                          : "border-transparent hover:border-[color:var(--line-soft)] hover:bg-white/45"
+                      }`}
+                      key={notification.id}
+                      type="button"
+                      onClick={(event) =>
+                        handleNotificationClick(event, notification.id, notification.href)
+                      }
+                    >
+                      <span className="text-sm font-medium text-[color:var(--text-strong)]">{notification.title}</span>
+                      <span className="text-xs text-[color:var(--text-soft)]">{notification.description}</span>
+                      {notification.timeLabel ? (
+                        <span className="text-[11px] text-[color:var(--text-faint)]">{notification.timeLabel}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="px-2 py-3 text-sm text-[color:var(--text-muted)]">当前还没有通知。</p>
+              )}
+            </section>
+          </div>
+          <button
+            className={actionButtonClassName}
+            type="button"
+            onClick={(event) => handleNavigate(event, authHref)}
+          >
+            {authLabel}
+          </button>
+          <button
+            aria-label={themeMode === "night" ? "切换到浅色模式" : "切换到深色模式"}
+            className={actionButtonClassName}
+            type="button"
+            onClick={handleThemeToggle}
+          >
+            {themeMode === "night" ? "浅色模式" : "深色模式"}
+          </button>
+          <button
+            className={actionButtonClassName}
+            type="button"
+            onClick={(event) => handleNavigate(event, utilityHref)}
+          >
+            {utilityLabel}
+          </button>
+        </div>
+
+        <button
+          aria-controls="site-header-panel"
+          aria-expanded={menuOpen}
+          aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
+          className="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] md:hidden"
+          type="button"
+          onClick={() => {
+            setMenuOpen((current) => !current);
+          }}
+        >
+          <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" aria-hidden="true">
+            <path className="stroke-current" d="M5 7h14" fill="none" strokeLinecap="round" strokeWidth="1.8" />
+            <path className="stroke-current" d="M4 12h16" fill="none" strokeLinecap="round" strokeWidth="1.8" />
+            <path className="stroke-current" d="M5 17h14" fill="none" strokeLinecap="round" strokeWidth="1.8" />
+          </svg>
+        </button>
+      </div>
 
       <div
-        className={`site-header__panel ${menuOpen ? "site-header__panel--open" : ""}`}
+        className={`md:hidden ${menuOpen ? "max-h-[70vh] border-t border-[color:var(--line-soft)] opacity-100" : "max-h-0 opacity-0"} overflow-hidden transition-all duration-200`}
         id="site-header-panel"
       >
-        <div className="site-header__panel-inner">
-          <nav className="site-header__nav" aria-label="Primary">
+        <div className="grid gap-3 px-3 py-3">
+          <nav className="grid gap-2" aria-label="Primary">
             {hasGroupedNavigation
               ? groupedNavigation.map((group) => (
-                  <div className="site-header__nav-group" key={group.id}>
-                    <span className="site-header__nav-group-label">{group.label}</span>
-                    <div className="site-header__nav-group-items">
+                  <div className="grid gap-1" key={group.id}>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-[color:var(--text-faint)]">{group.label}</span>
+                    <div className="grid gap-1">
                       {group.items.map((link) => (
                         <a
                           aria-current={currentPath === link.href ? "page" : undefined}
-                          className={`site-header__link ${
-                            currentPath === link.href ? "site-header__link--active" : ""
+                          className={`${mobileNavLinkClassName} ${
+                            currentPath === link.href ? desktopNavLinkActiveClassName : ""
                           }`}
                           href={link.href}
                           key={link.href}
                           onClick={(event) => handleNavigate(event, link.href)}
                         >
-                          <span className="site-header__link-dot" aria-hidden="true" />
                           {link.label}
                         </a>
                       ))}
@@ -174,107 +292,40 @@ function Header({
               : navigation.map((link) => (
                   <a
                     aria-current={currentPath === link.href ? "page" : undefined}
-                    className={`site-header__link ${
-                      currentPath === link.href ? "site-header__link--active" : ""
+                    className={`${mobileNavLinkClassName} ${
+                      currentPath === link.href ? desktopNavLinkActiveClassName : ""
                     }`}
                     href={link.href}
                     key={link.href}
                     onClick={(event) => handleNavigate(event, link.href)}
                   >
-                    <span className="site-header__link-dot" aria-hidden="true" />
                     {link.label}
                   </a>
                 ))}
           </nav>
-
-          <div className="site-header__actions">
-            <div className="site-header__action-buttons">
-              <div className="site-header__notifications" ref={notificationsRef}>
-                <button
-                  aria-expanded={notificationOpen}
-                  aria-label="打开通知中心"
-                  className={`site-header__action site-header__notification-trigger ${
-                    notificationOpen ? "site-header__notification-trigger--active" : ""
-                  }`}
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setNotificationOpen((current) => !current);
-                  }}
-                >
-                  <span className="site-header__notification-icon" aria-hidden="true">◎</span>
-                  <span>通知</span>
-                  {unreadNotificationCount > 0 ? (
-                    <span className="site-header__notification-badge" aria-hidden="true">
-                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                    </span>
-                  ) : null}
-                </button>
-                <section
-                  className={`site-header__notification-panel ${
-                    notificationOpen ? "site-header__notification-panel--open" : ""
-                  }`}
-                  aria-label="通知中心"
-                >
-                  <div className="site-header__notification-panel-head">
-                    <strong>通知中心</strong>
-                    <button
-                      className="detail-inline-button"
-                      type="button"
-                      onClick={() => onNotificationsMarkAllRead()}
-                    >
-                      全部已读
-                    </button>
-                  </div>
-                  {notifications.length ? (
-                    <div className="site-header__notification-list">
-                      {notifications.map((notification) => (
-                        <button
-                          className={`site-header__notification-item ${
-                            notification.unread ? "site-header__notification-item--unread" : ""
-                          }`}
-                          key={notification.id}
-                          type="button"
-                          onClick={(event) =>
-                            handleNotificationClick(event, notification.id, notification.href)
-                          }
-                        >
-                          <span className="site-header__notification-title">{notification.title}</span>
-                          <span className="site-header__notification-description">{notification.description}</span>
-                          {notification.timeLabel ? (
-                            <span className="site-header__notification-time">{notification.timeLabel}</span>
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="site-header__notification-empty">当前还没有通知。</p>
-                  )}
-                </section>
-              </div>
-              <button
-                className="site-header__action site-header__action--auth"
-                type="button"
-                onClick={(event) => handleNavigate(event, authHref)}
-              >
-                {authLabel}
-              </button>
-              <button
-                aria-label={themeMode === "night" ? "切换到浅色模式" : "切换到深色模式"}
-                className="site-header__action"
-                type="button"
-                onClick={handleThemeToggle}
-              >
-                {themeMode === "night" ? "浅色模式" : "深色模式"}
-              </button>
-              <button
-                className="site-header__action site-header__refresh"
-                type="button"
-                onClick={(event) => handleNavigate(event, utilityHref)}
-              >
-                {utilityLabel}
-              </button>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              className={actionButtonClassName}
+              type="button"
+              onClick={(event) => handleNavigate(event, authHref)}
+            >
+              {authLabel}
+            </button>
+            <button
+              aria-label={themeMode === "night" ? "切换到浅色模式" : "切换到深色模式"}
+              className={actionButtonClassName}
+              type="button"
+              onClick={handleThemeToggle}
+            >
+              {themeMode === "night" ? "浅色模式" : "深色模式"}
+            </button>
+            <button
+              className={`${actionButtonClassName} col-span-2`}
+              type="button"
+              onClick={(event) => handleNavigate(event, utilityHref)}
+            >
+              {utilityLabel}
+            </button>
           </div>
         </div>
       </div>

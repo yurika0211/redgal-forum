@@ -8,4 +8,4 @@ export const NAV_ITEMS = [
   { href: "/gallery", label: "展示墙" },
 ] as const;
 
-export const DEFAULT_PUBLIC_PROFILE_USERNAME = "rubedo_room";
+export const DEFAULT_PUBLIC_PROFILE_USERNAME = "redgal";

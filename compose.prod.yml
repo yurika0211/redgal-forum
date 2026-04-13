@@ -3,7 +3,9 @@ name: rubedo-prod
 services:
   frontend:
     image: ${FRONTEND_IMAGE:-shiokou/redgal-frontend:latest}
-    pull_policy: always
+    build:
+      context: ./frontend
+    pull_policy: ${FRONTEND_PULL_POLICY:-missing}
     depends_on:
       backend:
         condition: service_started
@@ -24,7 +26,9 @@ services:
 
   backend:
     image: ${BACKEND_IMAGE:-shiokou/redgal-backend:latest}
-    pull_policy: always
+    build:
+      context: ./backend
+    pull_policy: ${BACKEND_PULL_POLICY:-missing}
     depends_on:
       postgres:
         condition: service_healthy

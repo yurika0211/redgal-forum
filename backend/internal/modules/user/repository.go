@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -103,7 +104,7 @@ func (r *repository) GetProfile(ctx context.Context, username string) (Profile, 
 		return Profile{}, fmt.Errorf("postgres unavailable for user profile")
 	}
 
-	record, err := r.loadUserByUsername(ctx, username)
+	record, err := r.loadUserByPublicIdentifier(ctx, username)
 	if err != nil {
 		return Profile{}, err
 	}
@@ -231,6 +232,52 @@ func (r *repository) loadUserByUsername(ctx context.Context, username string) (u
 		&record.Status,
 	)
 	return record, err
+}
+
+func (r *repository) loadUserByNickname(ctx context.Context, nickname string) (userRecord, error) {
+	normalized := strings.TrimSpace(nickname)
+	if normalized == "" {
+		return userRecord{}, sql.ErrNoRows
+	}
+
+	var record userRecord
+	err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select id, username, coalesce(username_change_count, 0), nickname, coalesce(signature, ''), coalesce(bio, ''), coalesce(avatar_url, ''), status
+		 from users
+		 where lower(nullif(trim(coalesce(nickname, '')), '')) = lower($1)
+		   and deleted_at is null
+		 order by updated_at desc, id desc
+		 limit 1`,
+		normalized,
+	).Scan(
+		&record.ID,
+		&record.Username,
+		&record.UsernameChangeCount,
+		&record.Nickname,
+		&record.Signature,
+		&record.Bio,
+		&record.AvatarURL,
+		&record.Status,
+	)
+	return record, err
+}
+
+func (r *repository) loadUserByPublicIdentifier(ctx context.Context, identifier string) (userRecord, error) {
+	normalized := strings.TrimSpace(identifier)
+	if normalized == "" {
+		return userRecord{}, sql.ErrNoRows
+	}
+
+	record, err := r.loadUserByUsername(ctx, normalized)
+	if err == nil {
+		return record, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return userRecord{}, err
+	}
+
+	return r.loadUserByNickname(ctx, normalized)
 }
 
 func (r *repository) loadUserByID(ctx context.Context, userID int64) (userRecord, error) {

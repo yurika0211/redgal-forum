@@ -1,0 +1,34 @@
+/* P1 polish: stories/forum list page readability in night mode */
+
+html[data-theme="night"] .story-snippet-list,
+html[data-theme="night"] .forum-list-page .forum-thread-text-list {
+  border-top-color: rgba(123, 149, 177, 0.24);
+}
+
+html[data-theme="night"] .story-snippet-item,
+html[data-theme="night"] .forum-list-page .forum-thread-text-item {
+  border-color: rgba(123, 149, 177, 0.22);
+}
+
+html[data-theme="night"] .story-snippet-item:hover,
+html[data-theme="night"] .forum-list-page .forum-thread-text-item:hover {
+  background: rgba(48, 76, 108, 0.2);
+}
+
+html[data-theme="night"] .story-snippet-item__visibility,
+html[data-theme="night"] .story-snippet-item__tag {
+  border-color: rgba(123, 149, 177, 0.32);
+  color: rgba(210, 227, 245, 0.82);
+}
+
+html[data-theme="night"] .story-snippet-item__excerpt,
+html[data-theme="night"] .forum-list-page .forum-thread-text-item__meta {
+  color: rgba(198, 216, 236, 0.78);
+}
+
+@media (max-width: 640px) {
+}
+
+@media (max-width: 640px) {
+}
+

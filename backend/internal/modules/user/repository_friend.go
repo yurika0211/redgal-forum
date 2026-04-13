@@ -39,8 +39,11 @@ func (r *repository) ListUserFriends(
 		return pagination.Result[FriendSummary]{}, fmt.Errorf("postgres unavailable for friend list")
 	}
 
-	record, err := r.loadUserByUsername(ctx, username)
+	record, err := r.loadUserByPublicIdentifier(ctx, username)
 	if err != nil {
+		if isNoRowsError(err) {
+			return pagination.Result[FriendSummary]{}, ErrUserNotFound
+		}
 		return pagination.Result[FriendSummary]{}, err
 	}
 

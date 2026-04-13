@@ -13,6 +13,8 @@ import type {
   ForumThreadReplySnapshot,
   ListParams,
   Paginated,
+  ThreadEngagement,
+  UpdateThreadEngagementPayload,
   UpdateForumAvailabilitySettingsPayload,
 } from "./types";
 
@@ -71,6 +73,13 @@ export function fetchMyThreadReplySnapshots(
   );
 }
 
+export function fetchMyFavoritedThreads(
+  token: string,
+  params?: ListParams,
+): Promise<Paginated<ForumThread>> {
+  return request<Paginated<ForumThread>>(withListQuery("/forum/me/favorites", params), { token });
+}
+
 export function signInForum(token: string): Promise<ForumSignInResult> {
   return request<ForumSignInResult>("/forum/sign-in", {
     method: "POST",
@@ -108,6 +117,18 @@ export function createReply(
 ): Promise<ForumReply> {
   return request<ForumReply>(`/forum/threads/${encodeURIComponent(threadID)}/replies`, {
     method: "POST",
+    body,
+    token,
+  });
+}
+
+export function updateThreadEngagement(
+  threadID: string,
+  body: UpdateThreadEngagementPayload,
+  token: string,
+): Promise<ThreadEngagement> {
+  return request<ThreadEngagement>(`/forum/threads/${encodeURIComponent(threadID)}/engagement`, {
+    method: "PATCH",
     body,
     token,
   });

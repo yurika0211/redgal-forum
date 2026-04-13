@@ -299,7 +299,7 @@ export function useAppNotifications({
                   next.items.push({
                     id: notificationID,
                     kind: "forum_reply",
-                    title: "你的帖子有新回复",
+                    title: "您的帖子有新回复了喵QAQ",
                     description: `《${thread.title}》新增 ${increasedCount} 条回复。`,
                     href: `/forum/threads/${encodeURIComponent(thread.thread_id)}`,
                     createdAt: thread.last_post_at || new Date().toISOString(),

@@ -26,14 +26,16 @@ export default function ForumProgressPanel({
   onForumSignIn,
 }: ForumProgressPanelProps) {
   const forumLevelSummary = forumProgress?.summary ?? null;
+  const logItemClassName =
+    "flex items-center justify-between gap-3 rounded-lg border border-[color:var(--line-soft)] bg-white/40 px-3 py-2.5";
 
   return (
-    <div className="stack-list">
-      <div className="content-card forum-level-card">
-        <div className="content-card__header">
+    <div className="grid gap-3">
+      <div className="ui-card-sub rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
           <div>
             <h3>等级与签到</h3>
-            <p className="forum-reply-meta">
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
               <span>{forumLevelSummary ? `Lv.${forumLevelSummary.current_level}` : "未读取"}</span>
               <span>{forumLevelSummary?.title_name || "讨论区头衔"}</span>
             </p>
@@ -43,27 +45,30 @@ export default function ForumProgressPanel({
           </StatusChip>
         </div>
         {!session ? (
-          <p className="panel-empty">登录并通过认证后，可以签到并累积讨论经验。</p>
+          <p className="text-sm text-[color:var(--text-muted)]">登录并通过认证后，可以签到并累积讨论经验。</p>
         ) : !hasVerifiedSpaceAccess ? (
-          <p className="panel-empty">当前账号还没有论坛等级权限，需要通过认证后才能签到和累积经验。</p>
+          <p className="text-sm text-[color:var(--text-muted)]">当前账号还没有论坛等级权限，需要通过认证后才能签到和累积经验。</p>
         ) : forumProgressError ? (
-          <p className="panel-error">{forumProgressError}</p>
+          <p className="text-sm text-rose-500/90">{forumProgressError}</p>
         ) : forumLevelSummary ? (
           <>
-            <div className="forum-level-progress">
-              <div className="forum-level-progress__bar">
-                <span style={{ width: `${forumLevelPercent}%` }} />
+            <div className="grid gap-2">
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-tint-blue)]">
+                <span
+                  className="block h-full rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-lilac))] transition-[width] duration-300"
+                  style={{ width: `${forumLevelPercent}%` }}
+                />
               </div>
-              <div className="meta-row">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                 <span>{forumLevelSummary.total_exp} EXP</span>
                 <span>
                   距离 Lv.{forumLevelSummary.next_level} 还差 {forumLevelSummary.exp_to_next} EXP
                 </span>
               </div>
             </div>
-            <div className="forum-level-actions">
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                className="primary-button"
+                className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 onClick={() => void onForumSignIn()}
                 disabled={forumSignInState.pending || forumLevelSummary.signed_in_today}
@@ -75,29 +80,29 @@ export default function ForumProgressPanel({
                     : "今日签到 +5 EXP"}
               </button>
               {forumLevelSummary.last_sign_in_at ? (
-                <span className="panel-empty">上次签到：{formatDateTime(forumLevelSummary.last_sign_in_at)}</span>
+                <span className="text-sm text-[color:var(--text-muted)]">上次签到：{formatDateTime(forumLevelSummary.last_sign_in_at)}</span>
               ) : null}
             </div>
-            {forumSignInState.error ? <p className="panel-error">{forumSignInState.error}</p> : null}
-            {forumSignInState.success ? <p className="panel-empty">{forumSignInState.success}</p> : null}
+            {forumSignInState.error ? <p className="text-sm text-rose-500/90">{forumSignInState.error}</p> : null}
+            {forumSignInState.success ? <p className="text-sm text-[color:var(--text-muted)]">{forumSignInState.success}</p> : null}
           </>
         ) : (
-          <p className="panel-empty">等级数据读取中。</p>
+          <p className="text-sm text-[color:var(--text-muted)]">等级数据读取中。</p>
         )}
       </div>
 
       {mode === "full" && forumProgress?.recent_logs?.length ? (
-        <div className="content-card forum-level-log-card">
-          <div className="content-card__header">
+        <div className="ui-card-sub rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
             <h3>经验值明细</h3>
             <StatusChip tone="neutral">{forumProgress.recent_logs.length} 条</StatusChip>
           </div>
-          <div className="forum-level-log-list">
+          <div className="grid gap-2">
             {forumProgress.recent_logs.slice(0, 6).map((log) => (
-              <div className="forum-level-log-item" key={log.log_id}>
+              <div className={logItemClassName} key={log.log_id}>
                 <div>
-                  <strong>{forumActionLabel(log.action_type)}</strong>
-                  <p className="forum-reply-meta">
+                  <strong className="text-sm font-semibold text-[color:var(--text-strong)]">{forumActionLabel(log.action_type)}</strong>
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
                     <span>{formatDateTime(log.created_at)}</span>
                     {log.target_id ? <span>ID {log.target_id}</span> : null}
                   </p>

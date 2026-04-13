@@ -11,18 +11,21 @@ export default function PaginationBar({
   onPageChange,
   emptyText,
 }: PaginationBarProps) {
+  const pagerButtonClassName =
+    "inline-flex min-h-8 items-center justify-center rounded-full border border-[color:var(--line-soft)] bg-white/60 px-3 py-1 text-xs font-semibold text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white disabled:cursor-not-allowed disabled:opacity-45";
+
   if (pager.total <= 0) {
-    return <p className="panel-empty">{emptyText}</p>;
+    return <p className="text-sm text-[color:var(--text-muted)]">{emptyText}</p>;
   }
 
   return (
-    <div className="pagination-bar">
-      <span className="pagination-bar__meta">
+    <div className="ui-card-sub pagination-bar mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2">
+      <span className="pagination-bar__summary text-xs text-[color:var(--text-muted)]">
         第 {pager.page} / {Math.max(pager.totalPages, 1)} 页，共 {pager.total} 条，每页 {pager.pageSize} 条
       </span>
-      <div className="pagination-bar__actions">
+      <div className="pagination-bar__actions flex flex-wrap items-center gap-2">
         <button
-          className="ghost-button"
+          className={`${pagerButtonClassName} min-w-[72px]`}
           disabled={pager.page <= 1}
           onClick={() => onPageChange(pager.page - 1)}
           type="button"
@@ -30,7 +33,7 @@ export default function PaginationBar({
           上一页
         </button>
         <button
-          className="ghost-button"
+          className={`${pagerButtonClassName} min-w-[72px]`}
           disabled={pager.totalPages === 0 || pager.page >= pager.totalPages}
           onClick={() => onPageChange(pager.page + 1)}
           type="button"

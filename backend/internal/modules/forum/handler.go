@@ -23,6 +23,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) ListThreads(c *gin.Context) {
 	threads, err := h.service.ListThreads(
 		c.Request.Context(),
+		security.FromContext(c),
 		pagination.FromGin(c),
 		strings.TrimSpace(c.Query("q")),
 	)
@@ -52,7 +53,7 @@ func (h *Handler) ListAnonymousThreads(c *gin.Context) {
 }
 
 func (h *Handler) GetThread(c *gin.Context) {
-	thread, err := h.service.GetThread(c.Request.Context(), c.Param("threadID"))
+	thread, err := h.service.GetThread(c.Request.Context(), security.FromContext(c), c.Param("threadID"))
 	if err != nil {
 		respondForumError(c, err)
 		return
@@ -125,10 +126,49 @@ func (h *Handler) ListMyThreadReplySnapshots(c *gin.Context) {
 	response.OK(c, result)
 }
 
+func (h *Handler) ListMyFavoritedThreads(c *gin.Context) {
+	result, err := h.service.ListMyFavoritedThreads(
+		c.Request.Context(),
+		security.FromContext(c),
+		pagination.FromGin(c),
+	)
+	if err != nil {
+		respondForumError(c, err)
+		return
+	}
+
+	response.OK(c, result)
+}
+
 func (h *Handler) SignIn(c *gin.Context) {
 	result, err := h.service.SignIn(c.Request.Context(), security.FromContext(c))
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.OK(c, result)
+}
+
+func (h *Handler) UpdateThreadEngagement(c *gin.Context) {
+	var input UpdateThreadEngagementRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if input.Liked == nil && input.Favorited == nil {
+		response.Error(c, http.StatusBadRequest, "至少需要提供 liked 或 favorited 其中一个字段。")
+		return
+	}
+
+	result, err := h.service.UpdateThreadEngagement(
+		c.Request.Context(),
+		security.FromContext(c),
+		c.Param("threadID"),
+		input,
+	)
+	if err != nil {
+		respondForumError(c, err)
 		return
 	}
 

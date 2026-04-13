@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@import "./styles/themes/bg2-harmony-override.css";
+
 html {
   color-scheme: light;
 }

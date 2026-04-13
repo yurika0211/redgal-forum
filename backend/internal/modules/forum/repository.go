@@ -33,15 +33,17 @@ const (
 )
 
 type Repository interface {
-	ListThreads(ctx context.Context, params pagination.Params, query string) (pagination.Result[Thread], error)
+	ListThreads(ctx context.Context, viewer security.Principal, params pagination.Params, query string) (pagination.Result[Thread], error)
 	ListAnonymousThreads(ctx context.Context, params pagination.Params, query string) (pagination.Result[Thread], error)
-	GetThread(ctx context.Context, threadID string) (ThreadDetail, error)
+	GetThread(ctx context.Context, viewer security.Principal, threadID string) (ThreadDetail, error)
 	GetAnonymousThread(ctx context.Context, threadID string) (ThreadDetail, error)
 	GetAvailabilitySettings(ctx context.Context) (AvailabilitySettings, error)
 	UpdateAvailabilitySettings(ctx context.Context, input UpdateAvailabilitySettingsRequest) (AvailabilitySettings, error)
 	GetProgress(ctx context.Context, principal security.Principal) (Progress, error)
 	ListMyThreadReplySnapshots(ctx context.Context, principal security.Principal, params pagination.Params) (pagination.Result[ThreadReplySnapshot], error)
+	ListMyFavoritedThreads(ctx context.Context, principal security.Principal, params pagination.Params) (pagination.Result[Thread], error)
 	SignIn(ctx context.Context, principal security.Principal) (SignInResult, error)
+	UpdateThreadEngagement(ctx context.Context, principal security.Principal, threadID string, input UpdateThreadEngagementRequest) (ThreadEngagement, error)
 	CreateThread(ctx context.Context, principal security.Principal, input CreateThreadRequest) (Thread, error)
 	CreateAnonymousThread(ctx context.Context, principal security.Principal, input CreateThreadRequest) (Thread, error)
 	CreateReply(ctx context.Context, principal security.Principal, threadID string, input CreateReplyRequest) (Reply, error)
@@ -60,6 +62,7 @@ func NewRepository(platform *platform.Platform) Repository {
 
 func (r *repository) ListThreads(
 	ctx context.Context,
+	viewer security.Principal,
 	params pagination.Params,
 	query string,
 ) (pagination.Result[Thread], error) {
@@ -67,7 +70,7 @@ func (r *repository) ListThreads(
 		return pagination.Result[Thread]{}, fmt.Errorf("postgres unavailable for forum thread listing")
 	}
 
-	return r.listThreadsByMode(ctx, params, boardModeNormal, query)
+	return r.listThreadsByMode(ctx, viewer, params, boardModeNormal, query)
 }
 
 func (r *repository) ListAnonymousThreads(
@@ -79,11 +82,12 @@ func (r *repository) ListAnonymousThreads(
 		return pagination.NewResult(scaffoldAnonymousThreads(), len(scaffoldAnonymousThreads()), params), nil
 	}
 
-	return r.listThreadsByMode(ctx, params, boardModeAnonymous, query)
+	return r.listThreadsByMode(ctx, security.Principal{}, params, boardModeAnonymous, query)
 }
 
 func (r *repository) listThreadsByMode(
 	ctx context.Context,
+	viewer security.Principal,
 	params pagination.Params,
 	mode string,
 	query string,
@@ -126,64 +130,167 @@ func (r *repository) listThreadsByMode(
 		return pagination.Result[Thread]{}, err
 	}
 
-	rows, err := r.platform.Postgres.QueryContext(
-		ctx,
-		`select
-			ft.id,
-			ft.title,
-			ft.content_md,
-			fb.name,
-			ft.is_anonymous,
-			(ft.status = 'locked') as is_locked,
-			case
-				when fb.board_mode = 'anonymous' then '匿名旅人'
-				when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
-				else coalesce(nullif(u.nickname, ''), u.username)
-			end as author_name,
+	engagementEnabled := r.engagementTableExists(ctx)
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if engagementEnabled {
+		rows, err = r.platform.Postgres.QueryContext(
+			ctx,
+			`select
+				ft.id,
+				ft.title,
+				ft.content_md,
+				fb.name,
+				ft.is_anonymous,
+				(ft.status = 'locked') as is_locked,
+				case
+					when fb.board_mode = 'anonymous' then '匿名旅人'
+					when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
+					else coalesce(nullif(u.nickname, ''), u.username)
+				end as author_name,
 				case
 					when fb.board_mode = 'anonymous' then '◆' || substr(md5($4 || ':' || lower(u.username)), 1, 10)
 					else ''
 				end as tripcode,
-			ft.reply_count,
-			coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
-			ft.view_count,
-			ft.is_pinned,
-			ft.last_post_at,
-			ft.created_at
-		from forum_threads ft
-		join forum_boards fb on fb.id = ft.board_id
-		join users u on u.id = ft.author_id
-		left join forum_anonymous_identities fai on fai.thread_id = ft.id and fai.user_id = ft.author_id
-		left join forum_thread_tag_relations fttr on fttr.thread_id = ft.id
-		left join forum_tags tg on tg.id = fttr.tag_id
-		where ft.deleted_at is null
-		  and ft.status in ('active', 'locked')
-		  and fb.board_mode = $1
-		  and fb.is_active = true
-		  and (
-		    $2 = ''
-		    or lower(ft.title) like lower($2)
-		    or lower(ft.content_md) like lower($2)
-		    or lower(fb.name) like lower($2)
-		    or lower(coalesce(nullif(u.nickname, ''), '')) like lower($2)
-		    or lower(u.username) like lower($2)
-		    or exists (
-		        select 1
-		        from forum_thread_tag_relations fttr2
-		        join forum_tags tg2 on tg2.id = fttr2.tag_id
-		        where fttr2.thread_id = ft.id
-		          and lower(tg2.name) like lower($2)
-		    )
-		  )
-		group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username
-		order by ft.is_pinned desc, ft.last_post_at desc, ft.id desc
-		limit $3 offset $5`,
-		mode,
-		searchPattern,
-		params.PageSize,
-		anonymousTripcodeSecret,
-		params.Offset(),
-	)
+				ft.reply_count,
+				coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
+				ft.view_count,
+				coalesce((
+					select count(*)::int
+					from forum_thread_engagements fte
+					where fte.thread_id = ft.id
+					  and fte.liked = true
+				), 0) as like_count,
+				coalesce((
+					select count(*)::int
+					from forum_thread_engagements fte
+					where fte.thread_id = ft.id
+					  and fte.favorited = true
+				), 0) as favorite_count,
+				coalesce((
+					select fte.liked
+					from forum_thread_engagements fte
+					join users vu on vu.id = fte.user_id
+					where fte.thread_id = ft.id
+					  and $6
+					  and lower(vu.username) = lower($7)
+					limit 1
+				), false) as liked,
+				coalesce((
+					select fte.favorited
+					from forum_thread_engagements fte
+					join users vu on vu.id = fte.user_id
+					where fte.thread_id = ft.id
+					  and $6
+					  and lower(vu.username) = lower($7)
+					limit 1
+				), false) as favorited,
+				ft.is_pinned,
+				ft.last_post_at,
+				ft.created_at
+			from forum_threads ft
+			join forum_boards fb on fb.id = ft.board_id
+			join users u on u.id = ft.author_id
+			left join forum_anonymous_identities fai on fai.thread_id = ft.id and fai.user_id = ft.author_id
+			left join forum_thread_tag_relations fttr on fttr.thread_id = ft.id
+			left join forum_tags tg on tg.id = fttr.tag_id
+			where ft.deleted_at is null
+			  and ft.status in ('active', 'locked')
+			  and fb.board_mode = $1
+			  and fb.is_active = true
+			  and (
+			    $2 = ''
+			    or lower(ft.title) like lower($2)
+			    or lower(ft.content_md) like lower($2)
+			    or lower(fb.name) like lower($2)
+			    or lower(coalesce(nullif(u.nickname, ''), '')) like lower($2)
+			    or lower(u.username) like lower($2)
+			    or exists (
+			        select 1
+			        from forum_thread_tag_relations fttr2
+			        join forum_tags tg2 on tg2.id = fttr2.tag_id
+			        where fttr2.thread_id = ft.id
+			          and lower(tg2.name) like lower($2)
+			    )
+			  )
+			group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username
+			order by ft.is_pinned desc, ft.last_post_at desc, ft.id desc
+			limit $3 offset $5`,
+			mode,
+			searchPattern,
+			params.PageSize,
+			anonymousTripcodeSecret,
+			params.Offset(),
+			viewer.Authenticated(),
+			viewer.Username,
+		)
+	} else {
+		rows, err = r.platform.Postgres.QueryContext(
+			ctx,
+			`select
+				ft.id,
+				ft.title,
+				ft.content_md,
+				fb.name,
+				ft.is_anonymous,
+				(ft.status = 'locked') as is_locked,
+				case
+					when fb.board_mode = 'anonymous' then '匿名旅人'
+					when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
+					else coalesce(nullif(u.nickname, ''), u.username)
+				end as author_name,
+				case
+					when fb.board_mode = 'anonymous' then '◆' || substr(md5($4 || ':' || lower(u.username)), 1, 10)
+					else ''
+				end as tripcode,
+				ft.reply_count,
+				coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
+				ft.view_count,
+				0::int as like_count,
+				0::int as favorite_count,
+				false as liked,
+				false as favorited,
+				ft.is_pinned,
+				ft.last_post_at,
+				ft.created_at
+			from forum_threads ft
+			join forum_boards fb on fb.id = ft.board_id
+			join users u on u.id = ft.author_id
+			left join forum_anonymous_identities fai on fai.thread_id = ft.id and fai.user_id = ft.author_id
+			left join forum_thread_tag_relations fttr on fttr.thread_id = ft.id
+			left join forum_tags tg on tg.id = fttr.tag_id
+			where ft.deleted_at is null
+			  and ft.status in ('active', 'locked')
+			  and fb.board_mode = $1
+			  and fb.is_active = true
+			  and (
+			    $2 = ''
+			    or lower(ft.title) like lower($2)
+			    or lower(ft.content_md) like lower($2)
+			    or lower(fb.name) like lower($2)
+			    or lower(coalesce(nullif(u.nickname, ''), '')) like lower($2)
+			    or lower(u.username) like lower($2)
+			    or exists (
+			        select 1
+			        from forum_thread_tag_relations fttr2
+			        join forum_tags tg2 on tg2.id = fttr2.tag_id
+			        where fttr2.thread_id = ft.id
+			          and lower(tg2.name) like lower($2)
+			    )
+			  )
+			group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username
+			order by ft.is_pinned desc, ft.last_post_at desc, ft.id desc
+			limit $3 offset $5`,
+			mode,
+			searchPattern,
+			params.PageSize,
+			anonymousTripcodeSecret,
+			params.Offset(),
+		)
+	}
 	if err != nil {
 		return pagination.Result[Thread]{}, err
 	}
@@ -206,12 +313,16 @@ func (r *repository) listThreadsByMode(
 	return pagination.NewResult(threads, total, params), nil
 }
 
-func (r *repository) GetThread(ctx context.Context, threadID string) (ThreadDetail, error) {
+func (r *repository) GetThread(
+	ctx context.Context,
+	viewer security.Principal,
+	threadID string,
+) (ThreadDetail, error) {
 	if !r.hasDatabase() {
 		return ThreadDetail{}, fmt.Errorf("postgres unavailable for forum thread detail")
 	}
 
-	return r.getThreadByMode(ctx, threadID, boardModeNormal)
+	return r.getThreadByMode(ctx, viewer, threadID, boardModeNormal)
 }
 
 func (r *repository) GetAnonymousThread(ctx context.Context, threadID string) (ThreadDetail, error) {
@@ -219,7 +330,7 @@ func (r *repository) GetAnonymousThread(ctx context.Context, threadID string) (T
 		return scaffoldAnonymousThreadDetail(threadID), nil
 	}
 
-	return r.getThreadByMode(ctx, threadID, boardModeAnonymous)
+	return r.getThreadByMode(ctx, security.Principal{}, threadID, boardModeAnonymous)
 }
 
 func (r *repository) GetAvailabilitySettings(ctx context.Context) (AvailabilitySettings, error) {
@@ -390,6 +501,273 @@ func (r *repository) ListMyThreadReplySnapshots(
 	return pagination.NewResult(items, total, params), nil
 }
 
+func (r *repository) ListMyFavoritedThreads(
+	ctx context.Context,
+	principal security.Principal,
+	params pagination.Params,
+) (pagination.Result[Thread], error) {
+	if !r.hasDatabase() {
+		return pagination.Result[Thread]{
+			Items:      []Thread{},
+			Page:       params.Page,
+			PageSize:   params.PageSize,
+			Total:      0,
+			TotalPages: 0,
+		}, nil
+	}
+	if err := r.assertModeEnabled(ctx, boardModeNormal); err != nil {
+		return pagination.Result[Thread]{}, err
+	}
+	if !r.engagementTableExists(ctx) {
+		return pagination.Result[Thread]{
+			Items:      []Thread{},
+			Page:       params.Page,
+			PageSize:   params.PageSize,
+			Total:      0,
+			TotalPages: 0,
+		}, nil
+	}
+
+	userID, err := platformdb.EnsureUser(ctx, r.platform.Postgres, principal.Username)
+	if err != nil {
+		return pagination.Result[Thread]{}, err
+	}
+
+	var total int
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select count(*)::int
+		 from forum_thread_engagements fte
+		 join forum_threads ft on ft.id = fte.thread_id
+		 join forum_boards fb on fb.id = ft.board_id
+		 where fte.user_id = $1
+		   and fte.favorited = true
+		   and ft.deleted_at is null
+		   and ft.status in ('active', 'locked')
+		   and fb.board_mode = 'normal'
+		   and fb.is_active = true`,
+		userID,
+	).Scan(&total); err != nil {
+		return pagination.Result[Thread]{}, err
+	}
+
+	rows, err := r.platform.Postgres.QueryContext(
+		ctx,
+		`select
+			ft.id,
+			ft.title,
+			ft.content_md,
+			fb.name,
+			ft.is_anonymous,
+			(ft.status = 'locked') as is_locked,
+			case
+				when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
+				else coalesce(nullif(u.nickname, ''), u.username)
+			end as author_name,
+			'' as tripcode,
+			ft.reply_count,
+			coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
+			ft.view_count,
+			coalesce((
+				select count(*)::int
+				from forum_thread_engagements fte_like
+				where fte_like.thread_id = ft.id
+				  and fte_like.liked = true
+			), 0) as like_count,
+			coalesce((
+				select count(*)::int
+				from forum_thread_engagements fte_fav
+				where fte_fav.thread_id = ft.id
+				  and fte_fav.favorited = true
+			), 0) as favorite_count,
+			fte.liked,
+			fte.favorited,
+			ft.is_pinned,
+			ft.last_post_at,
+			ft.created_at
+		from forum_thread_engagements fte
+		join forum_threads ft on ft.id = fte.thread_id
+		join forum_boards fb on fb.id = ft.board_id
+		join users u on u.id = ft.author_id
+		left join forum_anonymous_identities fai on fai.thread_id = ft.id and fai.user_id = ft.author_id
+		left join forum_thread_tag_relations fttr on fttr.thread_id = ft.id
+		left join forum_tags tg on tg.id = fttr.tag_id
+		where fte.user_id = $1
+		  and fte.favorited = true
+		  and ft.deleted_at is null
+		  and ft.status in ('active', 'locked')
+		  and fb.board_mode = 'normal'
+		  and fb.is_active = true
+		group by ft.id, fb.name, fai.alias_name, u.nickname, u.username, fte.liked, fte.favorited, fte.updated_at
+		order by fte.updated_at desc, ft.last_post_at desc, ft.id desc
+		limit $2 offset $3`,
+		userID,
+		params.PageSize,
+		params.Offset(),
+	)
+	if err != nil {
+		return pagination.Result[Thread]{}, err
+	}
+	defer rows.Close()
+
+	items := make([]Thread, 0, params.PageSize)
+	for rows.Next() {
+		thread, scanErr := scanThreadRow(rows)
+		if scanErr != nil {
+			return pagination.Result[Thread]{}, scanErr
+		}
+		items = append(items, thread)
+	}
+	if err := rows.Err(); err != nil {
+		return pagination.Result[Thread]{}, err
+	}
+
+	return pagination.NewResult(items, total, params), nil
+}
+
+func (r *repository) UpdateThreadEngagement(
+	ctx context.Context,
+	principal security.Principal,
+	threadID string,
+	input UpdateThreadEngagementRequest,
+) (ThreadEngagement, error) {
+	dbThreadID, err := parseThreadIdentifier(threadID)
+	if err != nil {
+		return ThreadEngagement{}, err
+	}
+	if !r.hasDatabase() || !r.engagementTableExists(ctx) {
+		return ThreadEngagement{
+			ThreadID:      strconv.FormatInt(dbThreadID, 10),
+			Liked:         valueOrFalse(input.Liked),
+			Favorited:     valueOrFalse(input.Favorited),
+			LikeCount:     0,
+			FavoriteCount: 0,
+		}, nil
+	}
+	if err := r.assertModeEnabled(ctx, boardModeNormal); err != nil {
+		return ThreadEngagement{}, err
+	}
+
+	userID, err := platformdb.EnsureUser(ctx, r.platform.Postgres, principal.Username)
+	if err != nil {
+		return ThreadEngagement{}, err
+	}
+
+	tx, err := r.platform.Postgres.BeginTx(ctx, nil)
+	if err != nil {
+		return ThreadEngagement{}, err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	var exists bool
+	if err := tx.QueryRowContext(
+		ctx,
+		`select exists(
+		     select 1
+		     from forum_threads ft
+		     join forum_boards fb on fb.id = ft.board_id
+		     where ft.id = $1
+		       and ft.deleted_at is null
+		       and ft.status in ('active', 'locked')
+		       and fb.board_mode = 'normal'
+		       and fb.is_active = true
+		 )`,
+		dbThreadID,
+	).Scan(&exists); err != nil {
+		return ThreadEngagement{}, err
+	}
+	if !exists {
+		return ThreadEngagement{}, fmt.Errorf("thread %s not found", threadID)
+	}
+
+	var (
+		currentLiked     bool
+		currentFavorited bool
+	)
+	switch err := tx.QueryRowContext(
+		ctx,
+		`select liked, favorited
+		 from forum_thread_engagements
+		 where thread_id = $1 and user_id = $2`,
+		dbThreadID,
+		userID,
+	).Scan(&currentLiked, &currentFavorited); err {
+	case nil:
+	case sql.ErrNoRows:
+		currentLiked = false
+		currentFavorited = false
+	default:
+		return ThreadEngagement{}, err
+	}
+
+	nextLiked := currentLiked
+	nextFavorited := currentFavorited
+	if input.Liked != nil {
+		nextLiked = *input.Liked
+	}
+	if input.Favorited != nil {
+		nextFavorited = *input.Favorited
+	}
+
+	if nextLiked || nextFavorited {
+		if _, err := tx.ExecContext(
+			ctx,
+			`insert into forum_thread_engagements (thread_id, user_id, liked, favorited)
+			 values ($1, $2, $3, $4)
+			 on conflict (thread_id, user_id) do update
+			 set liked = excluded.liked,
+			     favorited = excluded.favorited,
+			     updated_at = now()`,
+			dbThreadID,
+			userID,
+			nextLiked,
+			nextFavorited,
+		); err != nil {
+			return ThreadEngagement{}, err
+		}
+	} else {
+		if _, err := tx.ExecContext(
+			ctx,
+			`delete from forum_thread_engagements
+			 where thread_id = $1 and user_id = $2`,
+			dbThreadID,
+			userID,
+		); err != nil {
+			return ThreadEngagement{}, err
+		}
+	}
+
+	var (
+		likeCount     int
+		favoriteCount int
+	)
+	if err := tx.QueryRowContext(
+		ctx,
+		`select
+			coalesce(count(*) filter (where liked = true), 0)::int as like_count,
+			coalesce(count(*) filter (where favorited = true), 0)::int as favorite_count
+		 from forum_thread_engagements
+		 where thread_id = $1`,
+		dbThreadID,
+	).Scan(&likeCount, &favoriteCount); err != nil {
+		return ThreadEngagement{}, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return ThreadEngagement{}, err
+	}
+
+	return ThreadEngagement{
+		ThreadID:      strconv.FormatInt(dbThreadID, 10),
+		Liked:         nextLiked,
+		Favorited:     nextFavorited,
+		LikeCount:     likeCount,
+		FavoriteCount: favoriteCount,
+	}, nil
+}
+
 func (r *repository) SignIn(ctx context.Context, principal security.Principal) (SignInResult, error) {
 	if !r.hasDatabase() {
 		progress := scaffoldProgress(principal.Username)
@@ -452,7 +830,12 @@ func (r *repository) SignIn(ctx context.Context, principal security.Principal) (
 	}, nil
 }
 
-func (r *repository) getThreadByMode(ctx context.Context, threadID string, mode string) (ThreadDetail, error) {
+func (r *repository) getThreadByMode(
+	ctx context.Context,
+	viewer security.Principal,
+	threadID string,
+	mode string,
+) (ThreadDetail, error) {
 	if err := r.assertModeEnabled(ctx, mode); err != nil {
 		return ThreadDetail{}, err
 	}
@@ -479,46 +862,128 @@ func (r *repository) getThreadByMode(ctx context.Context, threadID string, mode 
 		return ThreadDetail{}, err
 	}
 
-	threadRow := r.platform.Postgres.QueryRowContext(
-		ctx,
-		`select
-			ft.id,
-			ft.title,
-			ft.content_md,
-			fb.name,
-			ft.is_anonymous,
-			(ft.status = 'locked') as is_locked,
-			case
-				when fb.board_mode = 'anonymous' then '匿名旅人'
-				when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
-				else coalesce(nullif(u.nickname, ''), u.username)
-			end as author_name,
-			case
-				when fb.board_mode = 'anonymous' then '◆' || substr(md5($2 || ':' || lower(u.username)), 1, 10)
-				else ''
-			end as tripcode,
-			ft.reply_count,
-			coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
-			ft.view_count,
-			ft.is_pinned,
-			ft.last_post_at,
-			ft.created_at
-		from forum_threads ft
-		join forum_boards fb on fb.id = ft.board_id
-		join users u on u.id = ft.author_id
-		left join forum_anonymous_identities fai on fai.thread_id = ft.id and fai.user_id = ft.author_id
-		left join forum_thread_tag_relations fttr on fttr.thread_id = ft.id
-		left join forum_tags tg on tg.id = fttr.tag_id
-		where ft.id = $1
-		  and ft.deleted_at is null
-		  and ft.status in ('active', 'locked')
-		  and fb.is_active = true
-		  and ($3 = '' or fb.board_mode::text = $3)
-		group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username`,
-		dbThreadID,
-		anonymousTripcodeSecret,
-		mode,
-	)
+	engagementEnabled := r.engagementTableExists(ctx)
+
+	var threadRow *sql.Row
+	if engagementEnabled {
+		threadRow = r.platform.Postgres.QueryRowContext(
+			ctx,
+			`select
+				ft.id,
+				ft.title,
+				ft.content_md,
+				fb.name,
+				ft.is_anonymous,
+				(ft.status = 'locked') as is_locked,
+				case
+					when fb.board_mode = 'anonymous' then '匿名旅人'
+					when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
+					else coalesce(nullif(u.nickname, ''), u.username)
+				end as author_name,
+				case
+					when fb.board_mode = 'anonymous' then '◆' || substr(md5($2 || ':' || lower(u.username)), 1, 10)
+					else ''
+				end as tripcode,
+				ft.reply_count,
+				coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
+				ft.view_count,
+				coalesce((
+					select count(*)::int
+					from forum_thread_engagements fte
+					where fte.thread_id = ft.id
+					  and fte.liked = true
+				), 0) as like_count,
+				coalesce((
+					select count(*)::int
+					from forum_thread_engagements fte
+					where fte.thread_id = ft.id
+					  and fte.favorited = true
+				), 0) as favorite_count,
+				coalesce((
+					select fte.liked
+					from forum_thread_engagements fte
+					join users vu on vu.id = fte.user_id
+					where fte.thread_id = ft.id
+					  and $4
+					  and lower(vu.username) = lower($5)
+					limit 1
+				), false) as liked,
+				coalesce((
+					select fte.favorited
+					from forum_thread_engagements fte
+					join users vu on vu.id = fte.user_id
+					where fte.thread_id = ft.id
+					  and $4
+					  and lower(vu.username) = lower($5)
+					limit 1
+				), false) as favorited,
+				ft.is_pinned,
+				ft.last_post_at,
+				ft.created_at
+			from forum_threads ft
+			join forum_boards fb on fb.id = ft.board_id
+			join users u on u.id = ft.author_id
+			left join forum_anonymous_identities fai on fai.thread_id = ft.id and fai.user_id = ft.author_id
+			left join forum_thread_tag_relations fttr on fttr.thread_id = ft.id
+			left join forum_tags tg on tg.id = fttr.tag_id
+			where ft.id = $1
+			  and ft.deleted_at is null
+			  and ft.status in ('active', 'locked')
+			  and fb.is_active = true
+			  and ($3 = '' or fb.board_mode::text = $3)
+			group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username`,
+			dbThreadID,
+			anonymousTripcodeSecret,
+			mode,
+			viewer.Authenticated(),
+			viewer.Username,
+		)
+	} else {
+		threadRow = r.platform.Postgres.QueryRowContext(
+			ctx,
+			`select
+				ft.id,
+				ft.title,
+				ft.content_md,
+				fb.name,
+				ft.is_anonymous,
+				(ft.status = 'locked') as is_locked,
+				case
+					when fb.board_mode = 'anonymous' then '匿名旅人'
+					when ft.is_anonymous then coalesce(fai.alias_name, '匿名旅人')
+					else coalesce(nullif(u.nickname, ''), u.username)
+				end as author_name,
+				case
+					when fb.board_mode = 'anonymous' then '◆' || substr(md5($2 || ':' || lower(u.username)), 1, 10)
+					else ''
+				end as tripcode,
+				ft.reply_count,
+				coalesce(string_agg(distinct tg.name, E'\n') filter (where tg.name is not null), '') as tags,
+				ft.view_count,
+				0::int as like_count,
+				0::int as favorite_count,
+				false as liked,
+				false as favorited,
+				ft.is_pinned,
+				ft.last_post_at,
+				ft.created_at
+			from forum_threads ft
+			join forum_boards fb on fb.id = ft.board_id
+			join users u on u.id = ft.author_id
+			left join forum_anonymous_identities fai on fai.thread_id = ft.id and fai.user_id = ft.author_id
+			left join forum_thread_tag_relations fttr on fttr.thread_id = ft.id
+			left join forum_tags tg on tg.id = fttr.tag_id
+			where ft.id = $1
+			  and ft.deleted_at is null
+			  and ft.status in ('active', 'locked')
+			  and fb.is_active = true
+			  and ($3 = '' or fb.board_mode::text = $3)
+			group by ft.id, fb.name, fb.board_mode, fai.alias_name, u.nickname, u.username`,
+			dbThreadID,
+			anonymousTripcodeSecret,
+			mode,
+		)
+	}
 
 	thread, err := scanThreadRow(threadRow)
 	if err != nil {
@@ -1032,6 +1497,22 @@ func (r *repository) hasDatabase() bool {
 	return r.platform != nil && r.platform.Postgres != nil && r.platform.Postgres.Available()
 }
 
+func (r *repository) engagementTableExists(ctx context.Context) bool {
+	if !r.hasDatabase() {
+		return false
+	}
+
+	var exists bool
+	if err := r.platform.Postgres.QueryRowContext(
+		ctx,
+		`select to_regclass('public.forum_thread_engagements') is not null`,
+	).Scan(&exists); err != nil {
+		return false
+	}
+
+	return exists
+}
+
 func (r *repository) assertModeEnabled(ctx context.Context, mode string) error {
 	if mode == "" {
 		return nil
@@ -1156,20 +1637,24 @@ type threadScanner interface {
 
 func scanThreadRow(scanner threadScanner) (Thread, error) {
 	var (
-		id         int64
-		title      string
-		content    string
-		board      string
-		anonymous  bool
-		locked     bool
-		author     string
-		tripcode   string
-		replyCount int
-		tagsRaw    string
-		viewCount  int64
-		isPinned   bool
-		lastPostAt sql.NullTime
-		createdAt  sql.NullTime
+		id            int64
+		title         string
+		content       string
+		board         string
+		anonymous     bool
+		locked        bool
+		author        string
+		tripcode      string
+		replyCount    int
+		tagsRaw       string
+		viewCount     int64
+		likeCount     int
+		favoriteCount int
+		liked         bool
+		favorited     bool
+		isPinned      bool
+		lastPostAt    sql.NullTime
+		createdAt     sql.NullTime
 	)
 
 	if err := scanner.Scan(
@@ -1184,6 +1669,10 @@ func scanThreadRow(scanner threadScanner) (Thread, error) {
 		&replyCount,
 		&tagsRaw,
 		&viewCount,
+		&likeCount,
+		&favoriteCount,
+		&liked,
+		&favorited,
 		&isPinned,
 		&lastPostAt,
 		&createdAt,
@@ -1192,20 +1681,24 @@ func scanThreadRow(scanner threadScanner) (Thread, error) {
 	}
 
 	return Thread{
-		ID:         strconv.FormatInt(id, 10),
-		Title:      title,
-		Content:    content,
-		Board:      board,
-		Anonymous:  anonymous,
-		Locked:     locked,
-		Author:     author,
-		Tripcode:   tripcode,
-		Tags:       splitAggregatedTags(tagsRaw),
-		ReplyCount: replyCount,
-		ViewCount:  viewCount,
-		IsPinned:   isPinned,
-		LastPostAt: lastPostAt.Time,
-		CreatedAt:  createdAt.Time,
+		ID:            strconv.FormatInt(id, 10),
+		Title:         title,
+		Content:       content,
+		Board:         board,
+		Anonymous:     anonymous,
+		Locked:        locked,
+		Author:        author,
+		Tripcode:      tripcode,
+		Tags:          splitAggregatedTags(tagsRaw),
+		ReplyCount:    replyCount,
+		ViewCount:     viewCount,
+		LikeCount:     likeCount,
+		FavoriteCount: favoriteCount,
+		Liked:         liked,
+		Favorited:     favorited,
+		IsPinned:      isPinned,
+		LastPostAt:    lastPostAt.Time,
+		CreatedAt:     createdAt.Time,
 	}, nil
 }
 
@@ -1599,6 +2092,14 @@ func nullableID(value sql.NullInt64) string {
 		return ""
 	}
 	return strconv.FormatInt(value.Int64, 10)
+}
+
+func valueOrFalse(value *bool) bool {
+	if value == nil {
+		return false
+	}
+
+	return *value
 }
 
 type progressQueryer interface {

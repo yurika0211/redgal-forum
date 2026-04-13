@@ -29,6 +29,79 @@ interface PortalPageProps {
   onNavigate: (href: string) => void;
 }
 
+function normalizeDateSegment(value: string): string {
+  return value.padStart(2, "0");
+}
+
+function formatPortalNoticeStamp(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.replace(/\./g, "-").replace(/\//g, "-").replace("T", " ");
+  const explicitMatch = normalized.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?$/,
+  );
+  if (explicitMatch) {
+    const [, year, month, day, hour, minute] = explicitMatch;
+    if (!hour || !minute) {
+      return `${year}-${normalizeDateSegment(month)}-${normalizeDateSegment(day)}`;
+    }
+    return `${year}-${normalizeDateSegment(month)}-${normalizeDateSegment(day)} ${normalizeDateSegment(hour)}:${minute}`;
+  }
+
+  if (/^\d+$/.test(raw) && raw.length < 6) {
+    return null;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return raw.length <= 24 ? raw : null;
+  }
+
+  const year = String(parsed.getFullYear());
+  const month = normalizeDateSegment(String(parsed.getMonth() + 1));
+  const day = normalizeDateSegment(String(parsed.getDate()));
+  return `${year}-${month}-${day}`;
+}
+
+function resolveNoticeStamp(notice: DisplayNotice): string {
+  return (
+    formatPortalNoticeStamp(notice.label) ||
+    formatPortalNoticeStamp(notice.kicker) ||
+    "近期更新"
+  );
+}
+
+function resolveNoticeTag(notice: DisplayNotice, stamp: string): string | null {
+  const tag = notice.kicker.trim();
+  if (!tag || tag === "公告" || tag === stamp) {
+    return null;
+  }
+  return tag;
+}
+
+function resolvePortalNavGlyph(page: DisplayPortalPage): string {
+  const text = `${page.kicker} ${page.title} ${page.description} ${page.href}`;
+  if (/活动|征文|赛事|event/i.test(text)) {
+    return "活";
+  }
+  if (/论坛|主题|讨论|thread|forum/i.test(text)) {
+    return "论";
+  }
+  if (/收藏|成长|空间|日志|space/i.test(text)) {
+    return "册";
+  }
+  if (/海报|展墙|图|gallery|photo/i.test(text)) {
+    return "图";
+  }
+  if (/公告|通知|notice/i.test(text)) {
+    return "讯";
+  }
+  return "导";
+}
+
 export default function PortalPage({
   activityActionState,
   canAdmin,
@@ -47,6 +120,23 @@ export default function PortalPage({
     title: "",
     description: "",
   });
+  const manifestoHighlights = [
+    {
+      label: "起源",
+      value: "2017",
+      detail: "Galgame 分群开始聚拢同好",
+    },
+    {
+      label: "命名",
+      value: "2024",
+      detail: "正式确立「百川乃大视觉小说研」",
+    },
+    {
+      label: "规模",
+      value: "300+",
+      detail: "社群成员持续增长",
+    },
+  ];
 
   function startCreateActivity(): void {
     if (activityActionState.pending) {
@@ -143,83 +233,110 @@ export default function PortalPage({
   }
 
   return (
-    <>
-      <section className="panel portal-manifesto">
-        <div className="portal-manifesto__head">
-          <p className="eyebrow">社团介绍 / manifesto</p>
-          <h1>这里聚着一群愿意认真聊视觉小说的人。</h1>
+    <div className="grid gap-[clamp(16px,2.6vw,30px)]">
+      <section className="ui-card-panel portal-home__section grid gap-[26px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <div className="portal-home__intro grid max-w-[76ch] gap-3">
+          <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">社团介绍 / manifesto</p>
+          <h1 className="portal-home__title m-0 font-[var(--font-display)] text-[clamp(2.05rem,3.7vw,3.3rem)] leading-[1.08] text-[color:var(--text-strong)]">从 2017 到现在，我们把热爱写进了持续发生的社团活动。</h1>
+          <p className="portal-home__lead m-0 max-w-[64ch] text-[color:var(--text-main)] leading-[1.82]">
+            在这里，站点记录的不只是活动信息，更是每一届成员把兴趣转成作品、对话和协作的过程。
+          </p>
         </div>
-        <div className="portal-manifesto__body portal-manifesto__body--single">
-          <div className="portal-manifesto__copy">
-            <p>
-              百川乃大不是只用来“看作品”的地方。我们会拆剧情、聊角色、做共赏、
-              也会把截图、札记、活动照片和那些一闪而过的灵感慢慢收起来。
+        <div className="portal-home__manifesto-grid grid items-stretch gap-[18px] [grid-template-columns:minmax(0,1.12fr)_minmax(260px,0.88fr)] max-[1040px]:[grid-template-columns:minmax(0,1fr)]">
+          <div className="grid content-start gap-[14px] py-[2px]">
+            <p className="m-0 text-[1rem] text-[color:var(--text-soft)] leading-[1.88]">
+              百川乃大视觉小说研起源于川大校级 ACG 社团中的 Galgame 分群，2017 年开始聚拢同好，
+              2024 年正式确立社团名称。一路从十几人的小群，慢慢扩展到今天的 300+ 社群规模。
             </p>
-            <p>
-              有人偏爱写长评，有人更在意场景和音乐，有人只是想在校园里找到可以认真聊 Galgame 的同类。
-              这些差异不会被抹平，反而正是社团最重要的部分。
+            <p className="m-0 text-[1rem] text-[color:var(--text-soft)] leading-[1.88]">
+              我们把“十二川器”年度评选、征文大赛、招新问答和“百川夜话”访谈做成固定活动，
+              让作品推荐、创作表达和行业交流都能在站内留下可追溯的记录。
             </p>
-            <p>
-              如果你也会在深夜里突然冒出一句“我们来做一部视觉小说吧”，
-              那你大概就能明白这个地方为什么会存在。
+            <p className="m-0 text-[1rem] text-[color:var(--text-soft)] leading-[1.88]">
+              如果你也会在深夜里冒出“我们来做一部视觉小说吧”的念头，
+              这里会是你把热爱变成讨论、稿件、视频和合作的起点。
             </p>
           </div>
+          <aside className="rounded-[20px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-[clamp(14px,1.9vw,20px)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]" aria-label="社团关键节点">
+            <ul className="m-0 grid list-none gap-2.5 p-0 max-[1040px]:grid-cols-3 max-[760px]:grid-cols-1">
+              {manifestoHighlights.map((item) => (
+                <li className="grid gap-[5px] rounded-[14px] border border-[color:var(--line-soft)] bg-white/60 px-3 py-[11px]" key={item.label}>
+                  <span className="text-[0.75rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{item.label}</span>
+                  <strong className="font-[var(--font-display)] text-[1.26rem] text-[color:var(--text-strong)]">{item.value}</strong>
+                  <p className="m-0 text-[0.86rem] text-[color:var(--text-soft)] leading-[1.65]">{item.detail}</p>
+                </li>
+              ))}
+            </ul>
+          </aside>
         </div>
       </section>
 
-      <section className="page-split-grid portal-brief-grid">
-        <article className="panel">
-          <div className="panel-heading">
+      <section className="grid items-stretch gap-4 lg:grid-cols-2">
+        <article className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">站内公告</p>
-              <h2>最新公告栏</h2>
+              <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">站内公告</p>
+              <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">最新公告栏</h2>
+              <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">集中查看站内公告与活动通知，快速了解近期更新。</p>
             </div>
           </div>
-          <div className="portal-brief-list">
-            {notices.map((notice) => (
-              <div className="portal-brief-item" key={notice.id}>
-                <span>{notice.kicker || "公告"}</span>
-                <strong>{notice.title}</strong>
-                <p>{notice.description || notice.body}</p>
-              </div>
-            ))}
-            {!notices.length ? <p className="panel-empty">当前还没有发布公告。</p> : null}
+          <div className="portal-notice-list">
+            {notices.map((notice) => {
+              const stamp = resolveNoticeStamp(notice);
+              const tag = resolveNoticeTag(notice, stamp);
+              const content = notice.description || notice.body || "公告内容待补充。";
+
+              return (
+                <article className="portal-notice-card" key={notice.id}>
+                  <div className="portal-notice-card__head">
+                    {tag ? <span className="portal-notice-card__tag">{tag}</span> : null}
+                    <time className="portal-notice-card__stamp">{stamp}</time>
+                  </div>
+                  <h3 className="portal-notice-card__title">{notice.title || "未命名公告"}</h3>
+                  <p className="portal-notice-card__body">{content}</p>
+                </article>
+              );
+            })}
+            {!notices.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有发布公告。</p> : null}
           </div>
         </article>
 
-        <article className="panel">
-          <div className="panel-heading">
+        <article className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+          <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="panel-kicker">先从哪里看起</p>
-              <h2>板块导航</h2>
+              <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">先从哪里看起</p>
+              <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">板块导航</h2>
+              <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">按内容类型挑选入口，减少首次浏览时的信息负担。</p>
             </div>
           </div>
-          <div className="portal-route-list">
+          <div className="portal-nav-list">
             {portalPages.map((page) => (
-              <button
-                className="portal-route-item"
-                key={page.href}
-                type="button"
-                onClick={() => onNavigate(page.href)}
-              >
-                <span>{page.kicker}</span>
-                <strong>{page.title}</strong>
-                <p>{page.description}</p>
+              <button className="portal-nav-card" key={page.href} type="button" onClick={() => onNavigate(page.href)}>
+                <span aria-hidden="true" className="portal-nav-card__icon">
+                  {resolvePortalNavGlyph(page)}
+                </span>
+                <span className="portal-nav-card__content">
+                  <span className="portal-nav-card__kicker">{page.kicker || "导航入口"}</span>
+                  <strong className="portal-nav-card__title">{page.title}</strong>
+                  <span className="portal-nav-card__description">{page.description || "查看该板块的最新内容。"}</span>
+                </span>
               </button>
             ))}
+            {!portalPages.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有配置导航入口。</p> : null}
           </div>
         </article>
       </section>
 
-      <section className="panel portal-activity-panel">
-        <div className="panel-heading">
+      <section className="my-1 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-home__section">
+        <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="panel-kicker">活动与聚会</p>
-            <h2>最近会遇到的事情</h2>
+            <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动与聚会</p>
+            <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">最近会遇到的事情</h2>
+            <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">以时间顺序整理社团活动，便于提前安排参与计划。</p>
           </div>
           {canAdmin ? (
             <button
-              className="ghost-button small-action-button"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs"
               type="button"
               disabled={activityActionState.pending}
               onClick={startCreateActivity}
@@ -228,23 +345,23 @@ export default function PortalPage({
             </button>
           ) : null}
         </div>
-        {canAdmin && activityActionState.error ? <p className="panel-error">{activityActionState.error}</p> : null}
-        {canAdmin && activityActionState.success ? <p className="panel-empty">{activityActionState.success}</p> : null}
-        <div className="portal-timeline">
-          <span className="portal-timeline__line" aria-hidden="true" />
+        {canAdmin && activityActionState.error ? <p className="mb-2 text-sm text-rose-500/90">{activityActionState.error}</p> : null}
+        {canAdmin && activityActionState.success ? <p className="mb-2 text-sm text-[color:var(--text-muted)]">{activityActionState.success}</p> : null}
+        <div className="relative grid gap-6 py-1.5 max-[980px]:gap-4 max-[980px]:py-0.5">
+          <span className="absolute bottom-2.5 left-3 top-2.5 w-[3px] rounded-full bg-[linear-gradient(180deg,rgba(102,167,213,0.56),rgba(102,167,213,0.2))] max-[980px]:left-2.5" aria-hidden="true" />
           {societyActivities.map((activity, index) => (
             <article
-              className="portal-timeline-item"
+              className="relative mt-1.5 pl-[30px] first:mt-0 max-[980px]:mt-1 max-[980px]:pl-6"
               key={activity.id}
             >
-              <span className="portal-timeline-item__dot" aria-hidden="true" />
-              <div className="portal-timeline-item__body">
-                <div className="portal-timeline-item__head">
-                  <span>{activity.label || `节点 ${String(index + 1).padStart(2, "0")}`}</span>
+              <span className="absolute left-[5px] top-[22px] h-[14px] w-[14px] rounded-full border-[3px] border-[rgba(102,167,213,0.86)] bg-[#f8fbff] shadow-[0_0_0_2px_rgba(255,255,255,0.9),0_0_0_5px_rgba(102,167,213,0.12)] max-[980px]:left-[3px] max-[980px]:top-[18px] max-[980px]:h-3 max-[980px]:w-3" aria-hidden="true" />
+              <div className="relative overflow-hidden rounded-[14px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-4 py-[14px] shadow-[inset_0_1px_0_rgba(255,255,255,0.64),0_10px_22px_rgba(37,60,42,0.08)] max-[760px]:px-[13px] max-[760px]:py-3">
+                <div className="flex items-start justify-between gap-2.5">
+                  <span className="inline-block text-[0.9rem] font-bold tracking-[0.01em] text-[rgba(66,102,130,0.9)]">{activity.label || `节点 ${String(index + 1).padStart(2, "0")}`}</span>
                   {canAdmin ? (
-                    <div className="portal-timeline-item__actions">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
-                        className="ghost-button small-action-button"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs"
                         type="button"
                         disabled={activityActionState.pending}
                         onClick={() => startEditActivity(activity)}
@@ -252,7 +369,7 @@ export default function PortalPage({
                         编辑
                       </button>
                       <button
-                        className="ghost-button small-action-button gallery-admin__danger"
+                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1 text-xs border-rose-300 text-rose-500 hover:border-rose-400 hover:bg-rose-50/30"
                         type="button"
                         disabled={activityActionState.pending}
                         onClick={() => void handleDeleteActivity(activity)}
@@ -262,18 +379,18 @@ export default function PortalPage({
                     </div>
                   ) : null}
                 </div>
-                <strong>{activity.title}</strong>
-                <p>{activity.description || "活动描述待补充。"}</p>
+                <strong className="mt-2 block text-[1.08rem] leading-[1.5] text-[rgba(55,84,110,0.95)]">{activity.title}</strong>
+                <p className="mt-2.5 inline-flex max-w-full rounded-lg border border-[color:var(--line-soft)] bg-white/35 px-2.5 py-[3px] text-[0.85rem] leading-[1.6] text-[color:var(--text-soft)]">{activity.description || "活动描述待补充。"}</p>
               </div>
             </article>
           ))}
-          {!societyActivities.length ? <p className="panel-empty">当前还没有活动安排。</p> : null}
+          {!societyActivities.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有活动安排。</p> : null}
         </div>
         {canAdmin && activityEditorMode ? (
-          <form className="space-form portal-timeline-editor" onSubmit={(event) => void handleActivityEditorSubmit(event)}>
-            <div className="panel-heading">
+          <form className="mt-3.5 grid gap-3 rounded-[14px] border border-dashed border-[rgba(102,167,213,0.38)] bg-[rgba(236,244,251,0.54)] p-4" onSubmit={(event) => void handleActivityEditorSubmit(event)}>
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="panel-kicker">时间轴编辑</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">时间轴编辑</p>
                 <h3>{activityEditorMode === "create" ? "新增时间轴节点" : "编辑时间轴节点"}</h3>
               </div>
             </div>
@@ -302,11 +419,11 @@ export default function PortalPage({
                 placeholder="填写该时间轴节点的说明"
               />
             </label>
-            <div className="portal-timeline-editor__actions">
-              <button className="primary-button" type="submit" disabled={activityActionState.pending}>
+            <div className="flex flex-wrap gap-2.5">
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={activityActionState.pending}>
                 {activityActionState.pending ? "保存中..." : "保存"}
               </button>
-              <button className="ghost-button" type="button" disabled={activityActionState.pending} onClick={closeActivityEditor}>
+              <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={activityActionState.pending} onClick={closeActivityEditor}>
                 取消
               </button>
             </div>
@@ -314,18 +431,18 @@ export default function PortalPage({
         ) : null}
       </section>
 
-      <section className="panel">
-        <div className="panel-heading">
+      <section className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="panel-kicker">一句实话</p>
-            <h2>我们并不完美，但一直有人还想继续做下去</h2>
+            <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">一句实话</p>
+            <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">我们并不完美，但一直有人还想继续做下去</h2>
           </div>
         </div>
-        <p className="panel-empty">
+        <p className="m-0 max-w-[74ch] text-sm text-[color:var(--text-muted)] leading-[1.86]">
           百川乃大未必已经完成过属于自己的视觉小说，站点也还在一点点长出来。
           但社团真正重要的并不是“已经做成了什么”，而是每一年总会有人重新把热情接过来。
         </p>
       </section>
-    </>
+    </div>
   );
 }

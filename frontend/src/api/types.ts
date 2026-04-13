@@ -266,6 +266,10 @@ export interface ForumThread {
   tags: string[];
   reply_count: number;
   view_count: number;
+  like_count: number;
+  favorite_count: number;
+  liked: boolean;
+  favorited: boolean;
   is_pinned: boolean;
   last_post_at: string;
   created_at: string;
@@ -299,6 +303,19 @@ export interface DeleteForumReplyResult {
   thread_id: string;
   reply_id: string;
   status: string;
+}
+
+export interface UpdateThreadEngagementPayload {
+  liked?: boolean;
+  favorited?: boolean;
+}
+
+export interface ThreadEngagement {
+  thread_id: string;
+  liked: boolean;
+  favorited: boolean;
+  like_count: number;
+  favorite_count: number;
 }
 
 export interface ForumThreadReplySnapshot {
