@@ -38,6 +38,7 @@ import WorkspaceSidebar, {
   type WorkspaceSidebarSection,
 } from "../components/WorkspaceSidebar";
 import { createPagerState, type PagerState } from "../lib/pagination";
+import { resolveUserRoleRing } from "../lib/roles";
 import { excerpt, extractMarkdownPreviewImage, formatDateTime, normalizeVisibilityLabel } from "../lib/text";
 import type {
   ArticleFormState,
@@ -1402,6 +1403,42 @@ export default function SpacePage({
     });
   }
 
+  async function handleSendFriendRequestToViewingProfile(): Promise<void> {
+    const targetUsername = viewingPublicProfileUsername?.trim();
+    if (!targetUsername) {
+      return;
+    }
+
+    if (!session?.accessToken) {
+      onNavigate("/login");
+      return;
+    }
+
+    setSpaceFriendActionState({
+      pending: true,
+      error: "",
+      success: "",
+    });
+
+    try {
+      const request = await createFriendRequest(session.accessToken, {
+        username: targetUsername,
+      });
+
+      setSpaceFriendActionState({
+        pending: false,
+        error: "",
+        success: `已向 @${request.receiver_username} 发送好友申请，等待对方审核。`,
+      });
+    } catch (error) {
+      setSpaceFriendActionState({
+        pending: false,
+        error: error instanceof Error ? error.message : "发送好友申请失败，请稍后再试。",
+        success: "",
+      });
+    }
+  }
+
   async function handleSpaceFriendSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
@@ -1842,6 +1879,7 @@ export default function SpacePage({
       <WorkspaceSidebar
         activeItemId={spaceActivePage}
         footerAvatarLabel={displayProfile?.nickname || displayProfile?.username || viewingProfileLabel}
+        footerAvatarRole={resolveUserRoleRing(displayProfile?.roles)}
         footerAvatarUrl={displayProfile?.avatar_url || undefined}
         footerBadge={displayProfile?.verified ? "已认证" : isViewingPublicProfile ? "公开页" : "未认证"}
         footerSubtitle={
@@ -1851,6 +1889,7 @@ export default function SpacePage({
         }
         footerTitle={displayProfile?.nickname || viewingProfileLabel}
         headerAvatarLabel={displayProfile?.nickname || displayProfile?.username || viewingProfileLabel}
+        headerAvatarRole={resolveUserRoleRing(displayProfile?.roles)}
         headerAvatarUrl={displayProfile?.avatar_url || undefined}
         headerBadge={isViewingPublicProfile ? "访客视图" : "工作台"}
         headerKicker={isViewingPublicProfile ? `${viewingProfileLabel} Space` : "My Space"}
@@ -1871,17 +1910,30 @@ export default function SpacePage({
                   <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">访客模式</p>
                   <strong className="text-[color:var(--text-strong)]">正在查看 @{viewingPublicProfileUsername} 的主页</strong>
                 </div>
-                <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onNavigate("/space")}>
-                  返回我的空间
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-transparent bg-[linear-gradient(135deg,var(--color-primary),var(--color-lilac))] px-3 py-1.5 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                    type="button"
+                    onClick={() => void handleSendFriendRequestToViewingProfile()}
+                    disabled={spaceFriendActionState.pending}
+                  >
+                    {spaceFriendActionState.pending ? "发送中..." : session ? "添加好友" : "登录后添加好友"}
+                  </button>
+                  <button className="inline-flex items-center justify-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-1.5 text-sm font-medium text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => onNavigate("/space")}>
+                    返回我的空间
+                  </button>
+                </div>
               </div>
             ) : null}
+            {isViewingPublicProfile && spaceFriendActionState.error ? <p className="text-sm text-rose-500/90">{spaceFriendActionState.error}</p> : null}
+            {isViewingPublicProfile && spaceFriendActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{spaceFriendActionState.success}</p> : null}
             {displayProfile ? (
               <>
                 <div className="flex items-start gap-[18px] max-[980px]:flex-col">
                   <UserAvatar
                     fallbackMode="initial"
                     label={displayProfile.nickname || displayProfile.username || "空间用户"}
+                    roleRing={resolveUserRoleRing(displayProfile.roles)}
                     shape="circle"
                     size="xl"
                     src={displayProfile.avatar_url}
@@ -1999,6 +2051,7 @@ export default function SpacePage({
                           <UserAvatar
                             fallbackMode="initial"
                             label={profileForm.nickname || profileForm.username || displayProfile.username || "空间用户"}
+                            roleRing={resolveUserRoleRing(displayProfile.roles)}
                             shape="circle"
                             size="xl"
                             src={profileForm.avatar_url}

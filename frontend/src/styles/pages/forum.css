@@ -1,5 +1,5 @@
 .forum-list-page {
-  width: min(100%, 1080px);
+  width: 100%;
   max-width: 100%;
   min-width: 0;
   margin-inline: auto;
@@ -8,6 +8,25 @@
 
 .page-shell--forum > .page-scene {
   padding-top: var(--page-top-gap);
+}
+
+html[data-theme="day"] .page-shell--forum {
+  --forum-sakura-panel: linear-gradient(180deg, rgba(255, 252, 254, 0.98), rgba(255, 246, 251, 0.94));
+  --forum-sakura-card: linear-gradient(180deg, rgba(255, 252, 254, 0.95), rgba(255, 248, 252, 0.92));
+  --forum-sakura-card-hover: linear-gradient(180deg, rgba(255, 254, 255, 0.98), rgba(255, 250, 253, 0.96));
+  --forum-sakura-border: rgba(197, 142, 161, 0.3);
+  --forum-sakura-border-strong: rgba(184, 114, 139, 0.48);
+  --forum-sakura-shadow: 0 12px 26px rgba(178, 124, 146, 0.18);
+  --forum-sakura-shadow-hover: 0 16px 30px rgba(180, 127, 151, 0.22);
+  --forum-sakura-chip-bg: rgba(252, 238, 245, 0.9);
+  --forum-sakura-chip-line: rgba(186, 121, 145, 0.34);
+  --forum-sakura-chip-text: #774b5d;
+}
+
+html[data-theme="day"] .page-shell--forum .forum-feed-panel {
+  border-color: var(--forum-sakura-border);
+  background: var(--forum-sakura-panel);
+  box-shadow: var(--forum-sakura-shadow);
 }
 
 .anonymous-thread-chat {
@@ -115,8 +134,8 @@
 
 .forum-thread-search-input {
   min-height: 44px;
-  border: 1px solid rgba(79, 139, 174, 0.24);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--forum-sakura-border, rgba(79, 139, 174, 0.24));
+  background: rgba(255, 252, 254, 0.94);
   color: var(--text-main);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
@@ -126,7 +145,7 @@
 }
 
 .forum-thread-search-input:focus {
-  border-color: rgba(79, 139, 174, 0.56);
+  border-color: var(--forum-sakura-border-strong, rgba(79, 139, 174, 0.56));
   background: #fff;
 }
 
@@ -207,7 +226,7 @@
   overflow-y: hidden;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(79, 139, 174, 0.45) transparent;
+  scrollbar-color: color-mix(in srgb, var(--forum-sakura-border-strong, rgba(79, 139, 174, 0.45)) 90%, transparent) transparent;
   padding-bottom: 2px;
 }
 
@@ -238,10 +257,10 @@
   grid-template-rows: auto auto;
   align-content: start;
   min-height: 96px;
-  border: 1px solid color-mix(in srgb, var(--line-soft) 78%, transparent);
+  border: 1px solid var(--forum-sakura-border, color-mix(in srgb, var(--line-soft) 78%, transparent));
   border-radius: 14px;
-  background: color-mix(in srgb, var(--surface-card) 88%, white 12%);
-  box-shadow: 0 8px 18px rgba(79, 139, 174, 0.08);
+  background: var(--forum-sakura-card, color-mix(in srgb, var(--surface-card) 88%, white 12%));
+  box-shadow: var(--forum-sakura-shadow, 0 8px 18px rgba(79, 139, 174, 0.08));
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -263,9 +282,9 @@
 
 .forum-thread-text-item:hover,
 .forum-thread-text-item:focus-visible {
-  border-color: var(--line-strong);
-  box-shadow: 0 12px 24px rgba(79, 139, 174, 0.14);
-  background: color-mix(in srgb, var(--surface-panel) 90%, white 10%);
+  border-color: var(--forum-sakura-border-strong, var(--line-strong));
+  box-shadow: var(--forum-sakura-shadow-hover, 0 12px 24px rgba(79, 139, 174, 0.14));
+  background: var(--forum-sakura-card-hover, color-mix(in srgb, var(--surface-panel) 90%, white 10%));
 }
 
 .forum-thread-text-item__head {
@@ -335,9 +354,9 @@
 }
 
 .forum-board-badge {
-  --forum-board-tone: rgba(79, 139, 174, 0.14);
-  --forum-board-line: rgba(79, 139, 174, 0.34);
-  --forum-board-text: rgba(38, 84, 116, 0.96);
+  --forum-board-tone: rgba(245, 223, 234, 0.84);
+  --forum-board-line: rgba(193, 129, 153, 0.36);
+  --forum-board-text: #7d4d61;
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--forum-board-line);
@@ -356,35 +375,35 @@
 .forum-board-badge[data-board*="story"],
 .forum-board-badge[data-board*="剧情"],
 .forum-board-badge[data-board*="叙事"] {
-  --forum-board-tone: rgba(124, 98, 191, 0.15);
-  --forum-board-line: rgba(124, 98, 191, 0.34);
-  --forum-board-text: rgba(70, 50, 124, 0.96);
+  --forum-board-tone: rgba(239, 214, 230, 0.88);
+  --forum-board-line: rgba(183, 126, 160, 0.36);
+  --forum-board-text: #74485f;
 }
 
 .forum-board-badge[data-board*="tech"],
 .forum-board-badge[data-board*="开发"],
 .forum-board-badge[data-board*="程序"],
 .forum-board-badge[data-board*="代码"] {
-  --forum-board-tone: rgba(63, 145, 115, 0.14);
-  --forum-board-line: rgba(63, 145, 115, 0.36);
-  --forum-board-text: rgba(30, 86, 67, 0.96);
+  --forum-board-tone: rgba(243, 226, 236, 0.88);
+  --forum-board-line: rgba(190, 139, 162, 0.34);
+  --forum-board-text: #7a5064;
 }
 
 .forum-board-badge[data-board*="chat"],
 .forum-board-badge[data-board*="闲聊"],
 .forum-board-badge[data-board*="杂谈"] {
-  --forum-board-tone: rgba(178, 126, 76, 0.15);
-  --forum-board-line: rgba(178, 126, 76, 0.36);
-  --forum-board-text: rgba(104, 63, 26, 0.96);
+  --forum-board-tone: rgba(249, 233, 241, 0.9);
+  --forum-board-line: rgba(197, 146, 168, 0.34);
+  --forum-board-text: #825466;
 }
 
 .forum-board-badge[data-board*="guide"],
 .forum-board-badge[data-board*="攻略"],
 .forum-board-badge[data-board*="help"],
 .forum-board-badge[data-board*="问答"] {
-  --forum-board-tone: rgba(178, 75, 122, 0.15);
-  --forum-board-line: rgba(178, 75, 122, 0.34);
-  --forum-board-text: rgba(116, 33, 70, 0.96);
+  --forum-board-tone: rgba(242, 217, 230, 0.9);
+  --forum-board-line: rgba(185, 124, 151, 0.38);
+  --forum-board-text: #75465a;
 }
 
 .forum-thread-metric {
@@ -392,10 +411,10 @@
   align-items: center;
   justify-content: center;
   min-height: 24px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--forum-sakura-chip-line, var(--line-soft));
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.65);
-  color: var(--text-soft);
+  background: var(--forum-sakura-chip-bg, rgba(255, 255, 255, 0.65));
+  color: var(--forum-sakura-chip-text, var(--text-soft));
   font-size: 0.76rem;
   line-height: 1;
   padding: 0 10px;
@@ -456,19 +475,19 @@
   top: 0;
   height: 2px;
   border-radius: 999px;
-  background: rgba(79, 139, 174, 0.48);
+  background: color-mix(in srgb, var(--forum-sakura-border-strong, rgba(79, 139, 174, 0.48)) 88%, transparent);
 }
 
 .forum-compose-button {
-  border-color: rgba(193, 82, 108, 0.42);
-  background: #c1526c;
-  color: #fff7fb;
-  box-shadow: 0 8px 18px rgba(132, 52, 73, 0.2);
+  border-color: rgba(193, 129, 153, 0.52);
+  background: linear-gradient(140deg, #f4dbe7 0%, #f8e8ef 52%, #fff9fc 100%);
+  color: #7a4d5f;
+  box-shadow: 0 8px 18px rgba(176, 120, 143, 0.2);
 }
 
 .forum-compose-button:hover {
-  border-color: rgba(180, 72, 97, 0.54);
-  background: #b84a62;
+  border-color: rgba(181, 118, 143, 0.66);
+  background: linear-gradient(140deg, #f1d2df 0%, #f7e1ea 56%, #fff6fb 100%);
 }
 
 .forum-feed-panel__list-head {
@@ -489,20 +508,46 @@
 }
 
 .forum-pagination-shell .pagination-bar__actions button {
-  border-color: var(--line-soft);
-  color: var(--text-strong);
-  background: rgba(255, 255, 255, 0.78);
+  border-color: var(--forum-sakura-chip-line, var(--line-soft));
+  color: var(--forum-sakura-chip-text, var(--text-strong));
+  background: rgba(255, 250, 253, 0.92);
 }
 
 .forum-pagination-shell .pagination-bar__actions button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.96);
+  border-color: var(--forum-sakura-border-strong, var(--line-strong));
+  background: rgba(255, 254, 255, 0.98);
 }
 
 .forum-pagination-shell .pagination-bar__actions button:disabled {
-  border-color: rgba(67, 82, 103, 0.2);
-  color: rgba(67, 82, 103, 0.56);
-  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(186, 145, 162, 0.22);
+  color: rgba(128, 93, 108, 0.56);
+  background: rgba(255, 247, 252, 0.68);
   opacity: 1;
+}
+
+.forum-board-filter-button {
+  border-color: var(--forum-sakura-border, var(--line-soft));
+  background: rgba(255, 249, 252, 0.86);
+  color: var(--text-main);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.forum-board-filter-button:hover {
+  border-color: var(--forum-sakura-border-strong, var(--line-strong));
+  background: rgba(255, 253, 254, 0.95);
+}
+
+.forum-board-filter-button--active {
+  border-color: var(--forum-sakura-border-strong, var(--line-strong));
+  background: rgba(250, 231, 241, 0.92);
+  color: #73495b;
+  box-shadow: 0 6px 14px rgba(180, 124, 147, 0.2);
+}
+
+.forum-feed-panel__result-pill {
+  border-color: var(--forum-sakura-chip-line, var(--line-soft));
+  background: var(--forum-sakura-chip-bg, var(--surface-card));
+  color: var(--forum-sakura-chip-text, var(--text-muted));
 }
 
 .page-shell--forum .forum-feed-panel {
@@ -527,6 +572,29 @@
 
 .forum-thread-text-item__title {
   overflow-wrap: anywhere;
+}
+
+/* Forum page cards: enforce 50% transparency across day/night themes. */
+.page-shell--forum > .page-scene :is(article.rounded-2xl, section.rounded-2xl, form.rounded-2xl) {
+  background: color-mix(in srgb, var(--surface-panel) 50%, transparent) !important;
+}
+
+.page-shell--forum .forum-feed-panel {
+  background: color-mix(in srgb, var(--surface-panel) 50%, transparent) !important;
+}
+
+.page-shell--forum .forum-thread-text-item,
+.page-shell--forum .forum-thread-text-item:hover,
+.page-shell--forum .forum-thread-text-item:focus-visible,
+.page-shell--forum .forum-thread-master__body,
+.page-shell--forum .forum-nested-reply,
+.page-shell--forum .detail-thread-replies article.rounded-xl,
+.page-shell--forum .forum-thread-text-list > p {
+  background: color-mix(in srgb, var(--surface-card) 50%, transparent) !important;
+}
+
+.page-shell--forum .detail-thread-replies article[class*="bg-[color:var(--surface-tint-blue)]"] {
+  background: color-mix(in srgb, var(--surface-tint-blue) 50%, transparent) !important;
 }
 
 @media (min-width: 1024px) {

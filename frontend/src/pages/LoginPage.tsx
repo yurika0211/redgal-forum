@@ -119,14 +119,6 @@ export default function LoginPage({
                 {loginState.pending ? "登录中..." : "登录"}
               </button>
             </form>
-            <div
-              className="login-captcha-chip inline-flex items-center justify-center gap-2 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
-              aria-hidden="true"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--color-primary)]" />
-              <span>正在验证...</span>
-              <strong className="font-semibold text-[color:var(--text-soft)]">Cloudflare</strong>
-            </div>
             <button className={ghostButtonClassName} type="button" onClick={() => setMode("register")}>
               创建你的账号
             </button>

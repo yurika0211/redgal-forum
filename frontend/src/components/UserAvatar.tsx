@@ -4,6 +4,7 @@ export type UserAvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | number;
 export type UserAvatarShape = "circle" | "rounded";
 export type UserAvatarStatusTone = "neutral" | "success" | "warn" | "accent";
 export type UserAvatarFallbackMode = "initial" | "monogram";
+export type UserAvatarRoleRing = "member" | "admin" | "super_admin";
 
 interface UserAvatarProps {
   className?: string;
@@ -12,6 +13,7 @@ interface UserAvatarProps {
   shape?: UserAvatarShape;
   size?: UserAvatarSize;
   src?: string | null;
+  roleRing?: UserAvatarRoleRing;
   statusTone?: UserAvatarStatusTone;
   style?: CSSProperties;
 }
@@ -43,6 +45,7 @@ export default function UserAvatar({
   shape = "circle",
   size = "md",
   src,
+  roleRing = "member",
   statusTone = "neutral",
   style,
 }: UserAvatarProps) {
@@ -53,6 +56,7 @@ export default function UserAvatar({
     "user-avatar",
     `user-avatar--${shape}`,
     `user-avatar--tone-${statusTone}`,
+    `user-avatar--ring-${roleRing}`,
     sizeClass,
     className,
   ]

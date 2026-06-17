@@ -2,7 +2,7 @@ name: rubedo
 
 services:
   frontend:
-    image: ${FRONTEND_IMAGE:-rubedo-frontend:local}
+    image: ${FRONTEND_IMAGE:-shiokou/redgal-frontend:latest}
     build:
       context: ./frontend
     container_name: rubedo-frontend
@@ -20,7 +20,7 @@ services:
       start_period: 10s
 
   backend:
-    image: ${BACKEND_IMAGE:-rubedo-backend:local}
+    image: ${BACKEND_IMAGE:-shiokou/redgal-backend:latest}
     build:
       context: ./backend
     container_name: rubedo-backend

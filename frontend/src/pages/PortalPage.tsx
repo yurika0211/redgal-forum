@@ -257,10 +257,10 @@ export default function PortalPage({
               这里会是你把热爱变成讨论、稿件、视频和合作的起点。
             </p>
           </div>
-          <aside className="rounded-[20px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-[clamp(14px,1.9vw,20px)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]" aria-label="社团关键节点">
+          <aside className="portal-manifesto-sidecard rounded-[20px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-[clamp(14px,1.9vw,20px)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]" aria-label="社团关键节点">
             <ul className="m-0 grid list-none gap-2.5 p-0 max-[1040px]:grid-cols-3 max-[760px]:grid-cols-1">
               {manifestoHighlights.map((item) => (
-                <li className="grid gap-[5px] rounded-[14px] border border-[color:var(--line-soft)] bg-white/60 px-3 py-[11px]" key={item.label}>
+                <li className="portal-manifesto-sideitem grid gap-[5px] rounded-[14px] border border-[color:var(--line-soft)] bg-white/60 px-3 py-[11px]" key={item.label}>
                   <span className="text-[0.75rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{item.label}</span>
                   <strong className="font-[var(--font-display)] text-[1.26rem] text-[color:var(--text-strong)]">{item.value}</strong>
                   <p className="m-0 text-[0.86rem] text-[color:var(--text-soft)] leading-[1.65]">{item.detail}</p>
@@ -355,7 +355,7 @@ export default function PortalPage({
               key={activity.id}
             >
               <span className="absolute left-[5px] top-[22px] h-[14px] w-[14px] rounded-full border-[3px] border-[rgba(102,167,213,0.86)] bg-[#f8fbff] shadow-[0_0_0_2px_rgba(255,255,255,0.9),0_0_0_5px_rgba(102,167,213,0.12)] max-[980px]:left-[3px] max-[980px]:top-[18px] max-[980px]:h-3 max-[980px]:w-3" aria-hidden="true" />
-              <div className="relative overflow-hidden rounded-[14px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-4 py-[14px] shadow-[inset_0_1px_0_rgba(255,255,255,0.64),0_10px_22px_rgba(37,60,42,0.08)] max-[760px]:px-[13px] max-[760px]:py-3">
+              <div className="portal-activity-card relative overflow-hidden rounded-[14px] border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-4 py-[14px] shadow-[inset_0_1px_0_rgba(255,255,255,0.64),0_10px_22px_rgba(37,60,42,0.08)] max-[760px]:px-[13px] max-[760px]:py-3">
                 <div className="flex items-start justify-between gap-2.5">
                   <span className="inline-block text-[0.9rem] font-bold tracking-[0.01em] text-[rgba(66,102,130,0.9)]">{activity.label || `节点 ${String(index + 1).padStart(2, "0")}`}</span>
                   {canAdmin ? (

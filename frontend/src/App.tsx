@@ -147,6 +147,7 @@ import {
   readStoriesEditorMode,
   TITLE_BY_ROUTE,
 } from "./lib/routes";
+import { resolveUserRoleRing } from "./lib/roles";
 import { persistSession, readStoredSession } from "./lib/session";
 import {
   excerpt,
@@ -5558,11 +5559,13 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
           <WorkspaceSidebar
             activeItemId={adminActivePage}
             footerAvatarLabel={profile?.nickname || profile?.username || "后台成员"}
+            footerAvatarRole={resolveUserRoleRing(profile?.roles)}
             footerAvatarUrl={profile?.avatar_url || undefined}
             footerBadge={pendingVerificationUsers.length ? `${pendingVerificationUsers.length} 待审` : "就绪"}
             footerSubtitle={`角色：${formatAdminRoles(profile?.roles)}`}
             footerTitle={profile?.nickname || profile?.username || "后台成员"}
             headerAvatarLabel="Rubedo"
+            headerAvatarRole="super_admin"
             headerKicker="Rubedo Control"
             headerSubtitle={`${activeAdminSectionMeta.title} · ${activeAdminPageLabel}`}
             headerTitle="后台工作台"

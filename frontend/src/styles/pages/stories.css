@@ -1,13 +1,14 @@
 .story-article-view {
-  --story-detail-shell-max: 1340px;
-  --story-detail-main-readable-width: clamp(68ch, 72vw, 74ch);
+  --story-detail-shell-max: 1120px;
+  --story-detail-main-readable-width: clamp(48ch, 52vw, 56ch);
+  --story-detail-main-column-max: 760px;
   --story-detail-sheet-padding-x: clamp(14px, 3.4vw, 38px);
   --story-detail-sheet-padding-y: clamp(24px, 3vw, 34px);
   --story-detail-column-gap: clamp(16px, 2.2vw, 26px);
   --story-detail-grid-size: 26px;
   --story-detail-grid-line: rgba(137, 106, 117, 0.12);
   --story-detail-grid-line-strong: rgba(137, 106, 117, 0.18);
-  --story-detail-surface: rgba(248, 246, 239, 0.9);
+  --story-detail-surface: rgba(248, 246, 239, 0.5);
   --story-detail-border: rgba(125, 136, 162, 0.26);
   --story-detail-sticky-top-safe: var(--story-detail-sticky-top, calc(var(--story-detail-header-offset, 68px) + 16px));
   --story-detail-sidebar-max-h: calc(100dvh - var(--story-detail-sticky-top-safe) - 16px);
@@ -235,26 +236,25 @@
   width: min(var(--story-detail-shell-max), 100%);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(248px, 316px) minmax(0, 1fr) minmax(216px, 268px);
+  grid-template-columns: minmax(0, var(--story-detail-main-column-max)) minmax(196px, 248px);
+  justify-content: center;
   gap: var(--story-detail-column-gap);
   align-items: start;
 }
 
 .story-article-sheet__layout--no-toc {
-  grid-template-columns: minmax(252px, 322px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, var(--story-detail-main-column-max));
+  justify-content: center;
 }
 
 .story-article-sheet__main {
+  grid-column: 1;
+  order: 1;
   min-width: 0;
 }
 
 .story-article-author-card,
 .story-article-toc {
-  position: sticky;
-  top: var(--story-detail-sticky-top-safe);
-  max-height: var(--story-detail-sidebar-max-h);
-  overflow-y: auto;
-  scrollbar-gutter: stable;
   border: 1px solid var(--story-detail-border);
   border-radius: 16px;
   background: var(--story-detail-surface);
@@ -263,7 +263,19 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.58);
 }
 
+.story-article-sheet__author {
+  grid-column: 1;
+  order: 3;
+  width: 100%;
+  max-width: min(100%, var(--story-detail-main-column-max));
+  justify-self: start;
+}
+
 .story-article-author-card {
+  position: static;
+  top: auto;
+  max-height: none;
+  overflow: visible;
   display: grid;
   gap: 14px;
   padding: clamp(16px, 1.8vw, 20px);
@@ -376,7 +388,7 @@
 .story-article-main__body {
   width: 100%;
   max-width: none;
-  justify-self: start;
+  justify-self: stretch;
   display: grid;
   gap: clamp(14px, 1.8vw, 22px);
   padding: 0;
@@ -484,7 +496,11 @@
 
 @media (max-width: 1320px) {
   .story-article-sheet__layout {
-    grid-template-columns: minmax(232px, 282px) minmax(0, 1fr) minmax(200px, 238px);
+    grid-template-columns: minmax(0, 720px) minmax(176px, 220px);
+  }
+
+  .story-article-sheet__layout--no-toc {
+    grid-template-columns: minmax(0, 720px);
   }
 
   .story-article-hero__meta {
@@ -525,6 +541,13 @@
 }
 
 .story-article-toc {
+  grid-column: 2;
+  order: 2;
+  position: sticky;
+  top: var(--story-detail-sticky-top-safe);
+  max-height: var(--story-detail-sidebar-max-h);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   display: grid;
   gap: 10px;
   padding: 14px;
@@ -1124,6 +1147,19 @@ html[data-theme="night"] .story-article-toc:hover::-webkit-scrollbar-thumb {
   margin-bottom: 4px;
 }
 
+.page-shell--stories .story-list-panel {
+  background: color-mix(in srgb, var(--surface-panel) 50%, transparent) !important;
+}
+
+.page-shell--stories .story-snippet-item,
+.page-shell--stories .story-snippet-item:hover {
+  background: color-mix(in srgb, var(--surface-card) 50%, transparent) !important;
+}
+
+.page-shell--stories .story-list-panel .pagination-bar {
+  background: color-mix(in srgb, var(--surface-card) 50%, transparent) !important;
+}
+
 .app-shell .page-shell--stories + .site-copyright {
   margin-top: 14px;
   padding-top: 9px;
@@ -1343,6 +1379,24 @@ html[data-theme="night"] .story-article-toc:hover::-webkit-scrollbar-thumb {
 
   .story-article-sheet__layout {
     gap: 12px;
+  }
+
+  .story-article-sheet__main {
+    order: 1;
+  }
+
+  .story-article-sheet__toc {
+    order: 2;
+    grid-column: 1;
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .story-article-sheet__author {
+    order: 3;
+    grid-column: 1;
+    width: 100%;
+    justify-self: stretch;
   }
 
   .story-article-main__body {

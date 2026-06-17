@@ -1,13 +1,13 @@
 .gallery-photo-shell {
   --gallery-editor-columns: 3;
   --gallery-editor-media-aspect: 5 / 3;
-  --gallery-sakura-border: rgba(248, 194, 215, 0.46);
-  --gallery-sakura-glow: rgba(246, 171, 201, 0.28);
+  --gallery-sakura-border: rgba(255, 239, 246, 0.78);
+  --gallery-sakura-glow: rgba(255, 234, 244, 0.48);
   display: grid;
   gap: clamp(16px, 2vw, 28px);
   padding: 2px 2px 6px;
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(57, 33, 52, 0.16) 0, rgba(57, 33, 52, 0) 280px);
+  background: linear-gradient(180deg, rgba(255, 227, 239, 0.12) 0, rgba(255, 227, 239, 0) 280px);
 }
 
 .gallery-photo-shell,
@@ -69,11 +69,11 @@
 .gallery-photo-shell__head h2 {
   margin: 0;
   font-family: var(--font-display);
-  color: #fff2f8;
+  color: #fffbfd;
   font-size: clamp(1.5rem, 2.4vw, 2.4rem);
   font-weight: 700;
   line-height: 1.1;
-  text-shadow: 0 1px 0 rgba(30, 12, 27, 0.58);
+  text-shadow: 0 1px 0 rgba(67, 35, 58, 0.32);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -84,12 +84,12 @@
   padding: clamp(14px, 1.8vw, 22px);
   border-color: var(--gallery-sakura-border) !important;
   background:
-    linear-gradient(155deg, rgba(47, 29, 45, 0.95), rgba(31, 19, 31, 0.95)),
+    linear-gradient(155deg, rgba(124, 93, 113, 0.72), rgba(98, 73, 90, 0.68)),
     radial-gradient(circle at 14% 12%, var(--gallery-sakura-glow), transparent 44%),
-    radial-gradient(circle at 88% 82%, rgba(255, 228, 239, 0.2), transparent 48%) !important;
+    radial-gradient(circle at 88% 82%, rgba(255, 245, 250, 0.52), transparent 50%) !important;
   box-shadow:
-    0 18px 36px rgba(24, 11, 22, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 18px 36px rgba(52, 26, 45, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .gallery-photo-shell__head--art::after {
@@ -100,20 +100,20 @@
   bottom: 0;
   height: 90px;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 235, 245, 0), rgba(255, 235, 245, 0.3));
+  background: linear-gradient(180deg, rgba(255, 243, 249, 0), rgba(255, 243, 249, 0.48));
 }
 
 .gallery-photo-shell__art-title {
   margin: 0;
   font-family: var(--font-nav);
-  color: #ffdff0;
+  color: #fff4f9;
   font-size: clamp(1.9rem, 3.8vw, 3.05rem);
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.06;
   text-shadow:
-    0 2px 0 rgba(83, 44, 64, 0.62),
-    0 10px 20px rgba(15, 8, 15, 0.34);
+    0 2px 0 rgba(118, 78, 100, 0.36),
+    0 10px 20px rgba(37, 18, 32, 0.18);
   transform: rotate(-1.5deg);
   transform-origin: left bottom;
   overflow-wrap: anywhere;
@@ -122,7 +122,7 @@
 
 .gallery-photo-shell__head-note {
   margin: 0;
-  color: #f4dce8;
+  color: #fff2f8;
   font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -146,16 +146,16 @@
   padding: 10px 12px;
   border: 1px solid var(--gallery-sakura-border);
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 228, 239, 0.26), rgba(255, 213, 230, 0.1));
+  background: linear-gradient(180deg, rgba(255, 246, 251, 0.58), rgba(255, 236, 245, 0.38));
   box-shadow:
-    0 8px 16px rgba(25, 11, 21, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+    0 8px 16px rgba(34, 16, 30, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(5px);
   min-width: 0;
 }
 
 .gallery-photo-shell__hero-stat span {
-  color: rgba(255, 227, 239, 0.92);
+  color: rgba(255, 247, 251, 0.96);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -184,7 +184,7 @@
 }
 
 .gallery-photo-shell__hero-type-label {
-  color: rgba(255, 220, 236, 0.9);
+  color: rgba(255, 244, 250, 0.97);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -193,30 +193,30 @@
 
 .gallery-photo-shell__hero-type-chips .status-chip {
   border-color: var(--gallery-sakura-border) !important;
-  background: rgba(255, 221, 235, 0.2) !important;
-  color: #ffe6f1 !important;
+  background: rgba(255, 240, 248, 0.48) !important;
+  color: #fffbfd !important;
 }
 
 .gallery-photo-shell__hero-cta {
   min-height: 40px;
   padding-inline: 16px;
   border: 1px solid var(--gallery-sakura-border) !important;
-  background: rgba(255, 220, 235, 0.1) !important;
-  color: #fff0f7 !important;
+  background: rgba(255, 239, 247, 0.38) !important;
+  color: #fffbfd !important;
   font-weight: 700;
   box-shadow:
-    0 8px 18px rgba(24, 10, 22, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    0 8px 18px rgba(37, 17, 33, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
   backdrop-filter: blur(2px);
 }
 
 .gallery-photo-shell__hero-cta:hover {
   border-color: rgba(255, 233, 243, 0.8) !important;
-  background: rgba(255, 219, 235, 0.24) !important;
+  background: rgba(255, 241, 248, 0.52) !important;
 }
 
 .gallery-photo-shell__hero-cta:focus-visible {
-  outline: 2px solid rgba(255, 214, 232, 0.72);
+  outline: 2px solid rgba(255, 231, 242, 0.82);
   outline-offset: 2px;
 }
 
@@ -236,7 +236,7 @@ html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head-kicker
 html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head-note,
 html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__art-title,
 html[data-theme="night"] .gallery-mantine-hero .gallery-photo-shell__head h2 {
-  color: #fff1f8 !important;
+  color: #fff8fc !important;
 }
 
 html[data-theme="day"] .gallery-mantine-hero .gallery-photo-shell__head-kicker,
@@ -953,6 +953,24 @@ html[data-theme="day"] .gallery-curation-grid--wall .gallery-curation-card__medi
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.page-shell--gallery {
+  --gallery-card-opacity: 50%;
+}
+
+.page-shell--gallery .gallery-photo-shell__hero-stat,
+.page-shell--gallery .gallery-photo-shell__hero-type-chips .status-chip,
+.page-shell--gallery .gallery-photo-card,
+.page-shell--gallery .gallery-topic-nav,
+.page-shell--gallery .gallery-entry-inline-item--selected,
+.page-shell--gallery .gallery-curation-section,
+.page-shell--gallery .gallery-curation-card,
+.page-shell--gallery .gallery-curation-grid--wall .gallery-curation-card,
+.page-shell--gallery .gallery-empty-state,
+.page-shell--gallery .gallery-lightbox__panel,
+.page-shell--gallery .gallery-lightbox__annotation {
+  background: color-mix(in srgb, var(--surface-card) var(--gallery-card-opacity), transparent) !important;
 }
 
 @media (max-width: 900px) {

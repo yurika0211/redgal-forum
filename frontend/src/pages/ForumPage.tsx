@@ -734,13 +734,13 @@ export default function ForumPage({
 
   return (
     <>
-      <section className="forum-list-page mx-auto grid w-full min-w-0 max-w-[1080px] grid-cols-1 gap-4">
+      <section className="forum-list-page mx-auto grid w-full min-w-0 grid-cols-1 gap-4">
         <article className="forum-feed-panel mx-auto w-full min-w-0 rounded-[24px] border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-3 shadow-sm sm:p-4">
           <div className="forum-feed-panel__hero forum-feed-panel__section grid gap-3">
             <div className="forum-feed-panel__hero-grid grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="forum-feed-panel__hero-copy grid min-w-0 gap-2">
                 <p className="forum-feed-panel__kicker">帖子流</p>
-                <h2 className="text-[1.55rem] font-semibold leading-tight text-[color:var(--text-strong)]">讨论串列表</h2>
+                <h2 className="text-[1.55rem] font-semibold leading-tight text-[color:var(--text-strong)]">帖子列表</h2>
                 <p className="text-sm leading-6 text-[color:var(--text-soft)]">浏览活跃主题并按分区快速筛选。</p>
               </div>
               <div className="forum-feed-panel__hero-actions flex w-full min-w-0 flex-col items-stretch gap-2 lg:w-auto lg:items-end">
@@ -784,10 +784,8 @@ export default function ForumPage({
                   <div className="forum-board-scroller__inner">
                     {boardFilterOptions.map((board) => (
                       <button
-                        className={`inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm transition ${
-                          selectedForumBoard === board
-                            ? "border-[color:var(--line-strong)] bg-[color:var(--surface-tint-blue)] text-[color:var(--text-strong)] shadow-[0_4px_12px_rgba(79,139,174,0.16)]"
-                            : "border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] text-[color:var(--text-main)] hover:border-[color:var(--line-strong)] hover:bg-white"
+                        className={`forum-board-filter-button inline-flex shrink-0 items-center rounded-lg border px-3 py-1.5 text-sm transition ${
+                          selectedForumBoard === board ? "forum-board-filter-button--active" : ""
                         }`}
                         key={board}
                         type="button"
@@ -806,7 +804,7 @@ export default function ForumPage({
           <div className="forum-feed-panel__section forum-feed-panel__section--list">
             <div className="forum-feed-panel__list-head mt-1 flex flex-wrap items-center justify-between gap-2">
               <p className="forum-feed-panel__list-kicker">主题列表</p>
-              <span className="inline-flex items-center rounded-full border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-2 py-0.5 text-[0.72rem] text-[color:var(--text-muted)]">
+              <span className="forum-feed-panel__result-pill inline-flex items-center rounded-full border px-2 py-0.5 text-[0.72rem] text-[color:var(--text-muted)]">
                 {filteredThreadFeed.length} 条结果
               </span>
             </div>

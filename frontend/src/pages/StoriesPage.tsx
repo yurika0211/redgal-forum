@@ -19,6 +19,7 @@ import StatusChip from "../components/StatusChip";
 import UserAvatar from "../components/UserAvatar";
 import type { PagerState } from "../lib/pagination";
 import { buildPublicProfileHref } from "../lib/profile";
+import { resolveUserRoleRing } from "../lib/roles";
 import {
   excerpt,
   extractMarkdownHeadings,
@@ -526,6 +527,7 @@ export default function StoriesPage({
                   className="story-article-author-card__avatar"
                   fallbackMode="initial"
                   label={authorName}
+                  roleRing={resolveUserRoleRing(authorProfile?.roles)}
                   shape="circle"
                   size="xl"
                   src={authorAvatarURL}

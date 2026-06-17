@@ -373,6 +373,11 @@ html[data-theme] .workspace-sidebar--space .workspace-sidebar__identity {
   box-shadow: none;
 }
 
+/* Space page "main control" panel transparency */
+.page-shell--space .workspace-sidebar--space.workspace-sidebar--no-header .workspace-sidebar__body {
+  background: color-mix(in srgb, var(--surface-panel) 50%, transparent) !important;
+}
+
 @media (max-width: 900px) {
   .workspace-sidebar__brand,
   .workspace-sidebar__identity {

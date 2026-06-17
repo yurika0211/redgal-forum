@@ -46,7 +46,11 @@ body {
 
 .background-slide {
   display: block;
-  opacity: 0;
+  opacity: 0.62;
+}
+
+.background-slide--two {
+  opacity: 0.4;
 }
 
 .scene-ornaments {
@@ -122,12 +126,6 @@ html[data-theme="day"] .home-notice-modal__panel {
 }
 
 @media (prefers-reduced-motion: reduce) {
-}
-
-@keyframes login-captcha-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (max-width: 640px) {
