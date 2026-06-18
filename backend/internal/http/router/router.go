@@ -6,11 +6,11 @@ import (
 	"example.com/rubedo/backend/internal/config"
 	"example.com/rubedo/backend/internal/middleware"
 	"example.com/rubedo/backend/internal/modules/activity"
+	"example.com/rubedo/backend/internal/modules/apidocs"
 	"example.com/rubedo/backend/internal/modules/article"
 	"example.com/rubedo/backend/internal/modules/auth"
 	"example.com/rubedo/backend/internal/modules/forum"
 	"example.com/rubedo/backend/internal/modules/health"
-	"example.com/rubedo/backend/internal/modules/luckybot"
 	"example.com/rubedo/backend/internal/modules/sitecontent"
 	"example.com/rubedo/backend/internal/modules/user"
 	"example.com/rubedo/backend/internal/modules/wall"
@@ -29,7 +29,6 @@ type Dependencies struct {
 	ForumHandler    *forum.Handler
 	SiteHandler     *sitecontent.Handler
 	WallHandler     *wall.Handler
-	Luckybot        *luckybot.Handler
 }
 
 func New(deps Dependencies) *gin.Engine {
@@ -41,6 +40,8 @@ func New(deps Dependencies) *gin.Engine {
 	engine.Use(gin.Logger())
 	engine.Use(middleware.RequestID())
 	engine.Use(middleware.Recovery())
+
+	registerDocsRoutes(engine)
 
 	api := engine.Group("/api/v1")
 	api.GET("/health", deps.HealthHandler.Get)
@@ -54,9 +55,15 @@ func New(deps Dependencies) *gin.Engine {
 	registerForumRoutes(api, deps)
 	registerSiteRoutes(api, deps)
 	registerWallRoutes(api, deps)
-	registerLuckybotRoutes(api, deps)
 
 	return engine
+}
+
+func registerDocsRoutes(engine *gin.Engine) {
+	handler := apidocs.NewHandler()
+	engine.GET("/swagger", handler.Redirect)
+	engine.GET("/swagger/", handler.UI)
+	engine.GET("/swagger/openapi.json", handler.OpenAPI)
 }
 
 func registerAuthRoutes(api *gin.RouterGroup, deps Dependencies) {
@@ -211,14 +218,4 @@ func registerWallRoutes(api *gin.RouterGroup, deps Dependencies) {
 	)
 	moderation.GET("/submissions", deps.WallHandler.ListSubmissions)
 	moderation.POST("/submissions/:submissionID/review", deps.WallHandler.ReviewSubmission)
-}
-
-func registerLuckybotRoutes(api *gin.RouterGroup, deps Dependencies) {
-	group := api.Group("/luckybot")
-	group.Use(middleware.RequireAuthenticated(), middleware.RateLimit("chat"))
-	group.POST("/chat", deps.Luckybot.Chat)
-
-	admin := api.Group("/admin/luckybot")
-	admin.Use(middleware.RequireAuthenticated(), middleware.RequireRoles(security.RoleAdmin, security.RoleSuperAdmin))
-	admin.POST("/reload", deps.Luckybot.ReloadPersona)
 }

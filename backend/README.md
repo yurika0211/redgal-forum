@@ -17,7 +17,7 @@ The scaffold intentionally focuses on structure instead of full business logic:
 - config loading
 - HTTP bootstrap and graceful shutdown
 - request ID, auth, and rate-limit middleware placeholders
-- domain modules for auth, user, article, forum, wall, and Luckybot
+- domain modules for auth, user, article, forum, wall, activity, and site content
 - infrastructure placeholders for PostgreSQL, Redis, and Meilisearch
 
 ## Routes Reserved
@@ -41,8 +41,6 @@ The scaffold intentionally focuses on structure instead of full business logic:
 - `GET /api/v1/wall`
 - `POST /api/v1/wall/submissions`
 - `POST /api/v1/wall/submissions/:submissionID/review`
-- `POST /api/v1/luckybot/chat`
-- `POST /api/v1/admin/luckybot/reload`
 
 ## Start
 
@@ -58,3 +56,13 @@ go run ./cmd/api
 Use the project root `.env.example` as the canonical base environment file.
 Backend startup now loads root `.env` first and then falls back to `backend/.env` for compatibility.
 The service can start without external middleware dependencies connected yet; those are intentionally left as next-step integrations.
+
+## API Docs
+
+After starting the backend, open the Swagger page at:
+
+- `http://127.0.0.1:8080/swagger/`
+
+The OpenAPI JSON is available at:
+
+- `http://127.0.0.1:8080/swagger/openapi.json`

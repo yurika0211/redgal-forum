@@ -368,13 +368,6 @@ export default function ForumPage({
             </div>
             {threadManageActionState.error ? <p className="text-sm text-rose-500/90">{threadManageActionState.error}</p> : null}
             {threadManageActionState.success ? <p className="text-sm text-[color:var(--text-muted)]">{threadManageActionState.success}</p> : null}
-            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">主题详情</p>
-            <h1 className="text-2xl font-semibold text-[color:var(--text-strong)]">{activeForumThread?.title || "论坛主题详情"}</h1>
-            <p className="text-sm leading-7 text-[color:var(--text-soft)]">
-              {activeForumThread
-                ? "像单独帖子页一样阅读主楼、楼层和楼中楼，不再挤在列表旁边。"
-                : "正在读取主题内容。"}
-            </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[color:var(--text-muted)]">
               {activeForumThread ? renderAuthorName(activeForumThread.author) : <span>读取中</span>}
               <span>{activeForumThread ? `${formatPublishedAgo(activeForumThread.created_at)} 发布` : "发布时间读取中"}</span>
@@ -427,7 +420,6 @@ export default function ForumPage({
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">回复区</p>
-                <h2>正文评论列表</h2>
               </div>
               <div className="flex flex-wrap gap-2.5">
                 <button
@@ -445,22 +437,6 @@ export default function ForumPage({
                   收起楼中楼
                 </button>
               </div>
-            </div>
-            <div className="mb-3 grid gap-1">
-              <p className="text-sm text-[color:var(--text-muted)]">
-                阅读模式：{onlyShowThreadAuthor ? "只看楼主" : "全部楼层"}。
-              </p>
-              <p className="text-sm text-[color:var(--text-muted)]">
-                回复目标：{replyTarget ? `${formatForumFloor(replyTarget.floor_no)} · ${replyTarget.author}` : "主楼"}。
-                {replyTarget ? (
-                  <>
-                    {" "}
-                    <button className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] px-2 py-1 text-xs text-[color:var(--text-main)] transition hover:border-[color:var(--line-strong)] hover:bg-white/80" type="button" onClick={onClearReplyTarget}>
-                      改为回复主楼
-                    </button>
-                  </>
-                ) : null}
-              </p>
             </div>
             <div className="m-0 grid gap-0">
               {onlyShowThreadAuthor ? (
@@ -551,7 +527,6 @@ export default function ForumPage({
           <section className="forum-sticky-reply mt-4 rounded-2xl border border-[color:var(--line-soft)] border-t-[color:var(--line-strong)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
             <div className="forum-sticky-reply__header mb-3 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-start">
               <div>
-                <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">底部互动区</p>
                 <h2>{replyTarget ? `回复 ${formatForumFloor(replyTarget.floor_no)}` : "快捷回复"}</h2>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -741,7 +716,7 @@ export default function ForumPage({
               <div className="forum-feed-panel__hero-copy grid min-w-0 gap-2">
                 <p className="forum-feed-panel__kicker">帖子流</p>
                 <h2 className="text-[1.55rem] font-semibold leading-tight text-[color:var(--text-strong)]">帖子列表</h2>
-                <p className="text-sm leading-6 text-[color:var(--text-soft)]">浏览活跃主题并按分区快速筛选。</p>
+                <p className="text-sm leading-6 text-[color:var(--text-soft)]">按标题、作者与分区查看主题动态。</p>
               </div>
               <div className="forum-feed-panel__hero-actions flex w-full min-w-0 flex-col items-stretch gap-2 lg:w-auto lg:items-end">
                 <StatusChip tone="accent">{threadPager.total} 条主题</StatusChip>
@@ -762,13 +737,8 @@ export default function ForumPage({
           </div>
 
           <div className="forum-feed-panel__filters forum-feed-panel__section grid min-w-0 gap-3">
-            <div className="forum-feed-panel__filters-head">
-              <p className="forum-feed-panel__filters-kicker">筛选器</p>
-              <p className="forum-feed-panel__filters-note">先输入关键词，再按分区收窄结果，列表会实时更新。</p>
-            </div>
             <div className="forum-feed-panel__filters-body">
               <label className="form-field forum-feed-panel__search" htmlFor="forum-thread-search">
-                <span className="forum-feed-panel__search-label">关键词搜索</span>
                 <input
                   id="forum-thread-search"
                   className="form-control forum-thread-search-input"
@@ -779,7 +749,6 @@ export default function ForumPage({
                 />
               </label>
               <div className="forum-feed-panel__board-group">
-                <p className="forum-feed-panel__board-title">分区筛选</p>
                 <div className="forum-board-scroller min-w-0">
                   <div className="forum-board-scroller__inner">
                     {boardFilterOptions.map((board) => (
@@ -809,11 +778,11 @@ export default function ForumPage({
               </span>
             </div>
 
-            <div className="forum-thread-text-list mt-2 grid min-w-0 gap-2">
+            <div className="forum-thread-text-list mt-2 grid min-w-0">
               {filteredThreadFeed.map((thread) => {
                 return (
                   <button
-                    className="forum-thread-text-item group relative grid w-full min-w-0 gap-2.5 overflow-hidden rounded-xl px-3 py-3 text-left transition duration-150 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--line-strong)] focus-visible:ring-offset-1"
+                    className="forum-thread-text-item group relative grid w-full min-w-0 gap-2.5 px-3 py-3 text-left transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--line-strong)] focus-visible:ring-offset-1"
                     key={thread.id}
                     type="button"
                     title={thread.title}
@@ -856,7 +825,7 @@ export default function ForumPage({
                 </p>
               ) : null}
             </div>
-            <div className="forum-pagination-shell mt-4 rounded-xl p-3 sm:p-3">
+            <div className="forum-pagination-shell mt-3">
               <PaginationBar pager={threadPager} onPageChange={onThreadPageChange} emptyText="暂无讨论主题。" />
             </div>
           </div>

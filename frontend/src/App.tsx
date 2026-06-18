@@ -10,6 +10,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import "./App.css";
 import {
   createContentBlock,
@@ -182,6 +183,9 @@ const HOME_NOTICE_SEEN_KEY = "rubedo_home_notice_seen_v1";
 const HOME_NOTICE_SEEN_LIMIT = 96;
 const ANONYMOUS_BOARD_MESSAGE_CAP = 250;
 const ADMIN_DASHBOARD_SNAPSHOT_KEY = "rubedo_admin_dashboard_snapshot_v1";
+const PAGE_SCENE_EASE = [0.22, 1, 0.36, 1] as const;
+const PAGE_SCENE_ENTER_TRANSITION = { duration: 0.34, ease: PAGE_SCENE_EASE };
+const PAGE_SCENE_EXIT_TRANSITION = { duration: 0.2, ease: PAGE_SCENE_EASE };
 
 const ADMIN_DASHBOARD_TREND_KEYS = [
   "total_users",
@@ -1031,6 +1035,7 @@ function applyThreadEngagement(
 
 function App() {
   const forumReplyTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const shouldReduceMotion = useReducedMotion();
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
   const {
     routePath,
@@ -5505,6 +5510,9 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       adminSidebarSections
         .flatMap((section) => section.items)
         .find((item) => item.id === adminActivePage)?.label ?? "核心指标速览";
+    const activeAdminSectionPages = activeAdminSectionMeta.children;
+    const pendingAdminTaskCount =
+      Number(adminDashboard?.pending_verification_users ?? 0) + Number(wallSubmissionsPager.total ?? 0);
     const announcementBlocks = adminContentBlocks
       .filter((block) => block.block_type === "portal_notice")
       .sort((left, right) => right.sort_order - left.sort_order);
@@ -5555,7 +5563,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
     return (
       <>
-        <section className="grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <section className="admin-dashboard-layout">
           <WorkspaceSidebar
             activeItemId={adminActivePage}
             footerAvatarLabel={profile?.nickname || profile?.username || "后台成员"}
@@ -5571,11 +5579,44 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             headerTitle="后台工作台"
             onItemSelect={(itemId) => setAdminActivePage(itemId as AdminPageKey)}
             sections={adminSidebarSections}
-            showHeader={false}
+            showHeader
             tone="space"
           />
 
-          <div className="admin-main grid gap-4">
+          <div className="admin-main admin-dashboard-main grid gap-4">
+            <header className="admin-dashboard-topbar">
+              <div className="admin-dashboard-topbar__copy">
+                <p className="admin-dashboard-topbar__eyebrow">{activeAdminSectionMeta.kicker}</p>
+                <h1>{activeAdminSectionMeta.title}</h1>
+                <p>{activeAdminSectionMeta.description}</p>
+              </div>
+              <div className="admin-dashboard-topbar__meta">
+                <StatusChip tone={pendingAdminTaskCount > 0 ? "warn" : "success"}>
+                  {pendingAdminTaskCount > 0 ? `${pendingAdminTaskCount} 项待处理` : "无待办"}
+                </StatusChip>
+                <button
+                  className="admin-dashboard-topbar__action"
+                  type="button"
+                  onClick={() => setAdminActivePage("dashboard-actions")}
+                >
+                  快捷入口
+                </button>
+              </div>
+            </header>
+
+            <nav className="admin-dashboard-tabs" aria-label="后台当前分组页面">
+              {activeAdminSectionPages.map((page) => (
+                <button
+                  aria-current={adminActivePage === page.id ? "page" : undefined}
+                  className="admin-dashboard-tabs__item"
+                  key={page.id}
+                  type="button"
+                  onClick={() => setAdminActivePage(page.id)}
+                >
+                  {page.label}
+                </button>
+              ))}
+            </nav>
 
         <section className="grid gap-4" style={{ display: adminActivePage === "dashboard-overview" ? undefined : "none" }}>
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
@@ -5613,8 +5654,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">待办提醒</p>
-                <h2>当前优先事项</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">建议先处理认证审批，再检查内容审核。</p>
               </div>
               <StatusChip tone={(adminDashboard?.pending_verification_users ?? 0) > 0 ? "warn" : "success"}>
                 {adminDashboard?.pending_verification_users ?? 0} 条
@@ -5660,8 +5699,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">快捷操作</p>
-                <h2>高频入口</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">按日常运营顺序整理的常用跳转入口。</p>
               </div>
               <StatusChip tone="neutral">快捷入口</StatusChip>
             </div>
@@ -5696,8 +5733,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">成员管理</p>
-                <h2>成员列表与状态维护</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">用于处理禁言、封禁、降级与认证相关操作。</p>
               </div>
               <StatusChip tone="accent">{adminUsersPager.total} 人</StatusChip>
             </div>
@@ -5829,8 +5864,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">审核队列</p>
-                <h2>认证审批</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">仅展示含待审请求的成员，可直接做通过或驳回。</p>
               </div>
               <StatusChip tone="warn">{pendingVerificationUsers.length} 条</StatusChip>
             </div>
@@ -5874,8 +5907,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">权限说明</p>
-                <h2>权限分工与操作边界</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">明确谁负责配置、谁负责执行，避免重复操作和越权。</p>
               </div>
             </div>
             <div className="grid gap-3">
@@ -5959,8 +5990,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">内容管理</p>
-                <h2>{editingContentBlockID ? "编辑站点内容块" : "新建站点内容块"}</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">首页与门户区块统一在这里维护，建议先写摘要再补正文。</p>
               </div>
               <StatusChip tone="accent">内容块</StatusChip>
             </div>
@@ -6087,8 +6116,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">展示资源</p>
-                <h2>{editingGalleryEntryID ? "编辑展示条目" : "新建展示条目"}</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">用于维护展示墙条目基础信息，不影响原图文件。</p>
               </div>
               <StatusChip tone="accent">{editingGalleryEntryID ? "编辑模式" : "创建模式"}</StatusChip>
             </div>
@@ -6164,7 +6191,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">当前展示资源</p>
-                <h2>展示条目与上下线状态</h2>
               </div>
               <StatusChip tone="neutral">{adminGalleryPager.total} 条</StatusChip>
             </div>
@@ -6219,8 +6245,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动管理</p>
-                <h2>接龙活动管理</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">可创建活动并控制状态流转，避免活动发布时间冲突。</p>
               </div>
               <StatusChip tone="accent">接龙</StatusChip>
             </div>
@@ -6316,8 +6340,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动管理</p>
-                <h2>征文活动管理</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">支持征文创建、时间维护与状态切换。</p>
               </div>
               <StatusChip tone="accent">征文</StatusChip>
             </div>
@@ -6538,8 +6560,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">公告中心</p>
-                <h2>发布公告与系统说明</h2>
-                <p className="text-sm text-[color:var(--text-muted)]">用于发布首页公告。建议填写真实发布时间、明确分类和可读摘要。</p>
               </div>
               <StatusChip tone="accent">公告块</StatusChip>
             </div>
@@ -6842,9 +6862,25 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
               </section>
             }
           >
-            <div className="page-scene" key={pageSceneKey}>
-              {renderCurrentPage()}
-            </div>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={pageSceneKey}
+                className="page-scene"
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 18, scale: 0.985, filter: "blur(8px)" }}
+                animate={
+                  shouldReduceMotion
+                    ? { opacity: 1, transition: { duration: 0 } }
+                    : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transition: PAGE_SCENE_ENTER_TRANSITION }
+                }
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 1, transition: { duration: 0 } }
+                    : { opacity: 0, y: -12, scale: 0.99, filter: "blur(6px)", transition: PAGE_SCENE_EXIT_TRANSITION }
+                }
+              >
+                {renderCurrentPage()}
+              </motion.div>
+            </AnimatePresence>
           </Suspense>
         </div>
         {routePath !== "/login" ? (

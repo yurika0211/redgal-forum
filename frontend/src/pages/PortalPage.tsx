@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import type {
   DisplayActivity,
   DisplayNotice,
@@ -28,6 +29,8 @@ interface PortalPageProps {
   onActivityUpdate: (activity: DisplayActivity, payload: ActivityEditorPayload) => Promise<void>;
   onNavigate: (href: string) => void;
 }
+
+const PORTAL_REVEAL_EASE = [0.22, 1, 0.36, 1] as const;
 
 function normalizeDateSegment(value: string): string {
   return value.padStart(2, "0");
@@ -113,6 +116,7 @@ export default function PortalPage({
   onActivityUpdate,
   onNavigate,
 }: PortalPageProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [activityEditorMode, setActivityEditorMode] = useState<"create" | "edit" | null>(null);
   const [editingActivityID, setEditingActivityID] = useState<string | null>(null);
   const [activityForm, setActivityForm] = useState<ActivityEditorPayload>({
@@ -232,9 +236,35 @@ export default function PortalPage({
     }
   }
 
+  const revealViewport = { once: false, amount: 0.32 } as const;
+  const sectionReveal = shouldReduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: 46, scale: 0.965, filter: "blur(12px)" },
+        whileInView: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+        viewport: revealViewport,
+        transition: { duration: 0.58, ease: PORTAL_REVEAL_EASE },
+      };
+  const leftMergeReveal = shouldReduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, x: -56, scale: 0.97, filter: "blur(10px)" },
+        whileInView: { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" },
+        viewport: revealViewport,
+        transition: { duration: 0.54, ease: PORTAL_REVEAL_EASE },
+      };
+  const rightMergeReveal = shouldReduceMotion
+    ? {}
+    : {
+        initial: { opacity: 0, x: 56, scale: 0.97, filter: "blur(10px)" },
+        whileInView: { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" },
+        viewport: revealViewport,
+        transition: { duration: 0.54, ease: PORTAL_REVEAL_EASE, delay: 0.06 },
+      };
+
   return (
     <div className="grid gap-[clamp(16px,2.6vw,30px)]">
-      <section className="ui-card-panel portal-home__section grid gap-[26px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+      <motion.section {...sectionReveal} className="ui-card-panel portal-home__section grid gap-[26px] rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
         <div className="portal-home__intro grid max-w-[76ch] gap-3">
           <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">社团介绍 / manifesto</p>
           <h1 className="portal-home__title m-0 font-[var(--font-display)] text-[clamp(2.05rem,3.7vw,3.3rem)] leading-[1.08] text-[color:var(--text-strong)]">从 2017 到现在，我们把热爱写进了持续发生的社团活动。</h1>
@@ -269,10 +299,10 @@ export default function PortalPage({
             </ul>
           </aside>
         </div>
-      </section>
+      </motion.section>
 
       <section className="grid items-stretch gap-4 lg:grid-cols-2">
-        <article className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <motion.article {...leftMergeReveal} className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
           <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">站内公告</p>
@@ -299,9 +329,9 @@ export default function PortalPage({
             })}
             {!notices.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有发布公告。</p> : null}
           </div>
-        </article>
+        </motion.article>
 
-        <article className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <motion.article {...rightMergeReveal} className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
           <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">先从哪里看起</p>
@@ -324,15 +354,14 @@ export default function PortalPage({
             ))}
             {!portalPages.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有配置导航入口。</p> : null}
           </div>
-        </article>
+        </motion.article>
       </section>
 
-      <section className="my-1 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-home__section">
+      <motion.section {...sectionReveal} className="my-1 rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm portal-home__section">
         <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">活动与聚会</p>
             <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">最近会遇到的事情</h2>
-            <p className="mt-2.5 max-w-[56ch] text-[0.95rem] leading-[1.76] text-[color:var(--text-soft)] max-[760px]:text-[0.9rem] max-[760px]:leading-[1.7]">以时间顺序整理社团活动，便于提前安排参与计划。</p>
           </div>
           {canAdmin ? (
             <button
@@ -350,7 +379,11 @@ export default function PortalPage({
         <div className="relative grid gap-6 py-1.5 max-[980px]:gap-4 max-[980px]:py-0.5">
           <span className="absolute bottom-2.5 left-3 top-2.5 w-[3px] rounded-full bg-[linear-gradient(180deg,rgba(102,167,213,0.56),rgba(102,167,213,0.2))] max-[980px]:left-2.5" aria-hidden="true" />
           {societyActivities.map((activity, index) => (
-            <article
+            <motion.article
+              initial={shouldReduceMotion ? false : { opacity: 0, x: index % 2 === 0 ? -38 : 38, scale: 0.97 }}
+              whileInView={shouldReduceMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
+              viewport={{ once: false, amount: 0.42 }}
+              transition={{ duration: 0.44, ease: PORTAL_REVEAL_EASE, delay: Math.min(index * 0.035, 0.16) }}
               className="relative mt-1.5 pl-[30px] first:mt-0 max-[980px]:mt-1 max-[980px]:pl-6"
               key={activity.id}
             >
@@ -382,7 +415,7 @@ export default function PortalPage({
                 <strong className="mt-2 block text-[1.08rem] leading-[1.5] text-[rgba(55,84,110,0.95)]">{activity.title}</strong>
                 <p className="mt-2.5 inline-flex max-w-full rounded-lg border border-[color:var(--line-soft)] bg-white/35 px-2.5 py-[3px] text-[0.85rem] leading-[1.6] text-[color:var(--text-soft)]">{activity.description || "活动描述待补充。"}</p>
               </div>
-            </article>
+            </motion.article>
           ))}
           {!societyActivities.length ? <p className="mt-1 rounded-xl border border-dashed border-[color:var(--line-soft)] bg-white/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">当前还没有活动安排。</p> : null}
         </div>
@@ -429,20 +462,15 @@ export default function PortalPage({
             </div>
           </form>
         ) : null}
-      </section>
+      </motion.section>
 
-      <section className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+      <motion.section {...sectionReveal} className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
         <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="mb-[7px] text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">一句实话</p>
-            <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">我们并不完美，但一直有人还想继续做下去</h2>
+            <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">祝愿大家能够保持对galgame最开始的那一份热爱</h2>
           </div>
         </div>
-        <p className="m-0 max-w-[74ch] text-sm text-[color:var(--text-muted)] leading-[1.86]">
-          百川乃大未必已经完成过属于自己的视觉小说，站点也还在一点点长出来。
-          但社团真正重要的并不是“已经做成了什么”，而是每一年总会有人重新把热情接过来。
-        </p>
-      </section>
+      </motion.section>
     </div>
   );
 }

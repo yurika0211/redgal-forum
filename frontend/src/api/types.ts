@@ -200,8 +200,6 @@ export interface SuperAdminDashboard extends AdminDashboard {
   content_reports_open: number;
   site_content_blocks: number;
   gallery_entries: number;
-  luckybot_sessions: number;
-  luckybot_admin_actions: number;
 }
 
 export interface UpdateUserStatusPayload {

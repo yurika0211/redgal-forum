@@ -115,30 +115,6 @@ create type sync_job_status as enum (
     'cancelled'
 );
 
-create type bot_session_type as enum (
-    'user_chat',
-    'admin_console'
-);
-
-create type bot_session_status as enum (
-    'active',
-    'archived',
-    'closed'
-);
-
-create type bot_sender_type as enum (
-    'user',
-    'assistant',
-    'system',
-    'admin_tool'
-);
-
-create type bot_message_type as enum (
-    'text',
-    'json',
-    'event'
-);
-
 create type media_type as enum (
     'image',
     'video'
@@ -870,51 +846,10 @@ create index idx_writing_submissions_contest
     on writing_submissions (contest_id, status, created_at desc)
     where deleted_at is null;
 
-create table luckybot_sessions (
-    id bigserial primary key,
-    owner_user_id bigint not null references users(id),
-    session_type bot_session_type not null default 'user_chat',
-    title varchar(200),
-    status bot_session_status not null default 'active',
-    system_prompt text,
-    context_payload jsonb not null default '{}'::jsonb,
-    last_message_at timestamptz,
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
-);
-
-create index idx_luckybot_sessions_owner
-    on luckybot_sessions (owner_user_id, status, updated_at desc);
-
-create table luckybot_messages (
-    id bigserial primary key,
-    session_id bigint not null references luckybot_sessions(id) on delete cascade,
-    sender_type bot_sender_type not null,
-    sender_user_id bigint references users(id),
-    message_type bot_message_type not null default 'text',
-    content text not null,
-    tool_name varchar(100),
-    metadata jsonb not null default '{}'::jsonb,
-    created_at timestamptz not null default now()
-);
-
-create index idx_luckybot_messages_session
-    on luckybot_messages (session_id, created_at);
-
-create table luckybot_admin_actions (
-    id bigserial primary key,
-    actor_user_id bigint not null references users(id),
-    session_id bigint references luckybot_sessions(id) on delete set null,
-    action_name varchar(100) not null,
-    action_payload jsonb not null default '{}'::jsonb,
-    result_payload jsonb not null default '{}'::jsonb,
-    created_at timestamptz not null default now()
-);
-
 insert into roles (code, name, description) values
     ('moderator', 'Moderator', 'Content moderation and forum management'),
     ('admin', 'Admin', 'Site administration role'),
-    ('super_admin', 'Super Admin', 'System-level control and Luckybot admin operations')
+    ('super_admin', 'Super Admin', 'System-level control')
 on conflict (code) do nothing;
 
 insert into users (
@@ -1470,10 +1405,6 @@ for each row execute function set_updated_at();
 
 create trigger trg_bangumi_sync_jobs_set_updated_at
 before update on bangumi_sync_jobs
-for each row execute function set_updated_at();
-
-create trigger trg_luckybot_sessions_set_updated_at
-before update on luckybot_sessions
 for each row execute function set_updated_at();
 
 commit;

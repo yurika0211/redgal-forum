@@ -12,7 +12,6 @@ import (
 	"example.com/rubedo/backend/internal/modules/auth"
 	"example.com/rubedo/backend/internal/modules/forum"
 	"example.com/rubedo/backend/internal/modules/health"
-	"example.com/rubedo/backend/internal/modules/luckybot"
 	"example.com/rubedo/backend/internal/modules/sitecontent"
 	"example.com/rubedo/backend/internal/modules/user"
 	"example.com/rubedo/backend/internal/modules/wall"
@@ -48,7 +47,6 @@ func NewAPIHandler(cfg config.Config, logger *slog.Logger, infra *platform.Platf
 		ForumHandler:    forum.NewHandler(forumService),
 		SiteHandler:     sitecontent.NewHandler(siteContentService),
 		WallHandler:     wall.NewHandler(wall.NewService(wall.NewRepository(infra))),
-		Luckybot:        luckybot.NewHandler(luckybot.NewService(luckybot.NewRepository(infra))),
 	}
 
 	return router.New(deps)

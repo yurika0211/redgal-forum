@@ -71,7 +71,6 @@ func (h *Handler) Get(c *gin.Context) {
 			"forum",
 			"sitecontent",
 			"wall",
-			"luckybot",
 		},
 	})
 }

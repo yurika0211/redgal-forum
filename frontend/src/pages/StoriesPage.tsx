@@ -230,14 +230,7 @@ export default function StoriesPage({
             </button>
           </div>
           <div className="story-editor-hero__meta" aria-label="编辑状态">
-            <span className="story-editor-hero__meta-chip">/ 文章编辑</span>
-            <span className="story-editor-hero__meta-chip">{session ? "已登录" : "游客模式"}</span>
-            <span className="story-editor-hero__meta-chip">{isEditingMode ? `编辑 #${articleEditingTargetID}` : "新建模式"}</span>
           </div>
-          <h1 className="story-editor-hero__title">{isEditingMode ? "编辑文章" : "发布文章"}</h1>
-          <p className="story-editor-hero__desc">
-            在这里独立编辑标题、摘要、正文与可见范围，不再挤在文章详情面板里。
-          </p>
         </article>
 
         {!session ? (
@@ -264,8 +257,7 @@ export default function StoriesPage({
           <form className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm form-layout story-editor-form" onSubmit={(event) => void onArticleSubmit(event)}>
             <div className="story-editor-form__head mb-2 flex flex-wrap items-start justify-between gap-3">
               <div className="story-editor-form__title-group">
-                <p className="story-editor-form__kicker text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">编辑器</p>
-                <h2 className="story-editor-form__title">Markdown 编辑器</h2>
+                <h2 className="story-editor-form__title">日志编辑区</h2>
               </div>
               <div className="story-editor-form__actions flex flex-wrap items-center gap-2">
                 {articleActionState.success ? <span className="story-editor-form__feedback text-sm text-[color:var(--text-muted)]">{articleActionState.success}</span> : null}
@@ -281,7 +273,6 @@ export default function StoriesPage({
             </div>
 
             <label className="form-field">
-              <span>标题</span>
               <input
                 className="form-control"
                 name="title"
@@ -296,7 +287,6 @@ export default function StoriesPage({
             <div className="story-editor-meta">
               <div className="story-editor-meta__row">
                 <fieldset className="story-editor-visibility">
-                  <legend className="story-editor-visibility__legend">可见范围</legend>
                   <div className="story-editor-visibility__options">
                     <label
                       className={`story-editor-visibility__option ${
@@ -346,7 +336,6 @@ export default function StoriesPage({
                   </div>
                 </fieldset>
                 <label className="form-field story-editor-meta__summary">
-                  <span>摘要</span>
                   <input
                     className="form-control"
                     name="summary"
@@ -365,31 +354,29 @@ export default function StoriesPage({
                   type="text"
                   value={articleForm.tagsText}
                   onChange={onArticleFieldChange}
-                  placeholder="用逗号分隔，例如：站台，慢热，短札"
+                  placeholder="用逗号分隔，例如：废萌，PC98， 治愈"
                 />
               </label>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
-              <section className="story-editor-form__panel story-editor-form__panel--source grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3">
-                <div className="story-editor-form__panel-label text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Markdown 源文本</div>
+              <section className="story-editor-form__panel story-editor-form__panel--source grid gap-2">
                 <textarea
                   className="form-control"
                   name="content"
                   rows={14}
                   value={articleForm.content}
                   onChange={onArticleFieldChange}
-                  placeholder={"写下正文内容，支持 Markdown 与 LaTeX\n例如：行内 $E=mc^2$；块级 $$\\int_0^1 x^2\\,dx$$"}
+                  placeholder={"在这里写下正文内容，支持 Markdown 与 LaTeX\n语法，例如：行内 $E=mc^2$；块级 $$\\int_0^1 x^2\\,dx$$"}
                   required
                 />
               </section>
-              <section className="story-editor-form__panel story-editor-form__panel--preview grid gap-2 rounded-xl border border-[color:var(--line-soft)] bg-white/35 p-3 bg-[color:var(--surface-card)]">
-                <div className="story-editor-form__panel-label text-xs uppercase tracking-[0.08em] text-[color:var(--text-muted)]">实时预览</div>
+              <section className="story-editor-form__panel story-editor-form__panel--preview grid gap-2">
                 <div className="story-editor-form__preview min-h-[220px] overflow-auto rounded-lg border border-[color:var(--line-soft)] bg-white/55 p-3">
                   {articleForm.content.trim() ? (
                     <RichContent content={articleForm.content} />
                   ) : (
-                    <p className="text-sm text-[color:var(--text-muted)]">预览区：输入 Markdown 后会实时显示。</p>
+                    <p className="text-sm text-[color:var(--text-muted)]">预览区：在左边的输入框输入内容后，这里会实时渲染出对应的格式。</p>
                   )}
                 </div>
               </section>

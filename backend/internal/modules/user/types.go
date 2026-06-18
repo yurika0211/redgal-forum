@@ -106,15 +106,13 @@ type AdminDashboard struct {
 
 type SuperAdminDashboard struct {
 	AdminDashboard
-	RelayEvents          int `json:"relay_events"`
-	RelayEntries         int `json:"relay_entries"`
-	WritingContests      int `json:"writing_contests"`
-	WritingSubmissions   int `json:"writing_submissions"`
-	ContentReportsOpen   int `json:"content_reports_open"`
-	SiteContentBlocks    int `json:"site_content_blocks"`
-	GalleryEntries       int `json:"gallery_entries"`
-	LuckybotSessions     int `json:"luckybot_sessions"`
-	LuckybotAdminActions int `json:"luckybot_admin_actions"`
+	RelayEvents        int `json:"relay_events"`
+	RelayEntries       int `json:"relay_entries"`
+	WritingContests    int `json:"writing_contests"`
+	WritingSubmissions int `json:"writing_submissions"`
+	ContentReportsOpen int `json:"content_reports_open"`
+	SiteContentBlocks  int `json:"site_content_blocks"`
+	GalleryEntries     int `json:"gallery_entries"`
 }
 
 type UpdateUserStatusRequest struct {

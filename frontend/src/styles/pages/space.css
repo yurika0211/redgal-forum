@@ -304,7 +304,7 @@
 
 .space-journal-meta__row {
   display: grid;
-  grid-template-columns: minmax(132px, 180px) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 300px) minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -327,7 +327,7 @@
 .space-journal-visibility__options {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 18px;
 }
 
 .space-journal-visibility__option {
@@ -336,7 +336,7 @@
   align-items: center;
   justify-content: center;
   min-height: 42px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   color: var(--text-soft);
@@ -380,6 +380,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  white-space: nowrap;
 }
 
 .space-journal-visibility__input:focus-visible + span {

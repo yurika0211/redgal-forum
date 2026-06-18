@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
 import { Badge, Button, Group, Paper } from "@mantine/core";
+import { motion, useReducedMotion } from "motion/react";
 import type { SiteGalleryEntry } from "../api";
 import StatusChip from "../components/StatusChip";
 import type { PagerState } from "../lib/pagination";
@@ -113,6 +114,7 @@ const GALLERY_SECTION_ORDER: SiteGalleryEntry["entry_type"][] = [
   "track",
 ];
 const GALLERY_SECTION_INDEX = new Map(GALLERY_SECTION_ORDER.map((type, index) => [type, index] as const));
+const GALLERY_REVEAL_EASE = [0.22, 1, 0.36, 1] as const;
 
 const GALLERY_SECTION_META: Record<
   SiteGalleryEntry["entry_type"],
@@ -121,7 +123,7 @@ const GALLERY_SECTION_META: Record<
   album: {
     kicker: "相册",
     title: "章节相册",
-    summary: "把同一段故事的画面放进一个章节，不再拆散成单张卡片。",
+    summary: "关于galgame与大家的回忆",
   },
   polaroid: {
     kicker: "拍立得",
@@ -300,6 +302,7 @@ export default function GalleryPage({
   onGallerySubmit,
   onGalleryUploadFiles,
 }: GalleryPageProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [layoutState, setLayoutState] = useState<GalleryLayoutState>(() => readStoredGalleryLayout());
   const [draggingEntryID, setDraggingEntryID] = useState<string>("");
@@ -401,7 +404,7 @@ export default function GalleryPage({
         kicker: section.kicker,
         typeLabel: meta.kicker,
         title: section.kicker,
-        summary: `${meta.summary} 本组共 ${section.photos.length} 张图。`,
+        summary: meta.summary,
         photos: section.photos,
         notes: [],
       };
@@ -545,13 +548,45 @@ export default function GalleryPage({
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  const revealViewport = { once: false, amount: 0.28 } as const;
+  const sectionReveal = shouldReduceMotion
+    ? { initial: false as const }
+    : {
+        initial: { opacity: 0, y: 44, scale: 0.965, filter: "blur(12px)" },
+        whileInView: { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" },
+        viewport: revealViewport,
+        transition: { duration: 0.58, ease: GALLERY_REVEAL_EASE },
+      };
+  const leftMergeReveal = shouldReduceMotion
+    ? { initial: false as const }
+    : {
+        initial: { opacity: 0, x: -52, scale: 0.97, filter: "blur(10px)" },
+        whileInView: { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" },
+        viewport: revealViewport,
+        transition: { duration: 0.52, ease: GALLERY_REVEAL_EASE },
+      };
+  const rightMergeReveal = shouldReduceMotion
+    ? { initial: false as const }
+    : {
+        initial: { opacity: 0, x: 52, scale: 0.97, filter: "blur(10px)" },
+        whileInView: { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" },
+        viewport: revealViewport,
+        transition: { duration: 0.52, ease: GALLERY_REVEAL_EASE, delay: 0.05 },
+      };
+
   return (
     <section className="gallery-photo-shell gallery-photo-shell--editorial" style={layoutStyle}>
-      <Paper className="gallery-photo-shell__head gallery-photo-shell__head--art gallery-mantine-hero" p="md" radius="lg" withBorder>
+      <Paper
+        {...sectionReveal}
+        component={motion.article}
+        className="gallery-photo-shell__head gallery-photo-shell__head--art gallery-mantine-hero"
+        p="md"
+        radius="lg"
+        withBorder
+      >
         <div className="gallery-photo-shell__head-copy">
           <p className="gallery-photo-shell__head-kicker">Gallery Curation</p>
-          <h2 className="gallery-photo-shell__art-title">光影艺术墙</h2>
-          <p className="gallery-photo-shell__head-note">按活动章节浏览图片，点击任意卡片可查看大图与注释。</p>
+          <h2 className="gallery-photo-shell__art-title">百川艺术墙</h2>
           <div className="gallery-photo-shell__hero-metrics">
             {curationStats.map((item) => (
               <div className="gallery-photo-shell__hero-stat" key={item.id}>
@@ -562,7 +597,6 @@ export default function GalleryPage({
           </div>
           {galleryTypeDistribution.length ? (
             <div className="gallery-photo-shell__hero-type-row" aria-label="内容构成">
-              <span className="gallery-photo-shell__hero-type-label">内容构成</span>
               <div className="gallery-photo-shell__hero-type-chips">
                 {galleryTypeDistribution.map((item) => (
                   <StatusChip key={item.id} tone="neutral">
@@ -589,8 +623,8 @@ export default function GalleryPage({
       </Paper>
 
       {canManageGallery && isEditorOpen ? (
-        <section className="gallery-inline-admin">
-          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+        <motion.section {...sectionReveal} className="gallery-inline-admin">
+          <motion.article {...leftMergeReveal} className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
             <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
               <h3>{editingGalleryEntryID ? "编辑展示条目" : "新建展示条目"}</h3>
               <StatusChip tone="accent">{editingGalleryEntryID ? "编辑模式" : "创建模式"}</StatusChip>
@@ -742,9 +776,9 @@ export default function GalleryPage({
                 </figcaption>
               </figure>
             </div>
-          </article>
+          </motion.article>
 
-          <article className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
+          <motion.article {...rightMergeReveal} className="rounded-xl border border-[color:var(--line-soft)] bg-[color:var(--surface-card)] p-3">
             <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
               <h3>布局与条目列表</h3>
               <StatusChip tone="neutral">{adminGalleryPager.total} 条</StatusChip>
@@ -940,12 +974,12 @@ export default function GalleryPage({
                 </div>
               </div>
             )}
-          </article>
-        </section>
+          </motion.article>
+        </motion.section>
       ) : null}
 
       {curationSections.length > 1 ? (
-        <nav className="gallery-topic-nav" aria-label="展示墙章节导航">
+        <motion.nav {...sectionReveal} className="gallery-topic-nav" aria-label="展示墙章节导航">
           <div className="gallery-topic-nav__head">
             <span className="gallery-topic-nav__label">快速跳转</span>
             <p className="gallery-topic-nav__hint">按章节定位图片区块，避免长列表来回滚动。</p>
@@ -962,13 +996,19 @@ export default function GalleryPage({
               </button>
             ))}
           </div>
-        </nav>
+        </motion.nav>
       ) : null}
 
       <div className="gallery-curation-layout gallery-curation-layout--notes-hidden">
         <div className="gallery-curation-stack">
-          {curationSections.map((section) => (
-            <article
+          {curationSections.map((section, sectionIndex) => (
+            <motion.article
+              {...sectionReveal}
+              transition={
+                shouldReduceMotion
+                  ? undefined
+                  : { duration: 0.56, ease: GALLERY_REVEAL_EASE, delay: Math.min(sectionIndex * 0.05, 0.18) }
+              }
               className={`ui-card-panel gallery-curation-section gallery-curation-section--${section.type}`}
               id={`gallery-curation-section-${section.id}`}
               key={section.id}
@@ -1015,7 +1055,7 @@ export default function GalleryPage({
                   ))}
                 </div>
               </div>
-            </article>
+            </motion.article>
           ))}
           {!curationSections.length ? (
             <p className="gallery-empty-state text-sm text-[color:var(--text-muted)]">
