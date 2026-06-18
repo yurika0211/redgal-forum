@@ -3,13 +3,13 @@ package wall
 import "time"
 
 type WallEntry struct {
-	ID          string   `json:"id"`
-	Title       string   `json:"title"`
-	Content     string   `json:"content"`
-	Images      []string `json:"images"`
-	Approved    bool     `json:"approved"`
-	Contributor string   `json:"contributor"`
-	Status      string   `json:"status,omitempty"`
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Content     string    `json:"content"`
+	Images      []string  `json:"images"`
+	Approved    bool      `json:"approved"`
+	Contributor string    `json:"contributor"`
+	Status      string    `json:"status,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
