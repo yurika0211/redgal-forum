@@ -1,3 +1,73 @@
+.page-shell--space,
+.page-shell--admin {
+  --space-card-panel-bg-50: color-mix(in srgb, var(--surface-panel) 50%, transparent);
+  --space-card-sub-bg-50: color-mix(in srgb, var(--surface-card) 50%, transparent);
+  --space-card-white-bg-50: rgba(255, 255, 255, 0.5);
+}
+
+.page-shell--space .workspace-sidebar :is(
+    .workspace-sidebar__brand,
+    .workspace-sidebar__identity,
+    .workspace-sidebar__body
+  ),
+.page-shell--admin .workspace-sidebar :is(
+    .workspace-sidebar__brand,
+    .workspace-sidebar__identity,
+    .workspace-sidebar__body
+  ) {
+  background: var(--space-card-panel-bg-50) !important;
+}
+
+.page-shell--space .workspace-sidebar :is(.workspace-sidebar__meta-badge, .workspace-sidebar__item-badge),
+.page-shell--admin .workspace-sidebar :is(.workspace-sidebar__meta-badge, .workspace-sidebar__item-badge) {
+  background-color: var(--space-card-white-bg-50) !important;
+}
+
+.page-shell--space .space-main-content > section > article,
+.page-shell--space .space-session-panel,
+.page-shell--space .space-bgm-status-tabs,
+.page-shell--space .space-bgm-item__editor {
+  background: var(--space-card-panel-bg-50) !important;
+}
+
+.page-shell--space .space-main-content :is(
+    .space-form-block,
+    .space-profile-stat,
+    .space-shelf-tab,
+    .space-bgm-status-tab,
+    .space-bgm-item,
+    .space-job-card,
+    .space-log-card,
+    .space-capsule-card,
+    .space-job-box,
+    .space-friend-avatar-entry
+  ) {
+  background-color: var(--space-card-sub-bg-50) !important;
+}
+
+.page-shell--space .space-main-content :is(
+    .space-bangumi-segment__option,
+    .space-bgm-item__cover,
+    .space-bgm-item__source-link,
+    .space-bgm-item__toggle-button,
+    .space-bgm-item__my-rating
+  ) {
+  background-color: var(--space-card-white-bg-50) !important;
+}
+
+.page-shell--admin .admin-main > section > article,
+.page-shell--admin .admin-access-guard {
+  background: var(--space-card-panel-bg-50) !important;
+}
+
+.page-shell--admin :is(article, section, div, form, ul, li)[class*="bg-[color:var(--surface-panel)]"] {
+  background-color: var(--space-card-panel-bg-50) !important;
+}
+
+.page-shell--admin :is(article, section, div, form, ul, li)[class*="bg-[color:var(--surface-card)]"] {
+  background-color: var(--space-card-sub-bg-50) !important;
+}
+
 .space-shelf-tabs {
   display: inline-flex;
   flex-wrap: wrap;
@@ -234,7 +304,7 @@
 
 .space-journal-meta__row {
   display: grid;
-  grid-template-columns: minmax(132px, 180px) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 300px) minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -257,7 +327,7 @@
 .space-journal-visibility__options {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 18px;
 }
 
 .space-journal-visibility__option {
@@ -266,7 +336,7 @@
   align-items: center;
   justify-content: center;
   min-height: 42px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   color: var(--text-soft);
@@ -310,6 +380,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  white-space: nowrap;
 }
 
 .space-journal-visibility__input:focus-visible + span {

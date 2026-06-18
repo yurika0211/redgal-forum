@@ -9,7 +9,6 @@
 - 支持普通论坛版块和匿名讨论版。
 - 支持展示墙投稿、媒体图集和管理员审核。
 - 支持 Bangumi 条目缓存、用户游戏状态同步和异步导入任务。
-- 为 Luckybot 预留最小可用的数据结构，满足普通用户对话和超级管理员扩展。
 
 ## 设计假设
 
@@ -18,7 +17,6 @@
 - 文章和展示墙正文以 Markdown 为主，因此核心字段使用 `content_md`。
 - 匿名版不会真的抹掉作者身份，数据库仍保留真实 `user_id`，只是在展示层通过线程内匿名马甲做映射。
 - Bangumi 的复杂返回直接保留 `jsonb` 原始数据，避免一开始就把外部字段拆得过细。
-- Luckybot 的需求还未写完，因此这里只保留会话、消息和管理员动作三张基础表。
 
 ## 模块拆分
 
@@ -74,14 +72,6 @@
 | `user_bangumi_collections` | 用户游戏状态/收藏映射 | `user_id`、`subject_id`、`collection_status`、`score` |
 | `bangumi_sync_jobs` | 异步导入任务 | `user_id`、`external_account_id`、`job_type`、`status` |
 
-### 7. Luckybot
-
-| 表名 | 作用 | 关键字段 |
-| --- | --- | --- |
-| `luckybot_sessions` | 对话会话 | `owner_user_id`、`session_type`、`status` |
-| `luckybot_messages` | 消息明细 | `session_id`、`sender_type`、`message_type` |
-| `luckybot_admin_actions` | 超级管理员动作日志 | `actor_user_id`、`action_name`、`action_payload` |
-
 ## 关键关系
 
 - `users` 1:N `articles`
@@ -95,8 +85,6 @@
 - `wall_entries` 1:N `wall_entry_reviews`
 - `users` 1:N `user_bangumi_collections`
 - `bangumi_subjects` 1:N `user_bangumi_collections`
-- `users` 1:N `luckybot_sessions`
-- `luckybot_sessions` 1:N `luckybot_messages`
 
 ## 重点设计决策
 
@@ -148,7 +136,7 @@ Bangumi 导入的数据结构波动比较大，所以拆成两层：
 - `user`：普通注册用户
 - `moderator`：内容审核/版务
 - `admin`：站点管理
-- `super_admin`：系统级管理与 Luckybot 高权限操作
+- `super_admin`：系统级管理
 
 ## 输出文件
 

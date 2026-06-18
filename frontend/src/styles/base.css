@@ -350,14 +350,6 @@ textarea.form-control {
   min-width: 0;
 }
 
-.login-captcha-chip {
-  width: 100%;
-  max-width: 100%;
-  flex-wrap: wrap;
-  row-gap: 4px;
-  text-align: center;
-}
-
 @media (max-width: 980px) {
   .ui-card-panel {
     padding: 18px;
@@ -465,37 +457,56 @@ textarea.form-control {
 .background-slide,
 .background-overlay {
   position: absolute;
-  inset: -4%;
+  inset: -16%;
 }
 
 .background-slide {
+  --background-image: none;
+  inset: -12%;
+  opacity: 0.62;
+  overflow: hidden;
+  mix-blend-mode: normal;
+  animation: none;
+  will-change: transform;
+}
+
+.background-slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--background-image);
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  opacity: 0;
-  transform: scale(1.04);
-  filter: saturate(1.02) brightness(1.08) contrast(1);
-  mix-blend-mode: normal;
-  animation:
-    background-crossfade 24s ease-in-out infinite,
-    background-vertical-scroll 22s ease-in-out infinite;
-  will-change: opacity, transform;
+  transform-origin: center;
+  transform: translate3d(-1.5%, -2%, 0) scale(1.14);
+  filter: saturate(1.04) brightness(1.08) contrast(1.03);
+  animation: background-depth-zoom 30s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  will-change: transform;
 }
 
 html[data-theme="day"] .background-stage .background-slide,
 html[data-theme="night"] .background-stage .background-slide {
-  animation:
-    background-crossfade 24s ease-in-out infinite,
-    background-vertical-scroll 22s ease-in-out infinite !important;
+  opacity: 0.62;
+  animation: none !important;
+}
+
+html[data-theme="day"] .background-stage .background-slide::before,
+html[data-theme="night"] .background-stage .background-slide::before {
+  animation: background-depth-zoom 30s cubic-bezier(0.22, 0.61, 0.36, 1) infinite !important;
 }
 
 .background-slide--one {
-  background-image: url("/bg1.png");
+  --background-image: url("/bg2.png");
 }
 
 .background-slide--two {
-  background-image: url("/bg2.png");
-  animation-delay: -12s;
+  --background-image: url("/bg2.png");
+  opacity: 0.4;
+}
+
+.background-slide--two::before {
+  animation-delay: -15s;
 }
 
 .background-overlay {
@@ -514,15 +525,17 @@ html[data-theme="night"] .background-stage .background-slide {
   will-change: transform;
 }
 
-@keyframes background-vertical-scroll {
+@keyframes background-depth-zoom {
   0% {
-    transform: scale(1.04) translateY(-10px);
+    transform: translate3d(-1.5%, -2%, 0) scale(1.14);
   }
+
   50% {
-    transform: scale(1.04) translateY(10px);
+    transform: translate3d(0, 0.5%, 0) scale(1.21);
   }
+
   100% {
-    transform: scale(1.04) translateY(-10px);
+    transform: translate3d(1.5%, 2%, 0) scale(1.29);
   }
 }
 
@@ -540,12 +553,23 @@ html[data-theme="night"] .background-stage .background-slide {
 
 @media (prefers-reduced-motion: reduce) {
   .background-slide {
-    animation: background-crossfade 24s ease-in-out infinite;
+    animation: none;
   }
 
   html[data-theme="day"] .background-stage .background-slide,
   html[data-theme="night"] .background-stage .background-slide {
-    animation: background-crossfade 24s ease-in-out infinite !important;
+    animation: none !important;
+  }
+
+  .background-slide::before {
+    animation: none;
+    transform: scale(1.16);
+  }
+
+  html[data-theme="day"] .background-stage .background-slide::before,
+  html[data-theme="night"] .background-stage .background-slide::before {
+    animation: none !important;
+    transform: scale(1.16);
   }
 
   .background-overlay {

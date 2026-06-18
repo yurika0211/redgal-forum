@@ -14,14 +14,14 @@ import (
 // Existing process environment variables always take precedence.
 func LoadEnvFromDefaultFiles() ([]string, error) {
 	return LoadEnvFromFiles(
-		".env.local",
-		".env",
-		"backend/.env.local",
-		"backend/.env",
 		"../.env.local",
 		"../.env",
 		"../backend/.env.local",
 		"../backend/.env",
+		".env.local",
+		".env",
+		"backend/.env.local",
+		"backend/.env",
 	)
 }
 

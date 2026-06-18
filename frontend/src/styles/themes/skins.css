@@ -46,7 +46,11 @@ body {
 
 .background-slide {
   display: block;
-  opacity: 0;
+  opacity: 0.62;
+}
+
+.background-slide--two {
+  opacity: 0.4;
 }
 
 .scene-ornaments {
@@ -122,12 +126,6 @@ html[data-theme="day"] .home-notice-modal__panel {
 }
 
 @media (prefers-reduced-motion: reduce) {
-}
-
-@keyframes login-captcha-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (max-width: 640px) {
@@ -490,7 +488,6 @@ html[data-theme="night"] .admin-access-guard__hint {
   color: rgba(198, 216, 236, 0.74);
 }
 
-html[data-theme="night"] .story-editor-form__panel,
 html[data-theme="night"] .story-editor-form__preview {
   border-color: rgba(150, 190, 232, 0.36);
   background: rgba(10, 18, 28, 0.9);

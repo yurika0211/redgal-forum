@@ -1,4 +1,4 @@
-import UserAvatar from "./UserAvatar";
+import UserAvatar, { type UserAvatarRoleRing } from "./UserAvatar";
 
 export type WorkspaceSidebarTone = "admin" | "space";
 
@@ -40,11 +40,13 @@ interface WorkspaceSidebarProps {
   className?: string;
   footerAvatarLabel: string;
   footerAvatarUrl?: string;
+  footerAvatarRole?: UserAvatarRoleRing;
   footerBadge?: string;
   footerSubtitle: string;
   footerTitle: string;
   headerAvatarLabel: string;
   headerAvatarUrl?: string;
+  headerAvatarRole?: UserAvatarRoleRing;
   headerBadge?: string;
   headerKicker: string;
   headerSubtitle: string;
@@ -192,11 +194,13 @@ export default function WorkspaceSidebar({
   className,
   footerAvatarLabel,
   footerAvatarUrl,
+  footerAvatarRole = "member",
   footerBadge,
   footerSubtitle,
   footerTitle,
   headerAvatarLabel,
   headerAvatarUrl,
+  headerAvatarRole = "member",
   headerBadge,
   headerKicker,
   headerSubtitle,
@@ -230,6 +234,7 @@ export default function WorkspaceSidebar({
               shape="rounded"
               size="lg"
               src={headerAvatarUrl}
+              roleRing={headerAvatarRole}
               statusTone={headerTone}
             />
             <div className="workspace-sidebar__brand-copy">
@@ -300,6 +305,7 @@ export default function WorkspaceSidebar({
             shape="rounded"
             size="lg"
             src={footerAvatarUrl}
+            roleRing={footerAvatarRole}
             statusTone={footerTone}
           />
           <div className="workspace-sidebar__identity-copy">

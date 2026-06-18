@@ -61,16 +61,14 @@ func (r *repository) GetSuperAdminDashboard(ctx context.Context, principal secur
 
 	if !r.hasPostgres() {
 		return SuperAdminDashboard{
-			AdminDashboard:       base,
-			RelayEvents:          1,
-			RelayEntries:         2,
-			WritingContests:      1,
-			WritingSubmissions:   1,
-			ContentReportsOpen:   0,
-			SiteContentBlocks:    21,
-			GalleryEntries:       16,
-			LuckybotSessions:     0,
-			LuckybotAdminActions: 0,
+			AdminDashboard:     base,
+			RelayEvents:        1,
+			RelayEntries:       2,
+			WritingContests:    1,
+			WritingSubmissions: 1,
+			ContentReportsOpen: 0,
+			SiteContentBlocks:  21,
+			GalleryEntries:     16,
 		}, nil
 	}
 
@@ -89,8 +87,6 @@ func (r *repository) GetSuperAdminDashboard(ctx context.Context, principal secur
 		{`select count(*)::int from content_reports where status = 'open'`, &dashboard.ContentReportsOpen},
 		{`select count(*)::int from site_content_blocks where is_active = true`, &dashboard.SiteContentBlocks},
 		{`select count(*)::int from gallery_entries where is_active = true`, &dashboard.GalleryEntries},
-		{`select count(*)::int from luckybot_sessions where status = 'active'`, &dashboard.LuckybotSessions},
-		{`select count(*)::int from luckybot_admin_actions`, &dashboard.LuckybotAdminActions},
 	}
 
 	for _, item := range countQueries {
