@@ -5,6 +5,7 @@ import type {
   DisplayNotice,
   DisplayPortalPage,
 } from "../types/app";
+import PortalMemoryScene from "../components/PortalMemoryScene";
 
 interface ActivityEditorPayload {
   label: string;
@@ -465,6 +466,9 @@ export default function PortalPage({
       </motion.section>
 
       <motion.section {...sectionReveal} className="portal-home__section rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
+        <div className="portal-memory-scene" aria-hidden="true">
+          <PortalMemoryScene />
+        </div>
         <div className="mb-[14px] flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="m-0 font-[var(--font-display)] text-[clamp(1.28rem,2.1vw,1.8rem)] leading-[1.2] text-[color:var(--text-strong)]">祝愿大家能够保持对galgame最开始的那一份热爱</h2>

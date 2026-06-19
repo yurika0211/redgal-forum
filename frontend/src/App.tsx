@@ -114,6 +114,7 @@ import {
 } from "./api";
 import Header, { type HeaderNotificationItem, type NavigationGroup } from "./components/Header";
 import ForumProgressPanel from "./components/ForumProgressPanel";
+import OnboardingTour from "./components/OnboardingTour";
 import StatusChip from "./components/StatusChip";
 import WorkspaceSidebar, {
   type WorkspaceSidebarIconName,
@@ -5510,9 +5511,6 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
       adminSidebarSections
         .flatMap((section) => section.items)
         .find((item) => item.id === adminActivePage)?.label ?? "核心指标速览";
-    const activeAdminSectionPages = activeAdminSectionMeta.children;
-    const pendingAdminTaskCount =
-      Number(adminDashboard?.pending_verification_users ?? 0) + Number(wallSubmissionsPager.total ?? 0);
     const announcementBlocks = adminContentBlocks
       .filter((block) => block.block_type === "portal_notice")
       .sort((left, right) => right.sort_order - left.sort_order);
@@ -5563,7 +5561,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
 
     return (
       <>
-        <section className="admin-dashboard-layout">
+        <section className="grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
           <WorkspaceSidebar
             activeItemId={adminActivePage}
             footerAvatarLabel={profile?.nickname || profile?.username || "后台成员"}
@@ -5579,44 +5577,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             headerTitle="后台工作台"
             onItemSelect={(itemId) => setAdminActivePage(itemId as AdminPageKey)}
             sections={adminSidebarSections}
-            showHeader
+            showHeader={false}
             tone="space"
           />
 
-          <div className="admin-main admin-dashboard-main grid gap-4">
-            <header className="admin-dashboard-topbar">
-              <div className="admin-dashboard-topbar__copy">
-                <p className="admin-dashboard-topbar__eyebrow">{activeAdminSectionMeta.kicker}</p>
-                <h1>{activeAdminSectionMeta.title}</h1>
-                <p>{activeAdminSectionMeta.description}</p>
-              </div>
-              <div className="admin-dashboard-topbar__meta">
-                <StatusChip tone={pendingAdminTaskCount > 0 ? "warn" : "success"}>
-                  {pendingAdminTaskCount > 0 ? `${pendingAdminTaskCount} 项待处理` : "无待办"}
-                </StatusChip>
-                <button
-                  className="admin-dashboard-topbar__action"
-                  type="button"
-                  onClick={() => setAdminActivePage("dashboard-actions")}
-                >
-                  快捷入口
-                </button>
-              </div>
-            </header>
-
-            <nav className="admin-dashboard-tabs" aria-label="后台当前分组页面">
-              {activeAdminSectionPages.map((page) => (
-                <button
-                  aria-current={adminActivePage === page.id ? "page" : undefined}
-                  className="admin-dashboard-tabs__item"
-                  key={page.id}
-                  type="button"
-                  onClick={() => setAdminActivePage(page.id)}
-                >
-                  {page.label}
-                </button>
-              ))}
-            </nav>
+          <div className="admin-main grid gap-4">
 
         <section className="grid gap-4" style={{ display: adminActivePage === "dashboard-overview" ? undefined : "none" }}>
           <article className="rounded-2xl border border-[color:var(--line-soft)] bg-[color:var(--surface-panel)] p-4 shadow-sm">
@@ -6888,6 +6853,11 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
             <p>版权所属：百川乃大视觉小说研 © {copyrightYear}</p>
           </footer>
         ) : null}
+        <OnboardingTour
+          currentPath={routePath}
+          isAuthenticated={isAuthenticated}
+          onNavigate={handleNavigate}
+        />
       </main>
       {activeHomeNotice ? (
         <div

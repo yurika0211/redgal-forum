@@ -234,8 +234,8 @@ Triggers:
 Images are published to GitHub Container Registry:
 
 ```text
-ghcr.io/<github-owner>/redgal-backend
-ghcr.io/<github-owner>/redgal-frontend
+ghcr.io/yurika0211/redgal-backend
+ghcr.io/yurika0211/redgal-frontend
 ```
 
 The workflow emits these tag styles:
@@ -248,8 +248,8 @@ The workflow emits these tag styles:
 To use GHCR images with compose:
 
 ```bash
-BACKEND_IMAGE=ghcr.io/<github-owner>/redgal-backend:latest
-FRONTEND_IMAGE=ghcr.io/<github-owner>/redgal-frontend:latest
+BACKEND_IMAGE=ghcr.io/yurika0211/redgal-backend:sha-fac1f48
+FRONTEND_IMAGE=ghcr.io/yurika0211/redgal-frontend:sha-fac1f48
 docker compose -f docker-compose.yml up -d
 ```
 
@@ -283,9 +283,22 @@ Error responses use:
 
 ## Production Deployment
 
-Build or pull production images:
+The production compose file already defaults to the GHCR images above, so deployment is usually:
 
 ```bash
+cp .env.prod.example .env
+vi .env
+docker compose --env-file .env -f compose.prod.yml pull
+docker compose --env-file .env -f compose.prod.yml up -d
+```
+
+Set strong values for `AUTH_JWT_SECRET`, `POSTGRES_PASSWORD`, and `MEILISEARCH_MASTER_KEY` before starting.
+
+If you want to override the image tags explicitly:
+
+```bash
+export FRONTEND_IMAGE=ghcr.io/yurika0211/redgal-frontend:sha-fac1f48
+export BACKEND_IMAGE=ghcr.io/yurika0211/redgal-backend:sha-fac1f48
 docker compose --env-file .env -f compose.prod.yml pull
 docker compose --env-file .env -f compose.prod.yml up -d
 ```
@@ -298,6 +311,44 @@ docker compose --env-file .env -f compose.prod.yml up -d
 ```
 
 `compose.prod.yml` exposes only the frontend through `WEB_PORT`; backend, PostgreSQL, Redis, and Meilisearch stay on the internal Docker network.
+
+### Automatic Deployment
+
+This repository includes `.github/workflows/deploy.yml` for SSH-based deployment after pushes to `main`.
+
+Required GitHub secrets:
+
+- `DEPLOY_HOST`
+- `DEPLOY_USER`
+- `DEPLOY_SSH_KEY`
+- `DEPLOY_PATH`
+- `DEPLOY_PORT` (optional, default `22`)
+
+Server prerequisites:
+
+- Docker and Docker Compose installed
+- SSH key access for the deploy user
+- A deployment directory that contains this repository's compose files and `.env`
+
+Initial setup on the server:
+
+```bash
+mkdir -p /home/shiokou/redgal-forum
+cd /home/shiokou/redgal-forum
+cp .env.prod.example .env
+vi .env
+```
+
+Do this once before enabling the GitHub Actions deploy workflow.
+
+Set `DEPLOY_PATH=/home/shiokou/redgal-forum` in GitHub Secrets.
+
+After that, every push to `main` will:
+
+1. Copy `compose.prod.yml`, `.env.prod.example`, and `DB/schema.sql` to the server path
+2. Reuse `.env` if it already exists
+3. Run `docker compose --env-file .env -f compose.prod.yml pull`
+4. Run `docker compose --env-file .env -f compose.prod.yml up -d`
 
 ## Database
 
