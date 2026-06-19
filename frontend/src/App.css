@@ -15,6 +15,7 @@
 @import "./styles/themes/skins.css" layer(skins);
 @import "./styles/components/avatar.css" layer(avatar);
 @import "./styles/components/sidebar.css" layer(sidebar);
+@import "./styles/components/onboarding.css" layer(onboarding);
 
 body {
   font-family: var(--font-body);
