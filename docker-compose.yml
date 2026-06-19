@@ -2,7 +2,7 @@ name: rubedo
 
 services:
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/yurika0211/redgal-frontend:sha-fac1f48}
+    image: ${FRONTEND_IMAGE:-ghcr.io/yurika0211/redgal-frontend:latest}
     build:
       context: ./frontend
     container_name: rubedo-frontend
@@ -20,7 +20,7 @@ services:
       start_period: 10s
 
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/yurika0211/redgal-backend:sha-fac1f48}
+    image: ${BACKEND_IMAGE:-ghcr.io/yurika0211/redgal-backend:latest}
     build:
       context: ./backend
     container_name: rubedo-backend
