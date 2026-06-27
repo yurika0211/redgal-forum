@@ -142,3 +142,5 @@ Bangumi 导入的数据结构波动比较大，所以拆成两层：
 
 - `schema.sql`：可直接作为 PostgreSQL 初版建表脚本
 - `database_design.md`：表设计说明，方便后续继续细化需求
+
+psql -h localhost -p 5437 -U redgal -d redgal_forum < /media/shiokou/DevRepo58/DevHub/Projects/2026-myapp/redgal_forum/DB/schema.sql
