@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
-  const proxyTarget = env.VITE_PROXY_TARGET || "http://127.0.0.1:8081";
+  const proxyTarget = env.VITE_PROXY_TARGET || "http://127.0.0.1:8084";
 
   return {
     plugins: [react(), tailwindcss()],

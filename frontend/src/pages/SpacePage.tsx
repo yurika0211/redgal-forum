@@ -1969,10 +1969,36 @@ export default function SpacePage({
                     </p>
                     <p className="m-0 leading-[1.7] text-[color:var(--text-soft)]">{displayProfile.bio}</p>
                     <div className="mt-1.5 flex flex-wrap gap-2.5">
-                      <StatusChip tone={hasVerifiedSpaceAccess ? "success" : isAuthenticated ? "warn" : "neutral"}>
-                        {hasVerifiedSpaceAccess ? "已认证成员空间" : isAuthenticated ? "待认证空间" : "游客预览"}
+                      <StatusChip
+                        tone={hasVerifiedSpaceAccess ? "success" : isAuthenticated ? "warn" : "neutral"}
+                        icon={
+                          hasVerifiedSpaceAccess ? (
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                            </svg>
+                          ) : isAuthenticated ? (
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 16 16">
+                              <circle cx="8" cy="8" r="1.5"/>
+                            </svg>
+                          ) : (
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+                            </svg>
+                          )
+                        }
+                      >
+                        {hasVerifiedSpaceAccess ? "已认证" : isAuthenticated ? "待认证" : "游客"}
                       </StatusChip>
-                      <StatusChip tone="accent">{collectionTotal} 项收藏</StatusChip>
+                      <StatusChip
+                        tone="accent"
+                        icon={
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 16 16">
+                            <path fillRule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
+                          </svg>
+                        }
+                      >
+                        {collectionTotal} 项收藏
+                      </StatusChip>
                     </div>
                   </div>
                 </div>

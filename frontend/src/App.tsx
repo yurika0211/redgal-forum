@@ -6850,7 +6850,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
         </div>
         {routePath !== "/login" ? (
           <footer className="site-copyright" role="contentinfo">
-            <p>版权所属：百川乃大视觉小说研 © {copyrightYear}</p>
+            <p>All rights reserved：百川乃大视觉小说研 © {copyrightYear}</p>
           </footer>
         ) : null}
         <OnboardingTour
@@ -6874,7 +6874,7 @@ function renderForumProgressPanel(mode: "compact" | "full" = "full"): ReactNode 
           />
           <article className="home-notice-modal__panel">
             <div className="home-notice-modal__head">
-              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">站点公告</p>
+              <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[color:var(--text-muted)]">公告</p>
               <StatusChip tone="accent">{activeHomeNotice.label || "公告"}</StatusChip>
             </div>
             <h2 id="home-notice-modal-title">{activeHomeNotice.title}</h2>

@@ -5,6 +5,7 @@ interface StatusChipProps {
   tone?: StatusTone;
   children: ReactNode;
   className?: string;
+  icon?: ReactNode;
 }
 
 const TONE_CLASS: Record<StatusTone, string> = {
@@ -22,9 +23,10 @@ export default function StatusChip({
   tone = "neutral",
   children,
   className,
+  icon,
 }: StatusChipProps) {
   const mergedClassName = [
-    "status-chip inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide",
+    "status-chip inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide",
     TONE_CLASS[tone],
     className || "",
   ]
@@ -33,6 +35,7 @@ export default function StatusChip({
 
   return (
     <span className={mergedClassName}>
+      {icon && <span className="inline-flex items-center justify-center">{icon}</span>}
       {children}
     </span>
   );
